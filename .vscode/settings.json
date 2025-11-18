@@ -1,0 +1,42 @@
+{
+  // --- Linting: keep Tailwind v4 happy ------------------------------
+
+  // Tailwind uses custom at-rules like @theme that the plain CSS linter
+  // doesn't understand. We let Tailwind handle this instead.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  // --- Tailwind CSS IntelliSense tweaks ------------------------------
+
+  // Better class name suggestions + completions
+  "tailwindCSS.emmetCompletions": true,
+  "tailwindCSS.includeLanguages": {
+    "typescriptreact": "javascript",
+    "typescript": "javascript"
+  },
+
+  // If VS Code can’t auto-detect, you can uncomment and point it:
+  // "tailwindCSS.experimental.configFile": "tailwind.config.ts",
+
+  // --- Formatting & editor behavior for this workspace --------------
+
+  "editor.formatOnSave": true,
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Keep imports / code lens noise down a bit if you like it cleaner:
+  "typescript.suggest.autoImports": true,
+  "javascript.suggest.autoImports": true
+}
