@@ -1,0 +1,656 @@
+'use server'
+
+import { randomUUID } from 'crypto'
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { z } from 'zod'
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceRoleClient,
+} from '@/utils/supabase/clients'
+import {
+  HEX_COLOR_REGEX,
+  STAFF_ROLE_ASSIGNABLE_VALUES,
+  TEAM_MANAGER_ROLES,
+  notificationToggleFields,
+} from './constants'
+
+const profileIdentitySchema = z.object({
+  full_name: z.string().min(2, 'Name is required').max(200),
+  title: z.string().max(120).optional(),
+  phone_number: z.string().max(30).optional(),
+})
+
+const notificationPreferencesSchema = z.object(
+  notificationToggleFields.reduce(
+    (shape, field) => ({
+      ...shape,
+      [field]: z.boolean(),
+    }),
+    {} as Record<(typeof notificationToggleFields)[number], z.ZodBoolean>
+  )
+)
+
+const teamBrandingSchema = z.object({
+  name: z.string().min(2).max(200),
+  school_name: z.string().max(200).optional(),
+  level: z.string().max(120).optional(),
+  primary_color: z
+    .string()
+    .regex(HEX_COLOR_REGEX, 'Invalid hex color')
+    .optional(),
+  logo_url: z
+    .string()
+    .url('Logo URL must be valid')
+    .max(500)
+    .optional()
+    .or(z.literal('')),
+})
+
+const teamSeasonSchema = z.object({
+  season_year: z.coerce.number().int().min(1990).max(2100),
+  season_label: z.string().max(150).optional(),
+})
+
+const rosterPlayerSchema = z.object({
+  first_name: z.string().min(1, 'First name is required').max(120),
+  last_name: z.string().min(1, 'Last name is required').max(120),
+  jersey_number: z.string().max(10).optional(),
+  position: z.string().max(40).optional(),
+  unit: z.string().max(60).optional(),
+  class_year: z.string().max(4).optional(),
+})
+
+const staffInviteSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  role: z.enum(STAFF_ROLE_ASSIGNABLE_VALUES),
+})
+
+const staffRoleUpdateSchema = z.object({
+  member_user_id: z.string().uuid(),
+  role: z.enum(STAFF_ROLE_ASSIGNABLE_VALUES),
+})
+
+const positionGroupsSchema = z.array(
+  z.object({
+    id: z.string().uuid().optional(),
+    group_name: z.string().min(2).max(80),
+    units: z.array(z.string().min(1).max(40)).max(12),
+    sort_order: z.number().int().nonnegative(),
+  })
+)
+
+function normalizeString(value: FormDataEntryValue | null): string {
+  if (typeof value !== 'string') {
+    return ''
+  }
+  return value.trim()
+}
+
+function parseCheckbox(value: FormDataEntryValue | null): boolean {
+  if (typeof value !== 'string') {
+    return false
+  }
+  return value === 'on' || value === 'true' || value === '1'
+}
+
+export async function updateProfileIdentity(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    redirect('/login?error=unauthorized')
+  }
+
+  const raw = {
+    full_name: normalizeString(formData.get('full_name')),
+    title: normalizeString(formData.get('title')),
+    phone_number: normalizeString(formData.get('phone_number')),
+  }
+
+  const parsed = profileIdentitySchema.safeParse({
+    full_name: raw.full_name,
+    title: raw.title || undefined,
+    phone_number: raw.phone_number || undefined,
+  })
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const payload = {
+    full_name: parsed.data.full_name,
+    title: parsed.data.title ? parsed.data.title : null,
+    phone_number: parsed.data.phone_number ? parsed.data.phone_number : null,
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update(payload)
+    .eq('id', user.id)
+
+  if (error) {
+    console.error('updateProfileIdentity error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function updateNotificationPreferences(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    redirect('/login?error=unauthorized')
+  }
+
+  const rawEntries = notificationToggleFields.map((field) => [
+    field,
+    parseCheckbox(formData.get(field)),
+  ])
+
+  const raw = Object.fromEntries(rawEntries) as Record<
+    (typeof notificationToggleFields)[number],
+    boolean
+  >
+
+  const parsed = notificationPreferencesSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update(parsed.data)
+    .eq('id', user.id)
+
+  if (error) {
+    console.error('updateNotificationPreferences error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+type TeamContext = {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  user: {
+    id: string
+    email?: string | null
+    [key: string]: unknown
+  }
+  teamId: string
+  role: string | null
+}
+
+async function requireTeamManager(): Promise<TeamContext> {
+  const supabase = await createSupabaseServerClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    redirect('/login?error=unauthorized')
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('active_team_id')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (profileError) {
+    console.error('Failed to fetch profile in settings action:', profileError.message)
+  }
+
+  const activeTeamId = profile?.active_team_id as string | null
+
+  if (!activeTeamId) {
+    redirect('/onboarding/team')
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from('team_members')
+    .select('role')
+    .eq('team_id', activeTeamId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (membershipError) {
+    console.error('Failed to fetch membership in settings action:', membershipError.message)
+  }
+
+  if (!membership) {
+    redirect('/dashboard')
+  }
+
+  const role = (membership.role as string | null) ?? null
+
+  if (role && !TEAM_MANAGER_ROLES.includes(role.toUpperCase())) {
+    redirect('/settings?error=forbidden')
+  }
+
+  return { supabase, user, teamId: activeTeamId, role }
+}
+
+export async function updateTeamBranding(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const raw = {
+    name: normalizeString(formData.get('team_name')),
+    school_name: normalizeString(formData.get('school_name')),
+    level: normalizeString(formData.get('team_level')),
+    primary_color: normalizeString(formData.get('primary_color')),
+    logo_url: normalizeString(formData.get('logo_url')),
+  }
+
+  const parsed = teamBrandingSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const payload = {
+    name: parsed.data.name,
+    school_name: parsed.data.school_name || null,
+    level: parsed.data.level || null,
+    primary_color: parsed.data.primary_color || null,
+    logo_url: parsed.data.logo_url ? parsed.data.logo_url : null,
+  }
+
+  const { error } = await serviceClient.from('teams').update(payload).eq('id', teamId)
+
+  if (error) {
+    console.error('updateTeamBranding error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function updateSeasonMetadata(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const raw = {
+    season_year: normalizeString(formData.get('season_year')),
+    season_label: normalizeString(formData.get('season_label')),
+  }
+
+  const parsed = teamSeasonSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const seasonYear = parsed.data.season_year
+  const seasonLabel = parsed.data.season_label || null
+
+  const { error: settingsError } = await serviceClient
+    .from('team_settings')
+    .upsert(
+      { team_id: teamId, default_season_year: seasonYear },
+      {
+        onConflict: 'team_id',
+      }
+    )
+
+  if (settingsError) {
+    console.error('updateSeasonMetadata upsert settings error:', settingsError.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  if (seasonLabel) {
+    const { error: seasonError } = await serviceClient
+      .from('seasons')
+      .upsert(
+        {
+          team_id: teamId,
+          year: seasonYear,
+          label: seasonLabel,
+        },
+        {
+          onConflict: 'team_id,year',
+        }
+      )
+
+    if (seasonError) {
+      console.error('updateSeasonMetadata season upsert error:', seasonError.message)
+      return { success: false, error: 'server_error' }
+    }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function addRosterPlayer(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const raw = {
+    first_name: normalizeString(formData.get('first_name')),
+    last_name: normalizeString(formData.get('last_name')),
+    jersey_number: normalizeString(formData.get('jersey_number')),
+    position: normalizeString(formData.get('position')),
+    unit: normalizeString(formData.get('unit')),
+    class_year: normalizeString(formData.get('class_year')),
+  }
+
+  const parsed = rosterPlayerSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const classYearString = parsed.data.class_year
+  let classYear: number | null = null
+
+  if (classYearString) {
+    const coerced = Number(classYearString)
+    if (Number.isNaN(coerced) || coerced < 1990 || coerced > 2100) {
+      return { success: false, error: 'invalid_input' }
+    }
+    classYear = coerced
+  }
+
+  const payload = {
+    team_id: teamId,
+    first_name: parsed.data.first_name,
+    last_name: parsed.data.last_name,
+    jersey_number: parsed.data.jersey_number || null,
+    position: parsed.data.position || null,
+    unit: parsed.data.unit || null,
+    class_year: classYear,
+  }
+
+  const { error } = await serviceClient.from('players').insert(payload)
+
+  if (error) {
+    console.error('addRosterPlayer error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function removeRosterPlayer(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const playerId = normalizeString(formData.get('player_id'))
+
+  if (!playerId) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const { error } = await serviceClient
+    .from('players')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('id', playerId)
+
+  if (error) {
+    console.error('removeRosterPlayer error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function savePositionGroups(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const keys = formData
+    .getAll('group_keys')
+    .map((value) => value?.toString().trim())
+    .filter((value): value is string => Boolean(value))
+
+  const groupPayload = keys
+    .map((key, index) => {
+      const name = normalizeString(formData.get(`group_name_${key}`))
+      const unitsRaw = normalizeString(formData.get(`group_units_${key}`))
+      const id = normalizeString(formData.get(`group_id_${key}`))
+
+      if (!name) {
+        return null
+      }
+
+      const units =
+        unitsRaw.length > 0
+          ? unitsRaw
+              .split(',')
+              .map((unit) => unit.trim())
+              .filter(Boolean)
+          : []
+
+      return {
+        id: id || undefined,
+        group_name: name,
+        units,
+        sort_order: index,
+      }
+    })
+    .filter((value): value is z.infer<typeof positionGroupsSchema>[number] => Boolean(value))
+
+  if (groupPayload.length === 0) {
+    await serviceClient.from('team_position_groups').delete().eq('team_id', teamId)
+    revalidatePath('/settings')
+    return { success: true }
+  }
+
+  const parsed = positionGroupsSchema.safeParse(groupPayload)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const existingBefore = await serviceClient
+    .from('team_position_groups')
+    .select('id')
+    .eq('team_id', teamId)
+
+  const keepIds = parsed.data
+    .map((group) => group.id)
+    .filter((value): value is string => Boolean(value))
+
+  const payload = parsed.data.map((group) => ({
+    id: group.id || undefined,
+    team_id: teamId,
+    group_name: group.group_name,
+    units: group.units,
+    sort_order: group.sort_order,
+  }))
+
+  const upsertResult = await serviceClient
+    .from('team_position_groups')
+    .upsert(payload, { onConflict: 'team_id,group_name' })
+
+  if (upsertResult.error) {
+    console.error('savePositionGroups upsert error:', upsertResult.error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  if (!existingBefore.error && existingBefore.data) {
+    const idsToDelete = existingBefore.data
+      .map((row) => row.id)
+      .filter((id): id is string => Boolean(id && !keepIds.includes(id)))
+
+    if (idsToDelete.length > 0) {
+      await serviceClient.from('team_position_groups').delete().in('id', idsToDelete)
+    }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function inviteStaffMember(formData: FormData) {
+  const { teamId, user } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const raw = {
+    email: normalizeString(formData.get('invite_email')).toLowerCase(),
+    role: normalizeString(formData.get('invite_role')).toUpperCase(),
+  }
+
+  const parsed = staffInviteSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const email = parsed.data.email.toLowerCase()
+  const role = parsed.data.role
+
+  // Prevent duplicate pending invites
+  const { data: existingInvite } = await serviceClient
+    .from('team_invites')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('email', email)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existingInvite) {
+    return { success: false, error: 'invite_exists' }
+  }
+
+  // If user already exists and is part of team, skip
+  const { data: existingUser } = await serviceClient
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (existingUser) {
+    const { data: membership } = await serviceClient
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', teamId)
+      .eq('user_id', existingUser.id)
+      .maybeSingle()
+
+    if (membership) {
+      return { success: false, error: 'already_member' }
+    }
+  }
+
+  const token = randomUUID()
+
+  const { error } = await serviceClient.from('team_invites').insert({
+    team_id: teamId,
+    email,
+    role,
+    invited_by: user.id,
+    status: 'pending',
+    token,
+  })
+
+  if (error) {
+    console.error('inviteStaffMember error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function cancelStaffInvite(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const inviteId = normalizeString(formData.get('invite_id'))
+
+  if (!inviteId) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const { error } = await serviceClient
+    .from('team_invites')
+    .update({ status: 'cancelled' })
+    .eq('team_id', teamId)
+    .eq('id', inviteId)
+
+  if (error) {
+    console.error('cancelStaffInvite error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function updateStaffRole(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const raw = {
+    member_user_id: normalizeString(formData.get('member_user_id')),
+    role: normalizeString(formData.get('role')).toUpperCase(),
+  }
+
+  const parsed = staffRoleUpdateSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const { error } = await serviceClient
+    .from('team_members')
+    .update({ role: parsed.data.role })
+    .eq('team_id', teamId)
+    .eq('user_id', parsed.data.member_user_id)
+
+  if (error) {
+    console.error('updateStaffRole error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function removeStaffMember(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const memberUserId = normalizeString(formData.get('member_user_id'))
+
+  if (!memberUserId) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const { error } = await serviceClient
+    .from('team_members')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('user_id', memberUserId)
+
+  if (error) {
+    console.error('removeStaffMember error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}

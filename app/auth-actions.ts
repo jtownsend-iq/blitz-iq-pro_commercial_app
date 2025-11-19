@@ -2,7 +2,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient } from '@/utils/supabase/clients'
 
 export async function login(formData: FormData) {
   const email = String(formData.get('email') || '').trim()
@@ -17,7 +17,7 @@ export async function login(formData: FormData) {
     redirect('/login?error=missing')
   }
 
-  const supabase = await createClient()
+  const supabase = await createSupabaseServerClient()
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -34,7 +34,7 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
-  const supabase = await createClient()
+  const supabase = await createSupabaseServerClient()
   await supabase.auth.signOut()
   redirect('/login')
 }

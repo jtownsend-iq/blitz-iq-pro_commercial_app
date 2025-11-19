@@ -1,6 +1,6 @@
 // app/dashboard/page.tsx
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient } from '@/utils/supabase/clients'
 
 type TeamRow = {
   id: string
@@ -25,7 +25,7 @@ type GameRow = {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const supabase = await createSupabaseServerClient()
 
   // 1) Auth user
   const { data: authData, error: userError } = await supabase.auth.getUser()

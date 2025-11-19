@@ -1,6 +1,6 @@
 // app/onboarding/team/page.tsx
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient } from '@/utils/supabase/clients'
 import { createInitialTeam } from './actions'
 
 type SearchParams = {
@@ -14,7 +14,7 @@ export default async function TeamOnboardingPage({
 }) {
   const params = await searchParams
 
-  const supabase = await createClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { user },

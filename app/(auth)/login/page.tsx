@@ -1,8 +1,8 @@
 // app/login/page.tsx
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
-import { login } from '../auth-actions'
+import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { login } from '../../auth-actions'
 
 type SearchParams = {
   [key: string]: string | string[] | undefined
@@ -15,7 +15,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams
 
-  const supabase = await createClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { user },

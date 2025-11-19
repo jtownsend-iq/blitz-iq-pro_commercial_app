@@ -1,8 +1,8 @@
 // app/test/page.tsx
-import { createClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient } from '@/utils/supabase/clients'
 
 export default async function TestPage() {
-  const supabase = createClient()
+  const supabase = await createSupabaseServerClient()
 
   const { data, error } = await supabase
     .from('formations')

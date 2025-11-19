@@ -2,7 +2,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient } from '@/utils/supabase/clients'
 import { z } from 'zod'
 
 const teamSchema = z.object({
@@ -29,7 +29,7 @@ function sanitizeRedirectPath(path: string | null | undefined): string {
 }
 
 export async function createInitialTeam(formData: FormData) {
-  const supabase = await createClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { user },
