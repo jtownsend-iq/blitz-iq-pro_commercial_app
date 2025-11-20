@@ -205,6 +205,46 @@ alter table public.chart_tags enable row level security;
 alter table public.chart_event_tags enable row level security;
 alter table public.chart_snapshots enable row level security;
 
+-- Quickstart progress per team
+create table if not exists public.quickstart_progress (
+  team_id uuid primary key references public.teams(id) on delete cascade,
+  seeded_position_groups boolean not null default false,
+  seeded_tags boolean not null default false,
+  seeded_schedule boolean not null default false,
+  completed_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create or replace function public.set_quickstart_progress_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := timezone('utc', now());
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_quickstart_progress_updated_at on public.quickstart_progress;
+create trigger trg_quickstart_progress_updated_at
+before update on public.quickstart_progress
+for each row execute function public.set_quickstart_progress_updated_at();
+
+alter table public.quickstart_progress enable row level security;
+
+-- Audit log
+create table if not exists public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams(id) on delete cascade,
+  action text not null,
+  actor_user_id uuid,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists audit_logs_team_idx on public.audit_logs(team_id, created_at);
+alter table public.audit_logs enable row level security;
+
 -- Helpers to check membership by team
 create or replace function public.is_team_member(target_team uuid)
 returns boolean
@@ -217,6 +257,35 @@ as $$
     where tm.team_id = target_team
       and tm.user_id = auth.uid()
   );
+$$;
+
+-- RLS policies for quickstart progress: team members can manage
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where tablename = 'quickstart_progress'
+      and policyname = 'team members manage quickstart'
+  ) then
+    create policy "team members manage quickstart"
+      on public.quickstart_progress
+      using (public.is_team_member(team_id))
+      with check (public.is_team_member(team_id));
+  end if;
+
+  if not exists (
+    select 1
+    from pg_policies
+    where tablename = 'audit_logs'
+      and policyname = 'team members read audit logs'
+  ) then
+    create policy "team members read audit logs"
+      on public.audit_logs
+      for select
+      using (public.is_team_member(team_id));
+  end if;
+end
 $$;
 
 -- Policies: team members can read/write their own data

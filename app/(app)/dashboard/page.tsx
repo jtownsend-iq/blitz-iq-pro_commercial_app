@@ -83,6 +83,13 @@ type SnapshotRow = {
   generated_at: string | null
 }
 
+type QuickstartProgressRow = {
+  seeded_position_groups: boolean | null
+  seeded_tags: boolean | null
+  seeded_schedule: boolean | null
+  completed_at: string | null
+}
+
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
 
@@ -174,6 +181,7 @@ export default async function DashboardPage() {
   let totalPlays = 0
   let explosivePlays = 0
   let turnovers = 0
+  let quickstartProgress: QuickstartProgressRow | null = null
 
   if (activeTeam) {
     const [
@@ -183,6 +191,7 @@ export default async function DashboardPage() {
       explosiveRes,
       turnoverRes,
       snapshotsRes,
+      quickstartRes,
     ] = await Promise.all([
       supabase
         .from('game_sessions')
@@ -218,6 +227,11 @@ export default async function DashboardPage() {
         .eq('team_id', activeTeam.id)
         .order('generated_at', { ascending: false })
         .limit(3),
+      supabase
+        .from('quickstart_progress')
+        .select('seeded_position_groups, seeded_tags, seeded_schedule, completed_at')
+        .eq('team_id', activeTeam.id)
+        .maybeSingle(),
     ])
 
     if (sessionsRes.error) {
@@ -249,6 +263,12 @@ export default async function DashboardPage() {
     } else if (snapshotsRes.data) {
       aiSnapshots = snapshotsRes.data as SnapshotRow[]
     }
+
+    if (quickstartRes.error) {
+      console.error('Dashboard quickstart progress error:', quickstartRes.error.message)
+    } else if (quickstartRes.data) {
+      quickstartProgress = quickstartRes.data as QuickstartProgressRow
+    }
   }
 
   const displayName = fullName || user.email || 'Coach'
@@ -275,6 +295,13 @@ export default async function DashboardPage() {
     }))
     .filter((group) => group.snapshots.length > 0)
 
+  const quickstartNeeded =
+    activeTeam &&
+    (!quickstartProgress ||
+      !quickstartProgress.seeded_position_groups ||
+      !quickstartProgress.seeded_tags ||
+      !quickstartProgress.seeded_schedule)
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -298,6 +325,23 @@ export default async function DashboardPage() {
       <Suspense fallback={null}>
         <DashboardRealtimeClient teamId={activeTeam.id} />
       </Suspense>
+
+      {quickstartNeeded && (
+        <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Quickstart</p>
+            <p className="text-sm text-amber-100">
+              Finish seeding tags, position groups, and a sample game so analysts can chart without setup friction.
+            </p>
+          </div>
+          <Link
+            href="/onboarding/quickstart"
+            className="inline-flex items-center justify-center rounded-full bg-amber-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-950"
+          >
+            Resume quickstart
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
