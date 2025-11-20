@@ -211,6 +211,13 @@ alter table public.games
 
 create index if not exists games_start_time_idx on public.games(start_time);
 
+-- Ensure games table carries scheduling context used by the app
+alter table public.games
+  add column if not exists home_or_away text,
+  add column if not exists location text,
+  add column if not exists season_label text,
+  add column if not exists status text;
+
 -- Quickstart progress per team
 create table if not exists public.quickstart_progress (
   team_id uuid primary key references public.teams(id) on delete cascade,
