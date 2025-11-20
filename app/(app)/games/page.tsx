@@ -4,6 +4,9 @@ import {
   closeGameSession,
   startGameSession,
 } from './chart-actions'
+import { createGame } from './actions'
+
+export const revalidate = 0
 
 const unitConfigs = [
   {
@@ -140,12 +143,86 @@ export default async function GamesPage() {
         </p>
       </header>
 
+      <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Add a game</p>
+            <h2 className="text-lg font-semibold text-slate-50">Schedule a matchup</h2>
+            <p className="text-sm text-slate-400">
+              Create a game to enable charting sessions for offense, defense, and special teams.
+            </p>
+          </div>
+        </div>
+        <form action={createGame} className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1 text-xs text-slate-400">
+            <span className="uppercase tracking-[0.2em]">Opponent</span>
+            <input
+              type="text"
+              name="opponent_name"
+              required
+              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              placeholder="Springfield Prep"
+            />
+          </label>
+          <label className="space-y-1 text-xs text-slate-400">
+            <span className="uppercase tracking-[0.2em]">Kickoff</span>
+            <input
+              type="datetime-local"
+              name="start_time"
+              required
+              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </label>
+          <label className="space-y-1 text-xs text-slate-400">
+            <span className="uppercase tracking-[0.2em]">Home / Away</span>
+            <input
+              type="text"
+              name="home_or_away"
+              placeholder="Home or Away"
+              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </label>
+          <label className="space-y-1 text-xs text-slate-400">
+            <span className="uppercase tracking-[0.2em]">Location</span>
+            <input
+              type="text"
+              name="location"
+              placeholder="Stadium or Venue"
+              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </label>
+          <label className="space-y-1 text-xs text-slate-400 md:col-span-2">
+            <span className="uppercase tracking-[0.2em]">Season label</span>
+            <input
+              type="text"
+              name="season_label"
+              placeholder="2025 Season"
+              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </label>
+          <div className="md:col-span-2 flex justify-end">
+            <button
+              type="submit"
+              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+            >
+              Create game
+            </button>
+          </div>
+        </form>
+      </div>
+
       {games.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-800 bg-black/20 p-10 text-center">
+        <div className="rounded-3xl border border-dashed border-slate-800 bg-black/20 p-10 space-y-3 text-center">
+          <p className="text-sm text-slate-300 font-semibold">No games on the calendar yet</p>
           <p className="text-sm text-slate-400">
-            No games have been scheduled yet. Add games via Supabase or future schedule management
-            tools to begin charting.
+            Create your first matchup above to activate charting sessions for your units.
           </p>
+          <a
+            href="/onboarding/quickstart"
+            className="inline-flex justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200"
+          >
+            Need help? Run Quickstart
+          </a>
         </div>
       ) : (
         <div className="space-y-6">
