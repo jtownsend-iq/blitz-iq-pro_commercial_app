@@ -117,6 +117,14 @@ export default async function GamesPage() {
     }).format(date)
   }
 
+  const startSessionAction = async (formData: FormData) => {
+    await startGameSession(formData)
+  }
+
+  const closeSessionAction = async (formData: FormData) => {
+    await closeGameSession(formData)
+  }
+
   return (
     <section className="space-y-8">
       <header className="space-y-2">
@@ -203,7 +211,7 @@ export default async function GamesPage() {
                                 Open chart
                               </a>
                               <form
-                                action={closeGameSession}
+                                action={closeSessionAction}
                                 className="flex-1"
                               >
                                 <input
@@ -225,7 +233,7 @@ export default async function GamesPage() {
                             Pending session exists • refresh or resume from chart view.
                           </div>
                         ) : (
-                          <form action={startGameSession} className="space-y-2">
+                          <form action={startSessionAction} className="space-y-2">
                             <input type="hidden" name="gameId" value={game.id} />
                             <input type="hidden" name="unit" value={unit.key} />
                             <button

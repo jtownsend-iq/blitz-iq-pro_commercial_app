@@ -18,19 +18,19 @@ export function DashboardRealtimeClient({ teamId }: DashboardRealtimeProps) {
 
   useDashboardRealtime({
     teamId,
-    onEvent: (type, payload) => {
-      if (type === 'event') {
+    onEvent: (event) => {
+      if (event.type === 'event') {
         setMetrics((prev) => ({
           totalPlays: prev.totalPlays + 1,
-          explosivePlays: payload.explosive ? prev.explosivePlays + 1 : prev.explosivePlays,
-          turnovers: payload.turnover ? prev.turnovers + 1 : prev.turnovers,
+          explosivePlays: event.payload.explosive ? prev.explosivePlays + 1 : prev.explosivePlays,
+          turnovers: event.payload.turnover ? prev.turnovers + 1 : prev.turnovers,
         }))
       }
 
-      if (type === 'session') {
+      if (event.type === 'session') {
         setSessionState((prev) => ({
           ...prev,
-          [payload.unit]: payload.status,
+          [event.payload.unit]: event.payload.status,
         }))
       }
     },

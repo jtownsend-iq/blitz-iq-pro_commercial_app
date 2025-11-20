@@ -213,6 +213,10 @@ type StaffMemberRow = {
   } | null
 }
 
+type StaffMemberRowRaw = Omit<StaffMemberRow, 'users'> & {
+  users: StaffMemberRow['users'] | StaffMemberRow['users'][] | null
+}
+
 type TeamInviteRow = {
   id: string
   email: string | null
@@ -396,7 +400,11 @@ export default async function SettingsPage() {
     if (staffError) {
       console.error('Error fetching staff:', staffError.message)
     } else if (staffData) {
-      staffList.push(...((staffData as StaffMemberRow[]) || []))
+      const normalizedStaff = (staffData as StaffMemberRowRaw[]).map((row) => ({
+        ...row,
+        users: Array.isArray(row.users) ? row.users[0] ?? null : row.users,
+      }))
+      staffList.push(...normalizedStaff)
     }
 
     const { data: inviteData, error: inviteError } = await supabase
@@ -413,7 +421,12 @@ export default async function SettingsPage() {
     }
   }
 
-  const positionGroupFormRows = (
+  const positionGroupFormRows: Array<{
+    key: string
+    id: string
+    group_name: string
+    units: string[]
+  }> = (
     positionGroupRows.length > 0
       ? positionGroupRows.map((group, index) => ({
           key: group.id ?? `existing-${index}`,
@@ -425,7 +438,7 @@ export default async function SettingsPage() {
           key: `default-${index}`,
           id: '',
           group_name: group.group,
-          units: group.units,
+          units: [...group.units],
         }))
   )
 
@@ -433,11 +446,29 @@ export default async function SettingsPage() {
   positionGroupFormRows.push({
     key: `new-${positionGroupFormRows.length}`,
     id: '',
-    group_name: '',
-    units: [],
+    group_name: POSITIONAL_GROUP_DEFAULTS[0].group,
+    units: [...POSITIONAL_GROUP_DEFAULTS[0].units],
   })
 
   const staffRoleSelectOptions = STAFF_ROLE_OPTIONS
+
+  const wrapAction =
+    (action: (formData: FormData) => Promise<unknown>) =>
+    async (formData: FormData) => {
+      await action(formData)
+    }
+
+  const updateProfileIdentityAction = wrapAction(updateProfileIdentity)
+  const updateNotificationPreferencesAction = wrapAction(updateNotificationPreferences)
+  const updateTeamBrandingAction = wrapAction(updateTeamBranding)
+  const updateSeasonMetadataAction = wrapAction(updateSeasonMetadata)
+  const updateStaffRoleAction = wrapAction(updateStaffRole)
+  const removeStaffMemberAction = wrapAction(removeStaffMember)
+  const cancelStaffInviteAction = wrapAction(cancelStaffInvite)
+  const inviteStaffMemberAction = wrapAction(inviteStaffMember)
+  const removeRosterPlayerAction = wrapAction(removeRosterPlayer)
+  const addRosterPlayerAction = wrapAction(addRosterPlayer)
+  const savePositionGroupsAction = wrapAction(savePositionGroups)
 
   const formatRoleLabel = (role: string | null) => {
     if (!role) return 'Unknown'
@@ -503,7 +534,7 @@ export default async function SettingsPage() {
               description="Update how you appear to staff inside BlitzIQ."
             >
               <form
-                action={updateProfileIdentity}
+                action={updateProfileIdentityAction}
                 className="grid gap-4 md:grid-cols-2"
               >
                 <label className="space-y-1 text-sm">
@@ -562,7 +593,7 @@ export default async function SettingsPage() {
               title="Alerts & Notifications"
               description="Choose how BlitzIQ keeps you informed."
             >
-              <form action={updateNotificationPreferences} className="space-y-4">
+              <form action={updateNotificationPreferencesAction} className="space-y-4">
                 <div className="overflow-hidden rounded-2xl border border-slate-800">
                   <table className="min-w-full text-sm">
                     <thead className="bg-black/40 text-slate-400">
@@ -653,7 +684,7 @@ export default async function SettingsPage() {
               title="Branding & Identity"
               description="Logo, colors, and copy that appear across dashboards and exports."
             >
-              <form action={updateTeamBranding} className="space-y-4">
+              <form action={updateTeamBrandingAction} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1 text-sm">
                     <span className="text-slate-300">Program Name</span>
@@ -735,7 +766,7 @@ export default async function SettingsPage() {
               title="Season Metadata"
               description="Control the default season context for analytics and reports."
             >
-              <form action={updateSeasonMetadata} className="grid gap-4 md:grid-cols-2">
+              <form action={updateSeasonMetadataAction} className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1 text-sm">
                   <span className="text-slate-300">Season Year</span>
                   <input
@@ -807,7 +838,7 @@ export default async function SettingsPage() {
                               <td className="px-4 py-3">
                                 {canEdit ? (
                                   <form
-                                    action={updateStaffRole}
+                                    action={updateStaffRoleAction}
                                     className="flex flex-wrap items-center gap-2"
                                   >
                                     <input type="hidden" name="member_user_id" value={member.user_id} />
@@ -837,7 +868,7 @@ export default async function SettingsPage() {
                               </td>
                               <td className="px-4 py-3">
                                 {canEdit ? (
-                                  <form action={removeStaffMember}>
+                                  <form action={removeStaffMemberAction}>
                                     <input
                                       type="hidden"
                                       name="member_user_id"
@@ -879,7 +910,7 @@ export default async function SettingsPage() {
                                 : 'Recently'}
                             </p>
                           </div>
-                          <form action={cancelStaffInvite}>
+                          <form action={cancelStaffInviteAction}>
                             <input type="hidden" name="invite_id" value={invite.id} />
                             <button className="text-xs font-semibold text-amber-200">
                               Cancel
@@ -892,7 +923,7 @@ export default async function SettingsPage() {
                 )}
 
                 <form
-                  action={inviteStaffMember}
+                  action={inviteStaffMemberAction}
                   className="grid gap-3 md:grid-cols-[2fr_1fr_auto]"
                 >
                   <label className="space-y-1 text-xs text-slate-400">
@@ -1003,7 +1034,7 @@ export default async function SettingsPage() {
                               {player.class_year ?? '—'}
                             </td>
                             <td className="px-4 py-3">
-                              <form action={removeRosterPlayer}>
+                              <form action={removeRosterPlayerAction}>
                                 <input type="hidden" name="player_id" value={player.id} />
                                 <button className="text-xs font-semibold text-red-400">
                                   Remove
@@ -1018,7 +1049,7 @@ export default async function SettingsPage() {
                 )}
 
                 <form
-                  action={addRosterPlayer}
+                  action={addRosterPlayerAction}
                   className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))]"
                 >
                   <label className="space-y-1 text-xs text-slate-400">
@@ -1092,7 +1123,7 @@ export default async function SettingsPage() {
               title="Positional Groupings"
               description="Drive charting templates and reporting groups."
             >
-              <form action={savePositionGroups} className="space-y-4">
+              <form action={savePositionGroupsAction} className="space-y-4">
                 <div className="space-y-3">
                   {positionGroupFormRows.map((group, index) => (
                     <div

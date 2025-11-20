@@ -1,29 +1,30 @@
 'use client'
 
 import { useEffect } from 'react'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { createSupabaseBrowserClient } from '@/utils/supabase/clients'
 
 type ChartEventPayload = {
-  new: {
-    team_id: string
-    explosive: boolean | null
-    turnover: boolean | null
-  }
+  team_id: string
+  explosive: boolean | null
+  turnover: boolean | null
 }
 
 type SessionPayload = {
-  new: {
-    team_id: string
-    id: string
-    unit: string
-    status: string
-    started_at: string | null
-  }
+  team_id: string
+  id: string
+  unit: string
+  status: string
+  started_at: string | null
 }
+
+type DashboardEvent =
+  | { type: 'event'; payload: ChartEventPayload }
+  | { type: 'session'; payload: SessionPayload }
 
 type DashboardRealtimeOptions = {
   teamId: string
-  onEvent: (type: 'event' | 'session', payload: Record<string, unknown>) => void
+  onEvent: (event: DashboardEvent) => void
 }
 
 export function useDashboardRealtime({ teamId, onEvent }: DashboardRealtimeOptions) {
@@ -31,7 +32,7 @@ export function useDashboardRealtime({ teamId, onEvent }: DashboardRealtimeOptio
     const supabase = createSupabaseBrowserClient()
     const channel = supabase
       .channel(`dashboard-team-${teamId}`)
-      .on<ChartEventPayload>(
+      .on(
         'postgres_changes',
         {
           event: 'INSERT',
@@ -39,11 +40,13 @@ export function useDashboardRealtime({ teamId, onEvent }: DashboardRealtimeOptio
           table: 'chart_events',
           filter: `team_id=eq.${teamId}`,
         },
-        (payload) => {
-          onEvent('event', payload.new)
+        (payload: RealtimePostgresChangesPayload<ChartEventPayload>) => {
+          if (!payload.new) return
+          const data = payload.new as ChartEventPayload
+          onEvent({ type: 'event', payload: data })
         }
       )
-      .on<SessionPayload>(
+      .on(
         'postgres_changes',
         {
           event: '*',
@@ -51,8 +54,10 @@ export function useDashboardRealtime({ teamId, onEvent }: DashboardRealtimeOptio
           table: 'game_sessions',
           filter: `team_id=eq.${teamId}`,
         },
-        (payload) => {
-          onEvent('session', payload.new)
+        (payload: RealtimePostgresChangesPayload<SessionPayload>) => {
+          if (!payload.new) return
+          const data = payload.new as SessionPayload
+          onEvent({ type: 'session', payload: data })
         }
       )
       .subscribe()

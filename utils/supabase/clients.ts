@@ -1,5 +1,5 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
-import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseAdminClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -18,18 +18,16 @@ export const supabaseConfig = {
   serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
 } as const
 
-let browserClient:
-  | ReturnType<typeof createBrowserClient>
-  | null = null
+let browserClient: SupabaseClient | null = null
 
-export function createSupabaseBrowserClient() {
+export function createSupabaseBrowserClient(): SupabaseClient {
   if (!browserClient) {
     browserClient = createBrowserClient(supabaseConfig.url, supabaseConfig.anonKey)
   }
   return browserClient
 }
 
-export async function createSupabaseServerClient() {
+export async function createSupabaseServerClient(): Promise<SupabaseClient> {
   const cookieStore = await cookies()
 
   return createServerClient(supabaseConfig.url, supabaseConfig.anonKey, {

@@ -30,10 +30,21 @@ type SessionSummary = {
   status: string
   started_at: string | null
   game_id: string
-  games: {
-    opponent_name: string | null
-    start_time: string | null
-  } | null
+  games: SessionSummaryGame | null
+}
+
+type SessionSummaryGame = {
+  opponent_name: string | null
+  start_time: string | null
+}
+
+type SessionRow = {
+  id: string
+  unit: string
+  status: string
+  started_at: string | null
+  game_id: string
+  games: SessionSummaryGame | SessionSummaryGame[] | null
 }
 
 type EventSummary = {
@@ -45,10 +56,24 @@ type EventSummary = {
   explosive: boolean | null
   turnover: boolean | null
   created_at: string | null
-  game_sessions: {
-    unit: string | null
-    game_id: string | null
-  } | null
+  game_sessions: EventSummarySession | null
+}
+
+type EventSummarySession = {
+  unit: string | null
+  game_id: string | null
+}
+
+type EventRow = {
+  id: string
+  sequence: number
+  play_call: string | null
+  result: string | null
+  gained_yards: number | null
+  explosive: boolean | null
+  turnover: boolean | null
+  created_at: string | null
+  game_sessions: EventSummarySession | EventSummarySession[] | null
 }
 
 type SnapshotRow = {
@@ -198,13 +223,21 @@ export default async function DashboardPage() {
     if (sessionsRes.error) {
       console.error('Dashboard sessions error:', sessionsRes.error.message)
     } else if (sessionsRes.data) {
-      sessionSummaries = sessionsRes.data as SessionSummary[]
+      const sessionRows = sessionsRes.data as SessionRow[]
+      sessionSummaries = sessionRows.map((session) => ({
+        ...session,
+        games: normalizeSessionGame(session.games),
+      }))
     }
 
     if (eventsRes.error) {
       console.error('Dashboard events error:', eventsRes.error.message)
     } else if (eventsRes.data) {
-      recentEvents = eventsRes.data as EventSummary[]
+      const eventRows = eventsRes.data as EventRow[]
+      recentEvents = eventRows.map((event) => ({
+        ...event,
+        game_sessions: normalizeEventSession(event.game_sessions),
+      }))
     }
 
     totalPlays = totalPlaysRes.count ?? 0
@@ -321,8 +354,8 @@ export default async function DashboardPage() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500">
-                      vs {session.games?.opponent_name || 'Opponent TBD'} •{' '}
-                      {formatDateShort(session.games?.start_time)}
+                      vs {session.games?.opponent_name || 'Opponent TBD'} |{' '}
+                      {formatDateShort(session.games?.start_time ?? null)}
                     </p>
                     <div className="flex flex-wrap gap-2 pt-2 text-xs">
                       <Link
@@ -525,6 +558,18 @@ export default async function DashboardPage() {
   )
 }
 
+function normalizeSessionGame(games: SessionRow['games']): SessionSummaryGame | null {
+  if (!games) return null
+  return Array.isArray(games) ? games[0] ?? null : games
+}
+
+function normalizeEventSession(
+  gameSessions: EventRow['game_sessions']
+): EventSummarySession | null {
+  if (!gameSessions) return null
+  return Array.isArray(gameSessions) ? gameSessions[0] ?? null : gameSessions
+}
+
 function formatUnitLabel(unit?: string | null) {
   if (!unit) return 'Unknown unit'
   const lower = unit.toLowerCase()
@@ -582,4 +627,5 @@ function formatSnapshotSituation(situation: Record<string, unknown> | null) {
   if (situation.hash) parts.push(`${situation.hash} hash`)
   return parts.length > 0 ? parts.join(' • ') : 'Latest insight'
 }
+
 

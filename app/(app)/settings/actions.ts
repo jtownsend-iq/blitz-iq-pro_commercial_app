@@ -184,13 +184,14 @@ export async function updateNotificationPreferences(formData: FormData) {
   return { success: true }
 }
 
+type TeamContextUser = {
+  id: string
+  email: string | null
+}
+
 type TeamContext = {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
-  user: {
-    id: string
-    email?: string | null
-    [key: string]: unknown
-  }
+  user: TeamContextUser
   teamId: string
   role: string | null
 }
@@ -238,13 +239,22 @@ async function requireTeamManager(): Promise<TeamContext> {
     redirect('/dashboard')
   }
 
-  const role = (membership.role as string | null) ?? null
+  const rawRole = (membership.role as string | null) ?? null
+  const normalizedRole = rawRole ? rawRole.toUpperCase() : null
 
-  if (role && !TEAM_MANAGER_ROLES.includes(role.toUpperCase())) {
+  if (
+    normalizedRole &&
+    !TEAM_MANAGER_ROLES.includes(normalizedRole as (typeof TEAM_MANAGER_ROLES)[number])
+  ) {
     redirect('/settings?error=forbidden')
   }
 
-  return { supabase, user, teamId: activeTeamId, role }
+  return {
+    supabase,
+    user: { id: user.id, email: user.email ?? null },
+    teamId: activeTeamId,
+    role: normalizedRole,
+  }
 }
 
 export async function updateTeamBranding(formData: FormData) {
@@ -450,7 +460,7 @@ export async function savePositionGroups(formData: FormData) {
         sort_order: index,
       }
     })
-    .filter((value): value is z.infer<typeof positionGroupsSchema>[number] => Boolean(value))
+    .filter(Boolean) as Array<z.infer<typeof positionGroupsSchema>[number]>
 
   if (groupPayload.length === 0) {
     await serviceClient.from('team_position_groups').delete().eq('team_id', teamId)

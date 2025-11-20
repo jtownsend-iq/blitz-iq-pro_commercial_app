@@ -134,6 +134,10 @@ export default async function ChartUnitPage({
   const unitLabel =
     unitLabels[params.unit.toLowerCase()] || unitParam.replace('_', ' ')
 
+  const closeGameSessionAction = async (formData: FormData) => {
+    await closeGameSession(formData)
+  }
+
   return (
     <section className="space-y-8">
       <header className="flex flex-col gap-3 rounded-3xl border border-slate-900/60 bg-surface-raised/70 p-6">
@@ -156,7 +160,7 @@ export default async function ChartUnitPage({
             Back to games
           </Link>
           {session.status === 'active' && (
-            <form action={closeGameSession}>
+            <form action={closeGameSessionAction}>
               <input type="hidden" name="sessionId" value={session.id} />
               <button className="rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-300 hover:border-slate-400">
                 Close session
