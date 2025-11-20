@@ -65,11 +65,13 @@ export async function createGame(formData: FormData) {
   if (Number.isNaN(startTimeDate.getTime())) {
     redirect('/games?error=invalid_game')
   }
+  const startDateIso = startTimeDate.toISOString().slice(0, 10) // YYYY-MM-DD for date column
 
   const { error: insertError } = await serviceClient.from('games').insert({
     team_id: activeTeamId,
     opponent_name: gameData.opponent_name,
     start_time: startTimeDate.toISOString(),
+    date: startDateIso,
     home_or_away: gameData.home_or_away || null,
     location: gameData.location || null,
     season_label: gameData.season_label || null,
