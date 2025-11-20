@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DashboardRealtimeClient } from './RealtimeClient'
 
 type TeamRow = {

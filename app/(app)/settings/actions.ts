@@ -7,7 +7,7 @@ import { z } from 'zod'
 import {
   createSupabaseServerClient,
   createSupabaseServiceRoleClient,
-} from '@/utils/supabase/clients'
+} from '@/utils/supabase/server'
 import {
   HEX_COLOR_REGEX,
   STAFF_ROLE_ASSIGNABLE_VALUES,

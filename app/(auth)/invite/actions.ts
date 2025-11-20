@@ -1,7 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/utils/supabase/server'
 
 function normalizeEmail(value: string | null | undefined) {
   return (value || '').trim().toLowerCase()
@@ -70,6 +70,15 @@ export async function acceptInvite(formData: FormData) {
     redirect(`/invite/${token}?error=membership_failed`)
   }
 
+  const { error: profileUpdateError } = await serviceClient
+    .from('users')
+    .update({ active_team_id: invite.team_id })
+    .eq('id', user.id)
+
+  if (profileUpdateError) {
+    console.error('acceptInvite active team update error:', profileUpdateError.message)
+  }
+
   const updateResult = await serviceClient
     .from('team_invites')
     .update({ status: 'accepted' })
@@ -81,5 +90,15 @@ export async function acceptInvite(formData: FormData) {
     redirect(`/invite/${token}?error=invite_update_failed`)
   }
 
-  redirect('/dashboard')
+  const { data: quickstart } = await supabase
+    .from('quickstart_progress')
+    .select('completed_at')
+    .eq('team_id', invite.team_id)
+    .maybeSingle()
+
+  if (quickstart?.completed_at) {
+    redirect('/dashboard')
+  }
+
+  redirect('/onboarding/quickstart')
 }

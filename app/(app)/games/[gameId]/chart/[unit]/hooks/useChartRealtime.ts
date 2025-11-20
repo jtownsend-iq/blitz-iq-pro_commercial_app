@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { createSupabaseBrowserClient } from '@/utils/supabase/clients'
+import { createSupabaseBrowserClient } from '@/utils/supabase/browser'
 
 type RealtimeOptions<T extends Record<string, unknown>> = {
   sessionId: string

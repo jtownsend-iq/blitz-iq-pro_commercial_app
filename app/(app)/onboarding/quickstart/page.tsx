@@ -1,17 +1,17 @@
 import Link from 'next/link'
 import { seedChartTags, seedPositionGroups, seedSchedule, finishQuickstart } from './actions'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 
-function StepBadge({ state }: { state: 'pending' | 'ready' }) {
+function StepBadge({ state }: { state: 'pending' | 'done' }) {
   return (
     <span
       className={`text-[0.65rem] uppercase tracking-[0.3em] rounded-full px-3 py-1 ${
-        state === 'ready'
+        state === 'done'
           ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40'
           : 'border border-slate-800 text-slate-500'
       }`}
     >
-      {state === 'ready' ? 'Ready' : 'Setup'}
+      {state === 'done' ? 'Done' : 'Setup'}
     </span>
   )
 }
@@ -39,6 +39,19 @@ export default async function QuickstartPage() {
     .maybeSingle()
 
   const displayName = profile?.full_name || user.email || 'Coach'
+  const { data: progress } = await supabase
+    .from('quickstart_progress')
+    .select('seeded_position_groups, seeded_tags, seeded_schedule, completed_at')
+    .eq('team_id', profile?.active_team_id || '')
+    .maybeSingle()
+
+  const states = {
+    positionGroups: progress?.seeded_position_groups ?? false,
+    tags: progress?.seeded_tags ?? false,
+    schedule: progress?.seeded_schedule ?? false,
+  }
+  const allDone = states.positionGroups && states.tags && states.schedule
+
   const wrap =
     (action: (...args: any[]) => Promise<unknown>) =>
     async (formData: FormData) => {
@@ -78,11 +91,14 @@ export default async function QuickstartPage() {
                 Create offense, defense, and specialists groupings to power roster and charting views.
               </p>
             </div>
-            <StepBadge state="ready" />
+            <StepBadge state={states.positionGroups ? 'done' : 'pending'} />
           </div>
           <form action={seedPositionGroupsAction} className="pt-1">
-            <button className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black">
-              Apply defaults
+            <button
+              disabled={states.positionGroups}
+              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
+            >
+              {states.positionGroups ? 'Applied' : 'Apply defaults'}
             </button>
           </form>
         </div>
@@ -96,11 +112,14 @@ export default async function QuickstartPage() {
                 Preload common formations, personnel, fronts, and pressures to speed up analyst entry.
               </p>
             </div>
-            <StepBadge state="ready" />
+            <StepBadge state={states.tags ? 'done' : 'pending'} />
           </div>
           <form action={seedChartTagsAction} className="pt-1">
-            <button className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black">
-              Add starter tags
+            <button
+              disabled={states.tags}
+              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
+            >
+              {states.tags ? 'Added' : 'Add starter tags'}
             </button>
           </form>
         </div>
@@ -114,11 +133,14 @@ export default async function QuickstartPage() {
                 Drop in a sample upcoming game so you can start sessions immediately.
               </p>
             </div>
-            <StepBadge state="ready" />
+            <StepBadge state={states.schedule ? 'done' : 'pending'} />
           </div>
           <form action={seedScheduleAction} className="pt-1">
-            <button className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black">
-              Create sample game
+            <button
+              disabled={states.schedule}
+              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
+            >
+              {states.schedule ? 'Game created' : 'Create sample game'}
             </button>
           </form>
         </div>
@@ -134,7 +156,7 @@ export default async function QuickstartPage() {
         <div className="flex flex-wrap gap-2">
           <form action={finishQuickstartAction}>
             <button className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black">
-              Finish &amp; go to dashboard
+              {allDone ? 'Finish & go to dashboard' : 'Mark complete anyway'}
             </button>
           </form>
           <Link

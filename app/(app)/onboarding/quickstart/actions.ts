@@ -1,7 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { POSITIONAL_GROUP_DEFAULTS } from '@/app/(app)/settings/constants'
 
 type TeamContext = {
@@ -65,16 +65,22 @@ async function markProgress(
   }
 }
 
-async function logAudit(supabase: TeamContext['supabase'], teamId: string, action: string) {
+async function logAudit(
+  supabase: TeamContext['supabase'],
+  teamId: string,
+  actorUserId: string,
+  action: string
+) {
   await supabase.from('audit_logs').insert({
     team_id: teamId,
     action,
+    actor_user_id: actorUserId,
     created_at: new Date().toISOString(),
   })
 }
 
 export async function seedPositionGroups() {
-  const { supabase, teamId } = await requireTeamContext()
+  const { supabase, teamId, userId } = await requireTeamContext()
 
   const payload = POSITIONAL_GROUP_DEFAULTS.map((group, index) => ({
     team_id: teamId,
@@ -93,12 +99,12 @@ export async function seedPositionGroups() {
   }
 
   await markProgress(supabase, teamId, { seeded_position_groups: true })
-  await logAudit(supabase, teamId, 'quickstart_seed_position_groups')
+  await logAudit(supabase, teamId, userId, 'quickstart_seed_position_groups')
   return { success: true }
 }
 
 export async function seedChartTags() {
-  const { supabase, teamId } = await requireTeamContext()
+  const { supabase, teamId, userId } = await requireTeamContext()
 
   const tags: Array<{ label: string; category: string }> = [
     { label: 'Trips', category: 'FORMATION' },
@@ -131,12 +137,12 @@ export async function seedChartTags() {
   }
 
   await markProgress(supabase, teamId, { seeded_tags: true })
-  await logAudit(supabase, teamId, 'quickstart_seed_chart_tags')
+  await logAudit(supabase, teamId, userId, 'quickstart_seed_chart_tags')
   return { success: true }
 }
 
 export async function seedSchedule() {
-  const { supabase, teamId } = await requireTeamContext()
+  const { supabase, teamId, userId } = await requireTeamContext()
 
   const nowIso = new Date().toISOString()
   const { data: existing } = await supabase
@@ -169,18 +175,18 @@ export async function seedSchedule() {
   }
 
   await markProgress(supabase, teamId, { seeded_schedule: true })
-  await logAudit(supabase, teamId, 'quickstart_seed_schedule')
+  await logAudit(supabase, teamId, userId, 'quickstart_seed_schedule')
   return { success: true }
 }
 
 export async function finishQuickstart() {
-  const { supabase, teamId } = await requireTeamContext()
+  const { supabase, teamId, userId } = await requireTeamContext()
   await markProgress(supabase, teamId, {
     seeded_position_groups: true,
     seeded_tags: true,
     seeded_schedule: true,
     completed_at: new Date().toISOString(),
   })
-  await logAudit(supabase, teamId, 'quickstart_completed')
+  await logAudit(supabase, teamId, userId, 'quickstart_completed')
   redirect('/dashboard')
 }

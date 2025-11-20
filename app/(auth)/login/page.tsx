@@ -1,7 +1,7 @@
 // app/login/page.tsx
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { login } from '../../auth-actions'
 
 type SearchParams = {

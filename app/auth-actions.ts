@@ -2,7 +2,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 export async function login(formData: FormData) {
   const email = String(formData.get('email') || '').trim()

@@ -1,5 +1,5 @@
 // app/test/page.tsx
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 export default async function TestPage() {
   const supabase = await createSupabaseServerClient()

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createSupabaseServiceRoleClient } from '@/utils/supabase/clients'
+import { createSupabaseServiceRoleClient } from '@/utils/supabase/server'
 import { generateDriveSummary } from '@/utils/ai/generateDriveSummary'
 
 const refreshSchema = z.object({

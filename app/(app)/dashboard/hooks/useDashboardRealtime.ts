@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { createSupabaseBrowserClient } from '@/utils/supabase/clients'
+import { createSupabaseBrowserClient } from '@/utils/supabase/browser'
 
 type ChartEventPayload = {
   team_id: string

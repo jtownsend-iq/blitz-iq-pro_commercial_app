@@ -260,7 +260,7 @@ as $$
 $$;
 
 -- RLS policies for quickstart progress: team members can manage
-do $$
+do $policy$
 begin
   if not exists (
     select 1
@@ -285,11 +285,23 @@ begin
       for select
       using (public.is_team_member(team_id));
   end if;
+
+  if not exists (
+    select 1
+    from pg_policies
+    where tablename = 'audit_logs'
+      and policyname = 'team members write audit logs'
+  ) then
+    create policy "team members write audit logs"
+      on public.audit_logs
+      for insert
+      with check (public.is_team_member(team_id));
+  end if;
 end
-$$;
+$policy$;
 
 -- Policies: team members can read/write their own data
-do $$
+do $rls$
 begin
   if not exists (
     select 1
@@ -359,4 +371,4 @@ begin
       using (public.is_team_member(team_id));
   end if;
 end
-$$;
+$rls$;

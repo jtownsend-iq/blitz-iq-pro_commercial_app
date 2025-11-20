@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { generateDriveSummary } from '@/utils/ai/generateDriveSummary'
 
 const chartUnitSchema = z.enum(['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS'])

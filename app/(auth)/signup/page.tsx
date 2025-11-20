@@ -1,7 +1,7 @@
 // app/(auth)/signup/page.tsx
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 export default async function SignupPage() {
   const supabase = await createSupabaseServerClient()

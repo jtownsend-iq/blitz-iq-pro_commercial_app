@@ -1,6 +1,6 @@
 // app/onboarding/team/page.tsx
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { createInitialTeam } from './actions'
 
 type SearchParams = {

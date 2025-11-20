@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { closeGameSession, recordChartEvent } from '../../../chart-actions'
 import { ChartEventPanel } from './ChartEventPanel'
 
