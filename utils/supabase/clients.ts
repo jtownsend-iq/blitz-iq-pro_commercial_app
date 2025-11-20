@@ -18,8 +18,15 @@ export const supabaseConfig = {
   serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
 } as const
 
+let browserClient:
+  | ReturnType<typeof createBrowserClient>
+  | null = null
+
 export function createSupabaseBrowserClient() {
-  return createBrowserClient(supabaseConfig.url, supabaseConfig.anonKey)
+  if (!browserClient) {
+    browserClient = createBrowserClient(supabaseConfig.url, supabaseConfig.anonKey)
+  }
+  return browserClient
 }
 
 export async function createSupabaseServerClient() {

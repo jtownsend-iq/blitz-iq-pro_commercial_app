@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/utils/supabase/clients'
+import { generateDriveSummary } from '@/utils/ai/generateDriveSummary'
 
 const chartUnitSchema = z.enum(['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS'])
 
@@ -330,6 +331,17 @@ export async function recordChartEvent(formData: FormData) {
     }
   }
 
+  await upsertDriveSnapshot(
+    supabase,
+    {
+      team_id: sessionRow.team_id as string,
+      game_id: sessionRow.game_id as string,
+      game_session_id: sessionRow.id as string,
+      unit: sessionRow.unit as string,
+    },
+    parsed.data.driveNumber ?? null
+  )
+
   revalidatePath(`/games/${sessionRow.game_id}`)
   return { success: true, eventId: insertedEvent.id }
 }
@@ -356,5 +368,89 @@ export async function fetchSessionContext(
     teamId: data.team_id as string,
     gameId: data.game_id as string,
     unit: data.unit as string,
+  }
+}
+
+type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
+
+async function upsertDriveSnapshot(
+  supabase: SupabaseClient,
+  sessionContext: {
+    team_id: string
+    game_id: string
+    game_session_id: string
+    unit: string
+  },
+  driveNumber: number | null
+) {
+  if (!driveNumber) return
+
+  const { data: driveEvents, error } = await supabase
+    .from('chart_events')
+    .select('gained_yards, explosive, turnover')
+    .eq('team_id', sessionContext.team_id)
+    .eq('game_session_id', sessionContext.game_session_id)
+    .eq('drive_number', driveNumber)
+    .order('sequence', { ascending: true })
+
+  if (error) {
+    console.error('upsertDriveSnapshot fetch error:', error.message)
+    return
+  }
+
+  const plays = driveEvents?.length ?? 0
+  const totalYards =
+    driveEvents?.reduce((sum, event) => sum + (event.gained_yards ?? 0), 0) ?? 0
+  const explosivePlays =
+    driveEvents?.filter((event) => Boolean(event.explosive)).length ?? 0
+  const turnovers =
+    driveEvents?.filter((event) => Boolean(event.turnover)).length ?? 0
+
+  const ai_summary =
+    plays === 0
+      ? 'Not enough plays to evaluate yet.'
+      : await generateDriveSummary({
+          unit: sessionContext.unit,
+          plays,
+          totalYards,
+          explosivePlays,
+          turnovers,
+        })
+
+  const metrics = {
+    plays,
+    totalYards,
+    explosivePlays,
+    turnovers,
+    ai_summary,
+  }
+
+  const situation = {
+    drive: driveNumber,
+    unit: sessionContext.unit,
+  }
+
+  const basePayload = {
+    team_id: sessionContext.team_id,
+    game_id: sessionContext.game_id,
+    game_session_id: sessionContext.game_session_id,
+    drive_number: driveNumber,
+    situation,
+    metrics,
+    generated_at: new Date().toISOString(),
+  }
+
+  const { data: existingSnapshot } = await supabase
+    .from('chart_snapshots')
+    .select('id')
+    .eq('team_id', sessionContext.team_id)
+    .eq('game_session_id', sessionContext.game_session_id)
+    .eq('drive_number', driveNumber)
+    .maybeSingle()
+
+  if (existingSnapshot?.id) {
+    await supabase.from('chart_snapshots').update(basePayload).eq('id', existingSnapshot.id)
+  } else {
+    await supabase.from('chart_snapshots').insert(basePayload)
   }
 }
