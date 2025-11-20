@@ -47,9 +47,10 @@ type SessionRow = {
 export default async function GamesPage({
   searchParams,
 }: {
-  searchParams?: { error?: string; reason?: string }
+  searchParams: Promise<{ error?: string; reason?: string }>
 }) {
   const supabase = await createSupabaseServerClient()
+  const resolvedSearchParams = await searchParams
 
   const {
     data: { user },
@@ -139,8 +140,8 @@ export default async function GamesPage({
     await startGameSession(formData)
   }
 
-  const errorCode = searchParams?.error
-  const errorReason = searchParams?.reason
+  const errorCode = resolvedSearchParams?.error
+  const errorReason = resolvedSearchParams?.reason
 
   const closeSessionAction = async (formData: FormData) => {
     await closeGameSession(formData)
