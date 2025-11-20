@@ -2,7 +2,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 
 const teamSchema = z.object({
@@ -30,6 +30,7 @@ function sanitizeRedirectPath(path: string | null | undefined): string {
 
 export async function createInitialTeam(formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const serviceClient = createSupabaseServiceRoleClient()
 
   const {
     data: { user },
@@ -75,13 +76,13 @@ export async function createInitialTeam(formData: FormData) {
     .maybeSingle()
 
   if (!existingProfile) {
-    const { error: profileInsertError } = await supabase.from('users').insert({
+    const { error: profileInsertError } = await serviceClient.from('users').insert({
       id: userId,
       email: userEmail,
     })
 
     if (profileInsertError) {
-      // Hard fail — we can’t safely proceed without a profile row
+      console.error('onboarding profile insert error:', profileInsertError.message)
       redirect('/onboarding/team?error=user')
     }
   }
@@ -98,7 +99,7 @@ export async function createInitialTeam(formData: FormData) {
   }
 
   // 3) Create the team
-  const { data: team, error: teamError } = await supabase
+  const { data: team, error: teamError } = await serviceClient
     .from('teams')
     .insert({
       name: teamData.name,
@@ -114,6 +115,7 @@ export async function createInitialTeam(formData: FormData) {
     .single()
 
   if (teamError || !team) {
+    console.error('onboarding team insert error:', teamError?.message)
     redirect('/onboarding/team?error=team')
   }
 
@@ -121,7 +123,7 @@ export async function createInitialTeam(formData: FormData) {
   const currentYear = new Date().getFullYear()
 
   // 4) Seed team_settings (non-critical if this fails, but we try)
-  await supabase.from('team_settings').insert({
+  await serviceClient.from('team_settings').insert({
     team_id: teamId,
     timezone: 'America/Chicago',
     default_season_year: currentYear,
@@ -129,30 +131,32 @@ export async function createInitialTeam(formData: FormData) {
   })
 
   // 5) Seed a default season
-  await supabase.from('seasons').insert({
+  await serviceClient.from('seasons').insert({
     team_id: teamId,
     year: currentYear,
     label: `${currentYear} Season`,
   })
 
   // 6) Create membership: user → team
-  const { error: memberError } = await supabase.from('team_members').insert({
+  const { error: memberError } = await serviceClient.from('team_members').insert({
     team_id: teamId,
     user_id: userId,
     role: 'OWNER', // fits your schema; you can enforce a role enum later
   })
 
   if (memberError) {
+    console.error('onboarding member insert error:', memberError.message)
     redirect('/onboarding/team?error=member')
   }
 
   // 7) Set active_team_id on users
-  const { error: userUpdateError } = await supabase
+  const { error: userUpdateError } = await serviceClient
     .from('users')
     .update({ active_team_id: teamId })
     .eq('id', userId)
 
   if (userUpdateError) {
+    console.error('onboarding active team update error:', userUpdateError.message)
     redirect('/onboarding/team?error=user')
   }
 

@@ -205,6 +205,12 @@ alter table public.chart_tags enable row level security;
 alter table public.chart_event_tags enable row level security;
 alter table public.chart_snapshots enable row level security;
 
+-- Ensure games table has start_time for scheduling/queries
+alter table public.games
+  add column if not exists start_time timestamptz;
+
+create index if not exists games_start_time_idx on public.games(start_time);
+
 -- Quickstart progress per team
 create table if not exists public.quickstart_progress (
   team_id uuid primary key references public.teams(id) on delete cascade,
