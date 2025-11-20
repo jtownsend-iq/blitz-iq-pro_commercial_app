@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NEXT_DISABLE_TURBOPACK=1 next dev",
+    "clean": "rimraf .next .turbo",
+    "dev": "npm run clean && cross-env NEXT_DISABLE_TURBOPACK=1 next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
+    "rimraf": "^5.0.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
