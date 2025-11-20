@@ -78,7 +78,8 @@ export async function createGame(formData: FormData) {
 
   if (insertError) {
     console.error('createGame insert error:', insertError.message)
-    redirect('/games?error=create_failed')
+    const reason = encodeURIComponent(insertError.message ?? 'unknown')
+    redirect(`/games?error=create_failed&reason=${reason}`)
   }
 
   revalidatePath('/games')

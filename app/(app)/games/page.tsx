@@ -44,7 +44,11 @@ type SessionRow = {
   analyst_user_id: string | null
 }
 
-export default async function GamesPage() {
+export default async function GamesPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string; reason?: string }
+}) {
   const supabase = await createSupabaseServerClient()
 
   const {
@@ -120,9 +124,23 @@ export default async function GamesPage() {
     }).format(date)
   }
 
+  const renderErrorMessage = (code: string, reason?: string) => {
+    const map: Record<string, string> = {
+      invalid_game: 'Please check all required fields and use a valid kickoff time.',
+      create_failed: 'Could not create the game. Please try again or contact an admin.',
+    }
+    if (reason) {
+      return `${map[code] || 'Unable to create game.'} (${reason})`
+    }
+    return map[code] || 'Unable to create game.'
+  }
+
   const startSessionAction = async (formData: FormData) => {
     await startGameSession(formData)
   }
+
+  const errorCode = searchParams?.error
+  const errorReason = searchParams?.reason
 
   const closeSessionAction = async (formData: FormData) => {
     await closeGameSession(formData)
@@ -141,6 +159,11 @@ export default async function GamesPage() {
           Start live charting sessions for offense, defense, and special teams. Sessions remain
           active until you close them, and only one session per unit can run at a time.
         </p>
+        {errorCode && (
+          <p className="text-xs text-amber-400">
+            {renderErrorMessage(errorCode, errorReason)}
+          </p>
+        )}
       </header>
 
       <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6 space-y-4">
