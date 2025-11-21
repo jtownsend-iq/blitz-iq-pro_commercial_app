@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { formatDate } from '@/utils/date'
 import {
   addRosterPlayer,
   cancelStaffInvite,
@@ -961,12 +962,10 @@ export default async function SettingsPage() {
                         >
                           <div>
                             <p className="font-medium">{invite.email}</p>
-                            <p className="text-xs text-amber-200/80">
-                              {formatRoleLabel(invite.role)} | Sent{' '}
-                              {invite.created_at
-                                ? new Date(invite.created_at).toLocaleDateString()
-                                : 'Recently'}
-                            </p>
+                              <p className="text-xs text-amber-200/80">
+                                {formatRoleLabel(invite.role)} | Sent{' '}
+                                {invite.created_at ? formatDate(invite.created_at) : 'Recently'}
+                              </p>
                           </div>
                           <form action={cancelStaffInvite}>
                             <input type="hidden" name="invite_id" value={invite.id} />
