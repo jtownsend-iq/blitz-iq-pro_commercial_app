@@ -146,14 +146,14 @@ export default async function ChartUnitPage({
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <h1 className="text-3xl font-bold text-slate-50">
-            {unitLabel} Chart • {game.opponent_name || 'Opponent'}
+            {unitLabel} Chart | {game.opponent_name || 'Opponent'}
           </h1>
           <span className="rounded-full border border-slate-800 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400">
             Session {session.status.toUpperCase()}
           </span>
         </div>
         <p className="text-sm text-slate-400">
-          {formatKickoffLabel(game)} • Session started {formatDate(session.started_at)}
+          {formatKickoffLabel(game)} | Session started {formatDate(session.started_at)}
         </p>
         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
           <Link href="/games" className="text-brand underline">
@@ -190,7 +190,7 @@ export default async function ChartUnitPage({
 function formatKickoffLabel(game: GameRow) {
   const kickoff = formatDate(game.start_time)
   const status = game.home_or_away ? game.home_or_away.toUpperCase() : 'TBD'
-  return `${kickoff} • ${status} • ${game.location || 'Venue TBD'}`
+  return `${kickoff} | ${status} | ${game.location || 'Venue TBD'}`
 }
 
 function formatDate(value: string | null) {

@@ -101,7 +101,7 @@ const integrations = [
   {
     name: 'HUDL',
     status: 'Connected',
-    description: 'Last synced 2h ago ΓÇó Auto-import tags',
+    description: 'Last synced 2h ago | Auto-import tags',
   },
   {
     name: 'Catapult',
@@ -154,17 +154,17 @@ const auditLog = [
   {
     action: 'Invited analyst Maya Kim',
     actor: 'Kelly Shaw',
-    timestamp: 'Today ΓÇó 8:12 AM',
+    timestamp: 'Today | 8:12 AM',
   },
   {
     action: 'Updated AI profile to Balanced',
     actor: 'Andre Waller',
-    timestamp: 'Yesterday ΓÇó 9:40 PM',
+    timestamp: 'Yesterday | 9:40 PM',
   },
   {
     action: 'Downloaded invoice INV-2038',
     actor: 'Dana Ortiz',
-    timestamp: 'Yesterday ΓÇó 4:11 PM',
+    timestamp: 'Yesterday | 4:11 PM',
   },
 ]
 
@@ -541,7 +541,7 @@ export default async function SettingsPage() {
     <section className="space-y-10">
       <header className="space-y-3">
         <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-          {activeTeamName} ΓÇó {activeTeamRole}
+          {activeTeamName} | {activeTeamRole}
         </p>
         <h1 className="text-3xl md:text-4xl font-bold text-slate-50">
           Settings & Control Center
@@ -727,9 +727,9 @@ export default async function SettingsPage() {
                 <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-3">
                   <p className="text-sm font-semibold text-slate-200">SSO Connections</p>
                   <div className="space-y-2 text-xs text-slate-400">
-                    <p>Google ΓÇó Connected</p>
-                    <p>Microsoft ΓÇó Not linked</p>
-                    <p>District SSO ΓÇó Connected</p>
+                    <p>Google | Connected</p>
+                    <p>Microsoft | Not linked</p>
+                    <p>District SSO | Connected</p>
                   </div>
                   <button className="text-xs font-semibold text-brand">Manage providers</button>
                 </div>
@@ -962,7 +962,7 @@ export default async function SettingsPage() {
                           <div>
                             <p className="font-medium">{invite.email}</p>
                             <p className="text-xs text-amber-200/80">
-                              {formatRoleLabel(invite.role)} ΓÇó Sent{' '}
+                              {formatRoleLabel(invite.role)} | Sent{' '}
                               {invite.created_at
                                 ? new Date(invite.created_at).toLocaleDateString()
                                 : 'Recently'}
@@ -1085,11 +1085,11 @@ export default async function SettingsPage() {
                               </div>
                             </td>
                             <td className="px-4 py-3 text-slate-400">
-                              {player.position || 'ΓÇö'}
+                              {player.position || '--'}
                             </td>
-                            <td className="px-4 py-3 text-slate-400">{player.unit || 'ΓÇö'}</td>
+                            <td className="px-4 py-3 text-slate-400">{player.unit || '--'}</td>
                             <td className="px-4 py-3 text-slate-400">
-                              {player.class_year ?? 'ΓÇö'}
+                              {player.class_year ?? '--'}
                             </td>
                             <td className="px-4 py-3">
                               <form action={removeRosterPlayer}>
@@ -1525,7 +1525,7 @@ export default async function SettingsPage() {
                     <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
                       Payment method
                     </p>
-                    <p className="font-semibold text-slate-100">Visa ΓÇóΓÇóΓÇóΓÇó 4242</p>
+                    <p className="font-semibold text-slate-100">Visa |||| 4242</p>
                     <p className="text-xs text-slate-500">Expires 04/27</p>
                     <button className="text-xs font-semibold text-brand">Update card</button>
                   </div>
@@ -1535,7 +1535,7 @@ export default async function SettingsPage() {
                       <div key={contact.email}>
                         <p className="font-semibold text-slate-100">{contact.name}</p>
                         <p className="text-xs text-slate-500">
-                          {contact.email} ΓÇó {contact.role}
+                          {contact.email} | {contact.role}
                         </p>
                       </div>
                     ))}
@@ -1604,7 +1604,7 @@ export default async function SettingsPage() {
                     <div>
                       <p className="text-sm font-semibold text-slate-100">{key.name}</p>
                       <p className="text-xs text-slate-500">
-                        {key.scope} ΓÇó Last used {key.lastUsed}
+                        {key.scope} | Last used {key.lastUsed}
                       </p>
                     </div>
                     <button className="text-xs font-semibold text-brand">Revoke</button>
@@ -1626,7 +1626,7 @@ export default async function SettingsPage() {
                   >
                     <p className="font-semibold text-slate-100">{entry.action}</p>
                     <p className="text-xs text-slate-500">
-                      {entry.actor} ΓÇó {entry.timestamp}
+                      {entry.actor} | {entry.timestamp}
                     </p>
                   </div>
                 ))}

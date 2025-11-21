@@ -21,7 +21,7 @@ export default async function LoginPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Already signed in → straight to the app
+  // Already signed in -> straight to the app
   if (user) {
     redirect('/dashboard')
   }

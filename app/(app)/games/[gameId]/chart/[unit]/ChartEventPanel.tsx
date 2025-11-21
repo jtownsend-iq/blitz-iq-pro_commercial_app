@@ -57,7 +57,7 @@ const pressureOptions = ['None', 'Fire Zone', 'Single Edge', 'Double Edge']
 const clockPattern = /^([0-5]?[0-9]):([0-5][0-9])$/
 
 function formatClock(seconds: number | null) {
-  if (seconds == null) return '—'
+  if (seconds == null) return '--'
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
@@ -191,7 +191,7 @@ export function ChartEventPanel({
                 name="quarter"
                 className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
               >
-                <option value="">—</option>
+            <option value="">--</option>
                 {quarterOptions.map((q) => (
                   <option key={q} value={q}>
                     {q}
@@ -417,19 +417,19 @@ export function ChartEventPanel({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                   <span>
-                    Seq {event.sequence} • Q{event.quarter || '—'} {formatClock(event.clock_seconds)}
+                    Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)}
                   </span>
                   <span>
                     Down/Dist:{' '}
-                    {event.down ? `${event.down} & ${event.distance ?? '?'}` : '—'}
+                    {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
                   </span>
                 </div>
                 <div className="mt-1 font-semibold text-slate-100">
                   {event.play_call || 'Play call TBD'}
                 </div>
                 <div className="text-xs text-slate-400">
-                  {event.result || 'Result TBD'} • Yardage:{' '}
-                  {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '—'}
+                  {event.result || 'Result TBD'} | Yardage:{' '}
+                  {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
                 </div>
                 <div className="text-[0.7rem] text-slate-500">
                   Logged{' '}

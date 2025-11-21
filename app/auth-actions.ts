@@ -29,7 +29,7 @@ export async function login(formData: FormData) {
     redirect('/login?error=invalid')
   }
 
-  // Successful login → go where we meant to go
+  // Successful login -> go where we meant to go
   redirect(redirectTo)
 }
 

@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import Image from 'next/image'
 
 export default function Home() {
@@ -8,18 +8,18 @@ export default function Home() {
         {/* Left: Hero copy */}
         <section className="space-y-6">
           <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-soft">
-            BlitzIQ Pro • High School & College Football
+            BlitzIQ Pro | High School & College Football
           </p>
 
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">
-            Engineered to destroy egos. Built for real‑time in‑game adjustments.
+            Engineered to destroy egos. Built for real-time in-game adjustments.
           </h1>
 
           <p className="text-sm md:text-base text-slate-400 max-w-xl">
-            BlitzIQ Pro gives your staff sub‑10‑second in‑game charting, OpenAI‑powered
+            BlitzIQ Pro gives your staff sub-10-second in-game charting, OpenAI-powered
             call predictions, and live adjustment recommendations. Designed for high
             school and college programs that want a real edge on Friday and Saturday
-            without adding hours of post‑game busywork.
+            without adding hours of post-game busywork.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -41,11 +41,11 @@ export default function Home() {
           <div className="flex flex-wrap gap-4 text-[0.7rem] text-slate-500 pt-4">
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>9‑second charting on offense and defense — live on the sideline</span>
+              <span>9-second charting on offense and defense - live on the sideline</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>OpenAI‑powered call predictions with target 90%+ accuracy</span>
+              <span>OpenAI-powered call predictions with target 90%+ accuracy</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-brand" />
@@ -53,7 +53,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>Built for both sides of the ball — OC, DC, and special teams</span>
+              <span>Built for both sides of the ball - OC, DC, and special teams</span>
             </div>
           </div>
         </section>
@@ -75,7 +75,7 @@ export default function Home() {
                 <div>
                   <p className="text-xs font-semibold text-slate-100">BlitzIQ Pro</p>
                   <p className="text-[0.65rem] text-slate-500">
-                    In‑game charting & prediction preview
+                    In-game charting & prediction preview
                   </p>
                 </div>
               </div>
@@ -88,25 +88,25 @@ export default function Home() {
               {/* Next call prediction */}
               <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
                 <p className="text-[0.7rem] text-slate-400 mb-1">
-                  Live call prediction – 3rd &amp; 6, hash right
+                  Live call prediction - 3rd &amp; 6, hash right
                 </p>
                 <p className="text-sm font-semibold text-slate-100">
-                  Likely play: Field‑side flood concept (70% confidence)
+                  Likely play: Field-side flood concept (70% confidence)
                 </p>
                 <p className="text-[0.7rem] text-slate-500 mt-1">
-                  Based on last 40 snaps, formation, personnel, and down‑and‑distance.
+                  Based on last 40 snaps, formation, personnel, and down-and-distance.
                 </p>
               </div>
 
               {/* Quick charting + adjustments */}
               <div className="grid grid-cols-2 gap-3 text-[0.7rem]">
                 <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
-                  <p className="text-slate-400 mb-1">In‑game charting</p>
+                  <p className="text-slate-400 mb-1">In-game charting</p>
                   <p className="text-slate-100 font-medium">
                     9s per snap avg (offense)
                   </p>
                   <p className="text-slate-500 mt-1">
-                    Formation • motion • play family • result, all from one screen.
+                    Formation | motion | play family | result, all from one screen.
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
@@ -126,7 +126,7 @@ export default function Home() {
                   Season & player development
                 </p>
                 <p className="text-[0.7rem] text-slate-500">
-                  Track calls, tendencies, and player evals across the season — from
+                  Track calls, tendencies, and player evals across the season - from
                   camp installs to playoff prep.
                 </p>
               </div>
@@ -140,7 +140,7 @@ export default function Home() {
                 href="/signup"
                 className="text-[0.65rem] font-semibold text-brand hover:text-brand-soft"
               >
-                Get early access →
+                Get early access ->
               </Link>
             </div>
           </div>
@@ -149,3 +149,6 @@ export default function Home() {
     </main>
   )
 }
+
+
+

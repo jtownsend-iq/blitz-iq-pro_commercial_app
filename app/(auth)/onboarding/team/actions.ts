@@ -137,7 +137,7 @@ export async function createInitialTeam(formData: FormData) {
     label: `${currentYear} Season`,
   })
 
-  // 6) Create membership: user → team
+  // 6) Create membership: user -> team
   const { error: memberError } = await serviceClient.from('team_members').insert({
     team_id: teamId,
     user_id: userId,
@@ -160,6 +160,6 @@ export async function createInitialTeam(formData: FormData) {
     redirect('/onboarding/team?error=user')
   }
 
-  // Initial onboarding complete → go where they were trying to go, or /dashboard
+  // Initial onboarding complete -> go where they were trying to go, or /dashboard
   redirect(redirectTo || '/dashboard')
 }
