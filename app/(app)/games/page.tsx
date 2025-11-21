@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+﻿import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import {
   closeGameSession,
@@ -136,16 +136,8 @@ export default async function GamesPage({
     return map[code] || 'Unable to create game.'
   }
 
-  const startSessionAction = async (formData: FormData) => {
-    await startGameSession(formData)
-  }
-
   const errorCode = resolvedSearchParams?.error
   const errorReason = resolvedSearchParams?.reason
-
-  const closeSessionAction = async (formData: FormData) => {
-    await closeGameSession(formData)
-  }
 
   return (
     <section className="space-y-8">
@@ -265,9 +257,13 @@ export default async function GamesPage({
                     {game.opponent_name || 'Opponent TBD'}
                   </h2>
                   <p className="text-sm text-slate-400">
-                    {formatKickoff(game.start_time)} •{' '}
-                    {game.home_or_away ? `${game.home_or_away.toUpperCase()} • ` : ''}
-                    {game.location || 'Venue TBD'}
+                    {[
+                      formatKickoff(game.start_time),
+                      game.home_or_away ? game.home_or_away.toUpperCase() : null,
+                      game.location || 'Venue TBD',
+                    ]
+                      .filter(Boolean)
+                      .join(' | ')}
                   </p>
                   <p className="text-xs text-slate-500">
                     Status: {game.status ? game.status.toUpperCase() : 'SCHEDULED'}
@@ -299,7 +295,7 @@ export default async function GamesPage({
                         {activeSession ? (
                           <div className="space-y-3">
                             <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/40 px-3 py-2 text-xs text-emerald-200">
-                              Active • Analyst{' '}
+                              Active | Analyst{' '}
                               {activeSession.analyst_user_id
                                 ? activeSession.analyst_user_id.slice(0, 6)
                                 : 'Assigned'}
@@ -312,7 +308,7 @@ export default async function GamesPage({
                                 Open chart
                               </a>
                               <form
-                                action={closeSessionAction}
+                                action={closeGameSession}
                                 className="flex-1"
                               >
                                 <input
@@ -331,10 +327,10 @@ export default async function GamesPage({
                           </div>
                         ) : pendingSession ? (
                           <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
-                            Pending session exists • refresh or resume from chart view.
+                            Pending session exists | refresh or resume from chart view.
                           </div>
                         ) : (
-                          <form action={startSessionAction} className="space-y-2">
+                          <form action={startGameSession} className="space-y-2">
                             <input type="hidden" name="gameId" value={game.id} />
                             <input type="hidden" name="unit" value={unit.key} />
                             <button

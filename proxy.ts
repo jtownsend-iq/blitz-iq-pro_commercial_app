@@ -1,4 +1,4 @@
-// proxy.ts
+﻿// proxy.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
@@ -41,7 +41,7 @@ export default async function proxy(request: NextRequest) {
     pathname.startsWith('/settings') ||
     pathname.startsWith('/onboarding')
 
-  // Logged-in user hitting auth pages → send to dashboard
+  // Logged-in user hitting auth pages -> send to dashboard
   if (user && isAuthRoute) {
     const redirectUrl = url.clone()
     redirectUrl.pathname = '/dashboard'
@@ -50,7 +50,7 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Not logged in and trying to hit protected routes → send to login
+  // Not logged in and trying to hit protected routes -> send to login
   if (!user && isProtectedRoute) {
     const loginUrl = url.clone()
     loginUrl.pathname = '/login'
