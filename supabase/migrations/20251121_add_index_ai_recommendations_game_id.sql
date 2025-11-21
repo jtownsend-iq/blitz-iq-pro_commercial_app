@@ -1,0 +1,15 @@
+-- Add covering index for ai_recommendations.game_id to satisfy unindexed_foreign_keys lint
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'ai_recommendations'
+      and indexname = 'ai_recommendations_game_id_idx'
+  ) then
+    create index ai_recommendations_game_id_idx
+      on public.ai_recommendations(game_id);
+  end if;
+end
+$$;
