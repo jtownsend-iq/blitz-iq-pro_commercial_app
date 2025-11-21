@@ -52,3 +52,19 @@ export const POSITIONAL_GROUP_DEFAULTS = [
   { group: 'Defense', units: ['DL', 'LB', 'CB', 'S'] },
   { group: 'Specialists', units: ['K', 'P', 'LS', 'KR/PR'] },
 ] as const
+
+export const DEFAULT_PERSONNEL_TAGS = ['11', '12', '20', '21', '10'] as const
+export const DEFAULT_FORMATION_TAGS = ['Trips Right', 'Trey Left', 'Bunch', 'Empty'] as const
+export const DEFAULT_CUSTOM_TAGS: string[] = []
+
+export const DEFAULT_EXPLOSIVE_THRESHOLDS = {
+  run: 12,
+  pass: 18,
+} as const
+
+export const DEFAULT_SUCCESS_THRESHOLDS = {
+  firstDownYards: 4,
+  secondDownPct: 70,
+  thirdDownPct: 60,
+  fourthDownPct: 60,
+} as const

@@ -9,6 +9,11 @@ import {
   createSupabaseServiceRoleClient,
 } from '@/utils/supabase/server'
 import {
+  DEFAULT_CUSTOM_TAGS,
+  DEFAULT_EXPLOSIVE_THRESHOLDS,
+  DEFAULT_FORMATION_TAGS,
+  DEFAULT_PERSONNEL_TAGS,
+  DEFAULT_SUCCESS_THRESHOLDS,
   HEX_COLOR_REGEX,
   STAFF_ROLE_ASSIGNABLE_VALUES,
   TEAM_MANAGER_ROLES,
@@ -80,11 +85,34 @@ const positionGroupsSchema = z.array(
   })
 )
 
+const chartTagListSchema = z.array(z.string().min(1).max(120)).max(100)
+
+const chartingDefaultsSchema = z.object({
+  explosive_run_threshold: z.coerce.number().int().min(0).max(120),
+  explosive_pass_threshold: z.coerce.number().int().min(0).max(120),
+  success_1st_yards: z.coerce.number().int().min(0).max(20),
+  success_2nd_pct: z.coerce.number().int().min(0).max(100),
+  success_3rd_pct: z.coerce.number().int().min(0).max(100),
+  success_4th_pct: z.coerce.number().int().min(0).max(100),
+})
+
 function normalizeString(value: FormDataEntryValue | null): string {
   if (typeof value !== 'string') {
     return ''
   }
   return value.trim()
+}
+
+function parseTagList(value: FormDataEntryValue | null, fallback: string[] = []): string[] {
+  const raw = typeof value === 'string' ? value : ''
+  const parts = raw
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+  const unique = Array.from(new Set(parts))
+  if (unique.length === 0) return [...fallback]
+  return unique.slice(0, 100)
 }
 
 function parseCheckbox(value: FormDataEntryValue | null): boolean {
@@ -658,6 +686,189 @@ export async function removeStaffMember(formData: FormData) {
 
   if (error) {
     console.error('removeStaffMember error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function saveDefaultChartTags(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const mode = normalizeString(formData.get('mode'))
+  const restoreDefaults = mode === 'restore'
+
+  const personnelOffense = restoreDefaults
+    ? [...DEFAULT_PERSONNEL_TAGS]
+    : parseTagList(formData.get('personnel_offense'), [...DEFAULT_PERSONNEL_TAGS])
+  const personnelDefense = restoreDefaults
+    ? []
+    : parseTagList(formData.get('personnel_defense'), [])
+  const formationsOffense = restoreDefaults
+    ? [...DEFAULT_FORMATION_TAGS]
+    : parseTagList(formData.get('formations_offense'), [...DEFAULT_FORMATION_TAGS])
+  const formationsDefense = restoreDefaults ? [] : parseTagList(formData.get('formations_defense'), [])
+  const customTags = restoreDefaults
+    ? [...DEFAULT_CUSTOM_TAGS]
+    : parseTagList(formData.get('custom_tags'), [...DEFAULT_CUSTOM_TAGS])
+
+  const listsToValidate = [
+    personnelOffense,
+    personnelDefense,
+    formationsOffense,
+    formationsDefense,
+    customTags,
+  ]
+
+  if (listsToValidate.some((list) => !chartTagListSchema.safeParse(list).success)) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const rows: Array<{
+    label: string
+    category: 'PERSONNEL' | 'FORMATION' | 'CUSTOM'
+    unit: string | null
+    sort_order: number
+    context: string
+  }> = []
+
+  personnelOffense.forEach((label, idx) => {
+    rows.push({
+      label,
+      category: 'PERSONNEL',
+      unit: 'OFFENSE',
+      sort_order: idx,
+      context: 'DEFAULTS',
+    })
+  })
+
+  personnelDefense.forEach((label, idx) => {
+    rows.push({
+      label,
+      category: 'PERSONNEL',
+      unit: 'DEFENSE',
+      sort_order: idx,
+      context: 'DEFAULTS',
+    })
+  })
+
+  formationsOffense.forEach((label, idx) => {
+    rows.push({
+      label,
+      category: 'FORMATION',
+      unit: 'OFFENSE',
+      sort_order: idx,
+      context: 'DEFAULTS',
+    })
+  })
+
+  formationsDefense.forEach((label, idx) => {
+    rows.push({
+      label,
+      category: 'FORMATION',
+      unit: 'DEFENSE',
+      sort_order: idx,
+      context: 'DEFAULTS',
+    })
+  })
+
+  customTags.forEach((label, idx) => {
+    rows.push({
+      label,
+      category: 'CUSTOM',
+      unit: null,
+      sort_order: idx,
+      context: 'DEFAULTS',
+    })
+  })
+
+  const { error: deleteError } = await serviceClient
+    .from('chart_tags')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('context', 'DEFAULTS')
+    .in('category', ['PERSONNEL', 'FORMATION', 'CUSTOM'])
+
+  if (deleteError) {
+    console.error('saveDefaultChartTags delete error:', deleteError.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  if (rows.length > 0) {
+    const { error: insertError } = await serviceClient.from('chart_tags').insert(
+      rows.map((row) => ({
+        team_id: teamId,
+        label: row.label,
+        category: row.category,
+        unit: row.unit,
+        sort_order: row.sort_order,
+        context: row.context,
+      }))
+    )
+
+    if (insertError) {
+      console.error('saveDefaultChartTags insert error:', insertError.message)
+      return { success: false, error: 'server_error' }
+    }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function saveChartingThresholds(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const restoreDefaults = normalizeString(formData.get('mode')) === 'restore'
+
+  const raw = {
+    explosive_run_threshold: formData.get('explosive_run_threshold'),
+    explosive_pass_threshold: formData.get('explosive_pass_threshold'),
+    success_1st_yards: formData.get('success_1st_yards'),
+    success_2nd_pct: formData.get('success_2nd_pct'),
+    success_3rd_pct: formData.get('success_3rd_pct'),
+    success_4th_pct: formData.get('success_4th_pct'),
+  }
+
+  const parsedPayload = chartingDefaultsSchema.safeParse(raw)
+
+  if (!restoreDefaults && !parsedPayload.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const parsed = restoreDefaults
+    ? {
+        explosive_run_threshold: DEFAULT_EXPLOSIVE_THRESHOLDS.run,
+        explosive_pass_threshold: DEFAULT_EXPLOSIVE_THRESHOLDS.pass,
+        success_1st_yards: DEFAULT_SUCCESS_THRESHOLDS.firstDownYards,
+        success_2nd_pct: DEFAULT_SUCCESS_THRESHOLDS.secondDownPct,
+        success_3rd_pct: DEFAULT_SUCCESS_THRESHOLDS.thirdDownPct,
+        success_4th_pct: DEFAULT_SUCCESS_THRESHOLDS.fourthDownPct,
+      }
+    : parsedPayload.data
+
+  const { error } = await serviceClient
+    .from('charting_defaults')
+    .upsert(
+      [
+        {
+          team_id: teamId,
+          explosive_run_threshold: parsed.explosive_run_threshold,
+          explosive_pass_threshold: parsed.explosive_pass_threshold,
+          success_1st_yards: parsed.success_1st_yards,
+          success_2nd_pct: parsed.success_2nd_pct,
+          success_3rd_pct: parsed.success_3rd_pct,
+          success_4th_pct: parsed.success_4th_pct,
+        },
+      ],
+      { onConflict: 'team_id' }
+    )
+
+  if (error) {
+    console.error('saveChartingThresholds upsert error:', error.message)
     return { success: false, error: 'server_error' }
   }
 

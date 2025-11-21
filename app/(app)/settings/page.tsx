@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
@@ -8,6 +8,8 @@ import {
   inviteStaffMember,
   removeRosterPlayer,
   removeStaffMember,
+  saveChartingThresholds,
+  saveDefaultChartTags,
   savePositionGroups,
   updateNotificationPreferences,
   updateProfileIdentity,
@@ -18,6 +20,11 @@ import {
 import {
   FALLBACK_PRIMARY_COLOR,
   HEX_COLOR_REGEX,
+  DEFAULT_CUSTOM_TAGS,
+  DEFAULT_EXPLOSIVE_THRESHOLDS,
+  DEFAULT_FORMATION_TAGS,
+  DEFAULT_PERSONNEL_TAGS,
+  DEFAULT_SUCCESS_THRESHOLDS,
   POSITIONAL_GROUP_DEFAULTS,
   STAFF_ROLE_OPTIONS,
   notificationToggleFields,
@@ -94,7 +101,7 @@ const integrations = [
   {
     name: 'HUDL',
     status: 'Connected',
-    description: 'Last synced 2h ago • Auto-import tags',
+    description: 'Last synced 2h ago ΓÇó Auto-import tags',
   },
   {
     name: 'Catapult',
@@ -147,17 +154,17 @@ const auditLog = [
   {
     action: 'Invited analyst Maya Kim',
     actor: 'Kelly Shaw',
-    timestamp: 'Today • 8:12 AM',
+    timestamp: 'Today ΓÇó 8:12 AM',
   },
   {
     action: 'Updated AI profile to Balanced',
     actor: 'Andre Waller',
-    timestamp: 'Yesterday • 9:40 PM',
+    timestamp: 'Yesterday ΓÇó 9:40 PM',
   },
   {
     action: 'Downloaded invoice INV-2038',
     actor: 'Dana Ortiz',
-    timestamp: 'Yesterday • 4:11 PM',
+    timestamp: 'Yesterday ΓÇó 4:11 PM',
   },
 ]
 
@@ -224,6 +231,23 @@ type TeamInviteRow = {
   status: string | null
   created_at: string | null
   expires_at: string | null
+}
+
+type ChartTagRow = {
+  id: string
+  label: string | null
+  category: string | null
+  unit: string | null
+  context: string | null
+}
+
+type ChartingDefaultsRow = {
+  explosive_run_threshold: number | null
+  explosive_pass_threshold: number | null
+  success_1st_yards: number | null
+  success_2nd_pct: number | null
+  success_3rd_pct: number | null
+  success_4th_pct: number | null
 }
 
 export default async function SettingsPage() {
@@ -365,6 +389,8 @@ export default async function SettingsPage() {
   const staffList: StaffMemberRow[] = []
   const pendingInvites: TeamInviteRow[] = []
   let positionGroupRows: PositionGroupRow[] = []
+  const defaultTagRows: ChartTagRow[] = []
+  let chartingDefaults: ChartingDefaultsRow | null = null
 
   if (activeTeamId) {
     const { data: playerData, error: playerError } = await supabase
@@ -419,6 +445,33 @@ export default async function SettingsPage() {
     } else if (inviteData) {
       pendingInvites.push(...((inviteData as TeamInviteRow[]) || []))
     }
+
+    const { data: tagData, error: tagError } = await supabase
+      .from('chart_tags')
+      .select('id, label, category, unit, context')
+      .eq('team_id', activeTeamId)
+      .eq('context', 'DEFAULTS')
+      .order('sort_order', { ascending: true })
+
+    if (tagError) {
+      console.error('Error fetching default chart tags:', tagError.message)
+    } else if (tagData) {
+      defaultTagRows.push(...((tagData as ChartTagRow[]) || []))
+    }
+
+    const { data: chartingDefaultsData, error: defaultsError } = await supabase
+      .from('charting_defaults')
+      .select(
+        'explosive_run_threshold, explosive_pass_threshold, success_1st_yards, success_2nd_pct, success_3rd_pct, success_4th_pct'
+      )
+      .eq('team_id', activeTeamId)
+      .maybeSingle()
+
+    if (defaultsError) {
+      console.error('Error fetching charting thresholds:', defaultsError.message)
+    } else if (chartingDefaultsData) {
+      chartingDefaults = chartingDefaultsData as ChartingDefaultsRow
+    }
   }
 
   const positionGroupFormRows: Array<{
@@ -450,6 +503,29 @@ export default async function SettingsPage() {
     units: [...POSITIONAL_GROUP_DEFAULTS[0].units],
   })
 
+  const tagsByCategoryUnit = defaultTagRows.reduce<Record<string, string[]>>((acc, tag) => {
+    if (!tag.label || !tag.category) return acc
+    const unitKey = tag.unit || 'NONE'
+    const key = `${tag.category}:${unitKey}`
+    acc[key] = acc[key] ? [...acc[key], tag.label] : [tag.label]
+    return acc
+  }, {})
+
+  const personnelOffense = tagsByCategoryUnit['PERSONNEL:OFFENSE'] ?? [...DEFAULT_PERSONNEL_TAGS]
+  const personnelDefense = tagsByCategoryUnit['PERSONNEL:DEFENSE'] ?? []
+  const formationsOffense = tagsByCategoryUnit['FORMATION:OFFENSE'] ?? [...DEFAULT_FORMATION_TAGS]
+  const formationsDefense = tagsByCategoryUnit['FORMATION:DEFENSE'] ?? []
+  const customDefaults = tagsByCategoryUnit['CUSTOM:NONE'] ?? [...DEFAULT_CUSTOM_TAGS]
+
+  const chartingThresholds = {
+    explosiveRun: chartingDefaults?.explosive_run_threshold ?? DEFAULT_EXPLOSIVE_THRESHOLDS.run,
+    explosivePass: chartingDefaults?.explosive_pass_threshold ?? DEFAULT_EXPLOSIVE_THRESHOLDS.pass,
+    success1st: chartingDefaults?.success_1st_yards ?? DEFAULT_SUCCESS_THRESHOLDS.firstDownYards,
+    success2nd: chartingDefaults?.success_2nd_pct ?? DEFAULT_SUCCESS_THRESHOLDS.secondDownPct,
+    success3rd: chartingDefaults?.success_3rd_pct ?? DEFAULT_SUCCESS_THRESHOLDS.thirdDownPct,
+    success4th: chartingDefaults?.success_4th_pct ?? DEFAULT_SUCCESS_THRESHOLDS.fourthDownPct,
+  }
+
   const staffRoleSelectOptions = STAFF_ROLE_OPTIONS
 
   const formatRoleLabel = (role: string | null) => {
@@ -465,7 +541,7 @@ export default async function SettingsPage() {
     <section className="space-y-10">
       <header className="space-y-3">
         <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-          {activeTeamName} • {activeTeamRole}
+          {activeTeamName} ΓÇó {activeTeamRole}
         </p>
         <h1 className="text-3xl md:text-4xl font-bold text-slate-50">
           Settings & Control Center
@@ -651,9 +727,9 @@ export default async function SettingsPage() {
                 <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-3">
                   <p className="text-sm font-semibold text-slate-200">SSO Connections</p>
                   <div className="space-y-2 text-xs text-slate-400">
-                    <p>Google • Connected</p>
-                    <p>Microsoft • Not linked</p>
-                    <p>District SSO • Connected</p>
+                    <p>Google ΓÇó Connected</p>
+                    <p>Microsoft ΓÇó Not linked</p>
+                    <p>District SSO ΓÇó Connected</p>
                   </div>
                   <button className="text-xs font-semibold text-brand">Manage providers</button>
                 </div>
@@ -886,7 +962,7 @@ export default async function SettingsPage() {
                           <div>
                             <p className="font-medium">{invite.email}</p>
                             <p className="text-xs text-amber-200/80">
-                              {formatRoleLabel(invite.role)} • Sent{' '}
+                              {formatRoleLabel(invite.role)} ΓÇó Sent{' '}
                               {invite.created_at
                                 ? new Date(invite.created_at).toLocaleDateString()
                                 : 'Recently'}
@@ -1009,11 +1085,11 @@ export default async function SettingsPage() {
                               </div>
                             </td>
                             <td className="px-4 py-3 text-slate-400">
-                              {player.position || '—'}
+                              {player.position || 'ΓÇö'}
                             </td>
-                            <td className="px-4 py-3 text-slate-400">{player.unit || '—'}</td>
+                            <td className="px-4 py-3 text-slate-400">{player.unit || 'ΓÇö'}</td>
                             <td className="px-4 py-3 text-slate-400">
-                              {player.class_year ?? '—'}
+                              {player.class_year ?? 'ΓÇö'}
                             </td>
                             <td className="px-4 py-3">
                               <form action={removeRosterPlayer}>
@@ -1154,23 +1230,205 @@ export default async function SettingsPage() {
               title="Default Charting Tags"
               description="Analysts can move faster when tags match your language."
             >
-              <div className="grid gap-4 md:grid-cols-2 text-sm text-slate-300">
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Personnel</p>
-                  <p>11, 12, 20, 21, 10</p>
+              <form action={saveDefaultChartTags} className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2 text-sm text-slate-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                        Personnel (Offense)
+                      </p>
+                      <span className="text-[0.65rem] text-slate-500">Comma or new line</span>
+                    </div>
+                    <textarea
+                      name="personnel_offense"
+                      defaultValue={personnelOffense.join(', ')}
+                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                    <p className="text-[0.75rem] text-slate-500">
+                      Examples: 11, 12, 20, 21, 10
+                    </p>
+                  </label>
+                  <label className="space-y-2 text-sm text-slate-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                        Personnel (Defense)
+                      </p>
+                      <span className="text-[0.65rem] text-slate-500">Optional</span>
+                    </div>
+                    <textarea
+                      name="personnel_defense"
+                      defaultValue={personnelDefense.join(', ')}
+                      placeholder="Base, Nickel, Dime"
+                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                    <p className="text-[0.75rem] text-slate-500">Helps defensive cut-ups.</p>
+                  </label>
+                  <label className="space-y-2 text-sm text-slate-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                        Formations (Offense)
+                      </p>
+                      <span className="text-[0.65rem] text-slate-500">Comma or new line</span>
+                    </div>
+                    <textarea
+                      name="formations_offense"
+                      defaultValue={formationsOffense.join(', ')}
+                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                    <p className="text-[0.75rem] text-slate-500">
+                      Examples: Trips Right, Trey Left, Bunch, Empty
+                    </p>
+                  </label>
+                  <label className="space-y-2 text-sm text-slate-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                        Formations (Defense)
+                      </p>
+                      <span className="text-[0.65rem] text-slate-500">Optional</span>
+                    </div>
+                    <textarea
+                      name="formations_defense"
+                      defaultValue={formationsDefense.join(', ')}
+                      placeholder="Over, Under, Tite, Mint"
+                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                    <p className="text-[0.75rem] text-slate-500">Useful for defensive charting.</p>
+                  </label>
+                  <label className="space-y-2 text-sm text-slate-300 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                        Custom Tags
+                      </p>
+                      <span className="text-[0.65rem] text-slate-500">Optional</span>
+                    </div>
+                    <textarea
+                      name="custom_tags"
+                      defaultValue={customDefaults.join(', ')}
+                      placeholder="Motions, pressures, game-plan specific tags"
+                      className="min-h-[72px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </label>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Formations</p>
-                  <p>Trips Right, Trey Left, Bunch, Empty</p>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="submit"
+                    name="mode"
+                    value="restore"
+                    className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 hover:border-slate-500 hover:text-slate-100 transition"
+                  >
+                    Restore defaults
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                  >
+                    Save tags
+                  </button>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Explosive Plays</p>
-                  <p>Runs ≥ 12 yds • Pass ≥ 18 yds</p>
+              </form>
+
+              <div className="border-t border-slate-900/60 pt-6 mt-6 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      Explosive + Success Criteria
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      AI summaries and dashboards use these thresholds; they will not block data
+                      entry.
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Success Criteria</p>
-                  <p>1st: 4 yds • 2nd: 70% • 3rd/4th: convert</p>
-                </div>
+                <form action={saveChartingThresholds} className="grid gap-3 md:grid-cols-3">
+                  <label className="space-y-1 text-sm text-slate-300">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      Explosive run (yds)
+                    </span>
+                    <input
+                      type="number"
+                      name="explosive_run_threshold"
+                      min={0}
+                      max={120}
+                      defaultValue={chartingThresholds.explosiveRun}
+                      className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-300">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      Explosive pass (yds)
+                    </span>
+                    <input
+                      type="number"
+                      name="explosive_pass_threshold"
+                      min={0}
+                      max={120}
+                      defaultValue={chartingThresholds.explosivePass}
+                      className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </label>
+                  <div className="space-y-1 text-sm text-slate-300">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      Success (1st/2nd/3rd/4th)
+                    </span>
+                    <div className="grid grid-cols-4 gap-2">
+                      <input
+                        type="number"
+                        name="success_1st_yards"
+                        min={0}
+                        max={20}
+                        defaultValue={chartingThresholds.success1st}
+                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        placeholder="Yds"
+                      />
+                      <input
+                        type="number"
+                        name="success_2nd_pct"
+                        min={0}
+                        max={100}
+                        defaultValue={chartingThresholds.success2nd}
+                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        placeholder="%"
+                      />
+                      <input
+                        type="number"
+                        name="success_3rd_pct"
+                        min={0}
+                        max={100}
+                        defaultValue={chartingThresholds.success3rd}
+                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        placeholder="%"
+                      />
+                      <input
+                        type="number"
+                        name="success_4th_pct"
+                        min={0}
+                        max={100}
+                        defaultValue={chartingThresholds.success4th}
+                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        placeholder="%"
+                      />
+                    </div>
+                    <p className="text-[0.75rem] text-slate-500">
+                      Defaults: 4 yds, 70%, 60%, 60%
+                    </p>
+                  </div>
+                  <div className="md:col-span-3 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="submit"
+                      name="mode"
+                      value="restore"
+                      className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 hover:border-slate-500 hover:text-slate-100 transition"
+                    >
+                      Restore defaults
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                    >
+                      Save thresholds
+                    </button>
+                  </div>
+                </form>
               </div>
             </SettingsCard>
           </SettingsSection>
@@ -1267,7 +1525,7 @@ export default async function SettingsPage() {
                     <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
                       Payment method
                     </p>
-                    <p className="font-semibold text-slate-100">Visa •••• 4242</p>
+                    <p className="font-semibold text-slate-100">Visa ΓÇóΓÇóΓÇóΓÇó 4242</p>
                     <p className="text-xs text-slate-500">Expires 04/27</p>
                     <button className="text-xs font-semibold text-brand">Update card</button>
                   </div>
@@ -1277,7 +1535,7 @@ export default async function SettingsPage() {
                       <div key={contact.email}>
                         <p className="font-semibold text-slate-100">{contact.name}</p>
                         <p className="text-xs text-slate-500">
-                          {contact.email} • {contact.role}
+                          {contact.email} ΓÇó {contact.role}
                         </p>
                       </div>
                     ))}
@@ -1346,7 +1604,7 @@ export default async function SettingsPage() {
                     <div>
                       <p className="text-sm font-semibold text-slate-100">{key.name}</p>
                       <p className="text-xs text-slate-500">
-                        {key.scope} • Last used {key.lastUsed}
+                        {key.scope} ΓÇó Last used {key.lastUsed}
                       </p>
                     </div>
                     <button className="text-xs font-semibold text-brand">Revoke</button>
@@ -1368,7 +1626,7 @@ export default async function SettingsPage() {
                   >
                     <p className="font-semibold text-slate-100">{entry.action}</p>
                     <p className="text-xs text-slate-500">
-                      {entry.actor} • {entry.timestamp}
+                      {entry.actor} ΓÇó {entry.timestamp}
                     </p>
                   </div>
                 ))}
@@ -1425,3 +1683,5 @@ function SettingsCard({
     </div>
   )
 }
+
+
