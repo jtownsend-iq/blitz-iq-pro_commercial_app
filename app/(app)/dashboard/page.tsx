@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DashboardRealtimeClient } from './RealtimeClient'
 import { setActiveTeam, setActiveTeamAndGo } from './actions'
+import { ActionButton } from './ActionButton'
 
 type TeamRow = {
   id: string
@@ -118,7 +119,7 @@ export default async function DashboardPage() {
   }
 
   const fullName = (profile?.full_name as string | null) ?? null
-  let activeTeamId = (profile?.active_team_id as string | null) ?? null
+  const activeTeamId = (profile?.active_team_id as string | null) ?? null
 
   const { data: membershipsData, error: membershipError } = await supabase
     .from('team_members')
@@ -155,22 +156,15 @@ export default async function DashboardPage() {
     redirect('/onboarding/team')
   }
 
-  if (!activeTeamId && teams.length > 0) {
-    const defaultTeamId = teams[0].id
-    const { error: setDefaultTeamError } = await supabase
-      .from('users')
-      .update({ active_team_id: defaultTeamId })
-      .eq('id', user.id)
-
-    if (setDefaultTeamError) {
-      console.error('Error setting default active team:', setDefaultTeamError.message)
-    } else {
-      activeTeamId = defaultTeamId
-    }
+  if (!activeTeamId) {
+    redirect('/onboarding/select-team')
   }
 
-  const activeTeam =
-    (activeTeamId && teams.find((team) => team.id === activeTeamId)) || teams[0]
+  const activeTeam = teams.find((team) => team.id === activeTeamId)
+
+  if (!activeTeam) {
+    redirect('/onboarding/select-team')
+  }
 
   let nextGame: GameRow | null = null
   if (activeTeam) {
@@ -352,12 +346,7 @@ export default async function DashboardPage() {
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              className="rounded-full bg-brand px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
-            >
-              Switch
-            </button>
+            <ActionButton label="Switch" pendingLabel="Switching..." />
           </form>
         )}
       </div>
@@ -383,12 +372,11 @@ export default async function DashboardPage() {
           <form action={setActiveTeamAndGo} className="flex flex-wrap items-center gap-2">
             <input type="hidden" name="teamId" value={activeTeam.id} />
             <input type="hidden" name="redirectTo" value="/onboarding/quickstart" />
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-full bg-amber-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-950"
-            >
-              Resume quickstart
-            </button>
+            <ActionButton
+              label="Resume quickstart"
+              pendingLabel="Loading..."
+              className="bg-amber-300 text-amber-950 hover:opacity-90"
+            />
           </form>
         </div>
       )}

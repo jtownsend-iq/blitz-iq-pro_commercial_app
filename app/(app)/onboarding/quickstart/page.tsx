@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { seedChartTags, seedPositionGroups, seedSchedule, finishQuickstart } from './actions'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { SubmitButton } from './SubmitButton'
 
 function StepBadge({ state }: { state: 'pending' | 'done' }) {
   return (
@@ -82,12 +83,12 @@ export default async function QuickstartPage() {
             <StepBadge state={states.positionGroups ? 'done' : 'pending'} />
           </div>
           <form action={seedPositionGroups} className="pt-1">
-            <button
+            <SubmitButton
               disabled={states.positionGroups}
-              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
-            >
-              {states.positionGroups ? 'Applied' : 'Apply defaults'}
-            </button>
+              label={states.positionGroups ? 'Applied' : 'Apply defaults'}
+              pendingLabel="Applying..."
+              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+            />
           </form>
         </div>
 
@@ -103,12 +104,12 @@ export default async function QuickstartPage() {
             <StepBadge state={states.tags ? 'done' : 'pending'} />
           </div>
           <form action={seedChartTags} className="pt-1">
-            <button
+            <SubmitButton
               disabled={states.tags}
-              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
-            >
-              {states.tags ? 'Added' : 'Add starter tags'}
-            </button>
+              label={states.tags ? 'Added' : 'Add starter tags'}
+              pendingLabel="Adding..."
+              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+            />
           </form>
         </div>
 
@@ -124,12 +125,12 @@ export default async function QuickstartPage() {
             <StepBadge state={states.schedule ? 'done' : 'pending'} />
           </div>
           <form action={seedSchedule} className="pt-1">
-            <button
+            <SubmitButton
               disabled={states.schedule}
-              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
-            >
-              {states.schedule ? 'Game created' : 'Create sample game'}
-            </button>
+              label={states.schedule ? 'Game created' : 'Create sample game'}
+              pendingLabel="Creating..."
+              className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+            />
           </form>
         </div>
       </div>
@@ -143,9 +144,11 @@ export default async function QuickstartPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <form action={finishQuickstart}>
-            <button className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black">
-              {allDone ? 'Finish & go to dashboard' : 'Mark complete anyway'}
-            </button>
+            <SubmitButton
+              label={allDone ? 'Finish & go to dashboard' : 'Mark complete anyway'}
+              pendingLabel="Finishing..."
+              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+            />
           </form>
           <Link
             href="/games"
