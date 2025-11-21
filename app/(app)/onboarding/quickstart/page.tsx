@@ -52,18 +52,6 @@ export default async function QuickstartPage() {
   }
   const allDone = states.positionGroups && states.tags && states.schedule
 
-  const wrap =
-    (action: (...args: any[]) => Promise<unknown>) =>
-    async (formData: FormData) => {
-      void formData
-      await action()
-    }
-
-  const seedPositionGroupsAction = wrap(seedPositionGroups)
-  const seedChartTagsAction = wrap(seedChartTags)
-  const seedScheduleAction = wrap(seedSchedule)
-  const finishQuickstartAction = wrap(finishQuickstart)
-
   return (
     <section className="space-y-8">
       <header className="space-y-2">
@@ -93,7 +81,7 @@ export default async function QuickstartPage() {
             </div>
             <StepBadge state={states.positionGroups ? 'done' : 'pending'} />
           </div>
-          <form action={seedPositionGroupsAction} className="pt-1">
+          <form action={seedPositionGroups} className="pt-1">
             <button
               disabled={states.positionGroups}
               className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
@@ -114,7 +102,7 @@ export default async function QuickstartPage() {
             </div>
             <StepBadge state={states.tags ? 'done' : 'pending'} />
           </div>
-          <form action={seedChartTagsAction} className="pt-1">
+          <form action={seedChartTags} className="pt-1">
             <button
               disabled={states.tags}
               className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
@@ -135,7 +123,7 @@ export default async function QuickstartPage() {
             </div>
             <StepBadge state={states.schedule ? 'done' : 'pending'} />
           </div>
-          <form action={seedScheduleAction} className="pt-1">
+          <form action={seedSchedule} className="pt-1">
             <button
               disabled={states.schedule}
               className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-50"
@@ -154,7 +142,7 @@ export default async function QuickstartPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <form action={finishQuickstartAction}>
+          <form action={finishQuickstart}>
             <button className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black">
               {allDone ? 'Finish & go to dashboard' : 'Mark complete anyway'}
             </button>

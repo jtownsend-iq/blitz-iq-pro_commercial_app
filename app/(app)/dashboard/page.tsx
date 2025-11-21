@@ -1,8 +1,9 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DashboardRealtimeClient } from './RealtimeClient'
+import { setActiveTeam, setActiveTeamAndGo } from './actions'
 
 type TeamRow = {
   id: string
@@ -117,7 +118,7 @@ export default async function DashboardPage() {
   }
 
   const fullName = (profile?.full_name as string | null) ?? null
-  const activeTeamId = (profile?.active_team_id as string | null) ?? null
+  let activeTeamId = (profile?.active_team_id as string | null) ?? null
 
   const { data: membershipsData, error: membershipError } = await supabase
     .from('team_members')
@@ -152,6 +153,20 @@ export default async function DashboardPage() {
 
   if (teams.length === 0) {
     redirect('/onboarding/team')
+  }
+
+  if (!activeTeamId && teams.length > 0) {
+    const defaultTeamId = teams[0].id
+    const { error: setDefaultTeamError } = await supabase
+      .from('users')
+      .update({ active_team_id: defaultTeamId })
+      .eq('id', user.id)
+
+    if (setDefaultTeamError) {
+      console.error('Error setting default active team:', setDefaultTeamError.message)
+    } else {
+      activeTeamId = defaultTeamId
+    }
   }
 
   const activeTeam =
@@ -313,16 +328,47 @@ export default async function DashboardPage() {
           {activeTeam ? (
             <p className="text-xs text-slate-500 mt-1">
               Active team: <span className="font-semibold">{activeTeam.name || 'Unnamed Team'}</span>{' '}
-              {activeTeam.school_name && `• ${activeTeam.school_name}`}
-              {activeTeam.level && ` • ${activeTeam.level}`}
+              {activeTeam.school_name && ` | ${activeTeam.school_name}`}
+              {activeTeam.level && ` | ${activeTeam.level}`}
             </p>
           ) : (
             <p className="text-xs text-slate-500 mt-1">No teams linked to this account yet.</p>
           )}
         </div>
+        {teams.length > 0 && (
+          <form action={setActiveTeam} className="flex flex-wrap items-center gap-2 text-sm">
+            <label htmlFor="teamId" className="text-slate-400">
+              Team:
+            </label>
+            <select
+              id="teamId"
+              name="teamId"
+              defaultValue={activeTeam?.id}
+              className="rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+            >
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name || 'Unnamed Team'}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-full bg-brand px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+            >
+              Switch
+            </button>
+          </form>
+        )}
       </div>
 
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-4 text-sm text-slate-400">
+            Subscribing to live updates...
+          </div>
+        }
+      >
         <DashboardRealtimeClient teamId={activeTeam.id} />
       </Suspense>
 
@@ -334,12 +380,16 @@ export default async function DashboardPage() {
               Finish seeding tags, position groups, and a sample game so analysts can chart without setup friction.
             </p>
           </div>
-          <Link
-            href="/onboarding/quickstart"
-            className="inline-flex items-center justify-center rounded-full bg-amber-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-950"
-          >
-            Resume quickstart
-          </Link>
+          <form action={setActiveTeamAndGo} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="teamId" value={activeTeam.id} />
+            <input type="hidden" name="redirectTo" value="/onboarding/quickstart" />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-full bg-amber-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-950"
+            >
+              Resume quickstart
+            </button>
+          </form>
         </div>
       )}
 
@@ -423,115 +473,23 @@ export default async function DashboardPage() {
           <div className="rounded-3xl border border-slate-900/70 bg-black/20 p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-100">Assistant Coach (AI)</h2>
+                <h2 className="text-lg font-semibold text-slate-100">Recent plays logged</h2>
                 <p className="text-sm text-slate-500">
-                  Summaries generated from chart_snapshots – use them during halftime or timeouts.
+                  Live feed of the latest charted plays across your sessions.
                 </p>
               </div>
-              <span className="text-xs rounded-full border border-slate-700 px-3 py-1 text-slate-400">
-                Experimental
-              </span>
+              <span className="text-xs text-slate-500">Last {recentEvents.length} events</span>
             </div>
-          {snapshotGroups.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No snapshots generated yet. Once you chart a few drives, we’ll surface AI insights
-              here.
-            </p>
-          ) : (
-            <div className="space-y-5">
-              {snapshotGroups.map((group) => (
-                <div key={group.unit} className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    {group.label}
-                  </p>
-                  {group.snapshots.map((snapshot) => (
-                    <div
-                      key={snapshot.id}
-                      className="rounded-2xl border border-slate-900/60 bg-slate-950/40 p-4 text-sm text-slate-200"
-                    >
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                        {formatSnapshotSituation(snapshot.situation)}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-100">
-                        {(snapshot.metrics?.ai_summary as string) ||
-                          'AI summary will appear here once enough plays have been logged.'}
-                      </p>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-400">
-                        <div className="rounded-lg border border-slate-900/60 bg-black/20 px-3 py-2">
-                          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                            Plays
-                          </p>
-                          <p className="text-slate-100 font-semibold">
-                            {(snapshot.metrics?.plays as number) ?? 0}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-slate-900/60 bg-black/20 px-3 py-2">
-                          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                            Yards
-                          </p>
-                          <p className="text-slate-100 font-semibold">
-                            {(snapshot.metrics?.totalYards as number) ?? 0}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-slate-900/60 bg-black/20 px-3 py-2">
-                          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                            Explosive
-                          </p>
-                          <p className="text-slate-100 font-semibold">
-                            {(snapshot.metrics?.explosivePlays as number) ?? 0}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[0.65rem] text-slate-500">
-                        Generated {formatDateShort(snapshot.generated_at)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6">
-            <h2 className="text-lg font-semibold text-slate-100">Next game</h2>
-            {!activeTeam ? (
-              <p className="text-sm text-slate-500">
-                Link your user to a team in Supabase to see schedule information.
-              </p>
-            ) : !nextGame ? (
-              <p className="text-sm text-slate-500">
-                No upcoming game scheduled. Add your season calendar to unlock live charting links.
-              </p>
-            ) : (
-              <div className="mt-3 space-y-1 text-sm text-slate-300">
-                <p className="text-2xl font-semibold text-slate-50">
-                  {nextGame.opponent_name || 'Opponent TBD'}
-                </p>
-                <p className="text-slate-400">{formatKickoffDisplay(nextGame)}</p>
+            {recentEvents.length === 0 ? (
+              <div className="space-y-2 text-sm text-slate-500">
+                <p>Chart events will show here in real time once analysts start logging.</p>
                 <Link
                   href="/games"
                   className="inline-flex text-xs font-semibold text-brand underline underline-offset-4"
                 >
-                  Go to game
+                  Start a charting session
                 </Link>
               </div>
-            )}
-          </div>
-
-          <div className="rounded-3xl border border-slate-900/70 bg-black/20 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-100">Recent plays logged</h2>
-              <span className="text-xs text-slate-500">
-                Last {recentEvents.length} events
-              </span>
-            </div>
-            {recentEvents.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                Chart events will show here in real time once analysts start logging.
-              </p>
             ) : (
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
                 {recentEvents.map((event) => (
@@ -542,19 +500,19 @@ export default async function DashboardPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                       <span>{formatUnitLabel(event.game_sessions?.unit)}</span>
                       <span>
-                        Seq {event.sequence} • {formatEventTimestamp(event.created_at)}
+                        Seq {event.sequence} | {formatEventTimestamp(event.created_at)}
                       </span>
                     </div>
                     <div className="mt-1 font-semibold text-slate-100">
                       {event.play_call || 'Play call TBD'}
                     </div>
                     <div className="text-xs text-slate-400">
-                      {event.result || 'Result TBD'} • Yardage:{' '}
-                      {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '—'}
+                      {event.result || 'Result TBD'} | Yardage:{' '}
+                      {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
                     </div>
                     <div className="text-[0.65rem] text-slate-500">
-                      {event.explosive ? 'Explosive • ' : ''}
-                      {event.turnover ? 'Turnover • ' : ''}
+                      {event.explosive ? 'Explosive | ' : ''}
+                      {event.turnover ? 'Turnover | ' : ''}
                       {event.game_sessions?.unit
                         ? `Session ${event.game_sessions.unit.toLowerCase()}`
                         : ''}
@@ -582,7 +540,7 @@ export default async function DashboardPage() {
                         </p>
                         <p className="text-xs text-slate-500">
                           {team.school_name || 'School TBD'}
-                          {team.level && ` • ${team.level}`}
+                          {team.level && ` | ${team.level}`}
                         </p>
                       </div>
                       {membership?.role && (
@@ -653,14 +611,15 @@ function formatEventTimestamp(value: string | null) {
 
 function formatKickoffDisplay(game: GameRow) {
   if (!game.start_time) return 'Kickoff TBD'
-  return `${new Intl.DateTimeFormat('en-US', {
+  const kickoff = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(game.start_time))} • ${game.home_or_away?.toUpperCase() || 'TBD'}${
-    game.location ? ` • ${game.location}` : ''
-  }`
+  }).format(new Date(game.start_time))
+  const location = game.location ? ` | ${game.location}` : ''
+  const homeAway = game.home_or_away?.toUpperCase() || 'TBD'
+  return `${kickoff} | ${homeAway}${location}`
 }
 
 function formatSnapshotSituation(situation: Record<string, unknown> | null) {
@@ -669,7 +628,13 @@ function formatSnapshotSituation(situation: Record<string, unknown> | null) {
   if (situation.down) parts.push(`Down ${situation.down}`)
   if (situation.distance) parts.push(`${situation.distance} to go`)
   if (situation.hash) parts.push(`${situation.hash} hash`)
-  return parts.length > 0 ? parts.join(' • ') : 'Latest insight'
+  return parts.length > 0 ? parts.join(' | ') : 'Latest insight'
 }
+
+
+
+
+
+
 
 
