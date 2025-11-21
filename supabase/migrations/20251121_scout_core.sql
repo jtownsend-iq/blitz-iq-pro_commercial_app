@@ -77,6 +77,16 @@ create table if not exists public.scout_plays (
 
 alter table public.scout_plays
   add column if not exists season text,
+  add column if not exists formation text,
+  add column if not exists personnel text,
+  add column if not exists front text,
+  add column if not exists coverage text,
+  add column if not exists pressure text,
+  add column if not exists play_family text,
+  add column if not exists result text,
+  add column if not exists gained_yards smallint,
+  add column if not exists explosive boolean not null default false,
+  add column if not exists turnover boolean not null default false,
   add column if not exists import_id uuid references public.scout_imports(id) on delete set null,
   add column if not exists tags text[] not null default '{}'::text[];
 

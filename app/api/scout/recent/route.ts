@@ -1,0 +1,57 @@
+import { NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
+
+async function assertMembership(teamId: string, userId: string) {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('team_members')
+    .select('team_id')
+    .eq('team_id', teamId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error || !data) {
+    throw new Error('You do not have access to this team')
+  }
+  return supabase
+}
+
+export async function GET(request: Request) {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const teamId = searchParams.get('teamId')
+    const opponent = searchParams.get('opponent')
+    const season = searchParams.get('season')
+    const limit = Math.max(0, Math.min(200, Number(searchParams.get('limit')) || 25))
+    const offset = Math.max(0, Number(searchParams.get('offset')) || 0)
+
+    if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
+    if (!opponent) return NextResponse.json({ error: 'opponent is required' }, { status: 400 })
+    if (!season) return NextResponse.json({ error: 'season is required' }, { status: 400 })
+
+    await assertMembership(teamId, user.id)
+
+    const { data, error } = await supabase.rpc('get_scout_recent', {
+      p_team: teamId,
+      p_opponent: opponent,
+      p_season: season,
+      p_limit: limit,
+      p_offset: offset,
+    })
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    const res = NextResponse.json({ plays: data ?? [] })
+    res.headers.set('Cache-Control', 'private, max-age=15')
+    return res
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+}

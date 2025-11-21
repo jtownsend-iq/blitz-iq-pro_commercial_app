@@ -18,14 +18,6 @@ type TeamMemberRow = {
   role: string | null
 }
 
-type GameRow = {
-  id: string
-  opponent_name: string | null
-  start_time: string | null
-  home_or_away: string | null
-  location: string | null
-}
-
 type SessionSummary = {
   id: string
   unit: string
@@ -76,13 +68,6 @@ type EventRow = {
   turnover: boolean | null
   created_at: string | null
   game_sessions: EventSummarySession | EventSummarySession[] | null
-}
-
-type SnapshotRow = {
-  id: string
-  situation: Record<string, unknown> | null
-  metrics: Record<string, unknown> | null
-  generated_at: string | null
 }
 
 type QuickstartProgressRow = {
@@ -168,7 +153,6 @@ export default async function DashboardPage() {
 
   let sessionSummaries: SessionSummary[] = []
   let recentEvents: EventSummary[] = []
-  let aiSnapshots: SnapshotRow[] = []
   let totalPlays = 0
   let explosivePlays = 0
   let turnovers = 0
@@ -181,7 +165,6 @@ export default async function DashboardPage() {
       totalPlaysRes,
       explosiveRes,
       turnoverRes,
-      snapshotsRes,
       quickstartRes,
     ] = await Promise.all([
       supabase
@@ -213,12 +196,6 @@ export default async function DashboardPage() {
         .eq('team_id', activeTeam.id)
         .eq('turnover', true),
       supabase
-        .from('chart_snapshots')
-        .select('id, situation, metrics, generated_at')
-        .eq('team_id', activeTeam.id)
-        .order('generated_at', { ascending: false })
-        .limit(3),
-      supabase
         .from('quickstart_progress')
         .select('seeded_position_groups, seeded_tags, seeded_schedule, completed_at')
         .eq('team_id', activeTeam.id)
@@ -248,12 +225,6 @@ export default async function DashboardPage() {
     totalPlays = totalPlaysRes.count ?? 0
     explosivePlays = explosiveRes.count ?? 0
     turnovers = turnoverRes.count ?? 0
-
-    if (snapshotsRes.error) {
-      console.error('Dashboard snapshots error:', snapshotsRes.error.message)
-    } else if (snapshotsRes.data) {
-      aiSnapshots = snapshotsRes.data as SnapshotRow[]
-    }
 
     if (quickstartRes.error) {
       console.error('Dashboard quickstart progress error:', quickstartRes.error.message)
@@ -567,6 +538,3 @@ function formatEventTimestamp(value: string | null) {
     minute: '2-digit',
   }).format(new Date(value))
 }
-
-
-

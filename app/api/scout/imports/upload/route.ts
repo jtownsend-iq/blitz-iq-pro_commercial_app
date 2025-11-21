@@ -136,11 +136,13 @@ export async function POST(request: Request) {
       })
       .eq('id', importId)
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       importId,
       totalRows: staged.length,
       rowsWithErrors: errorRows,
     })
+    resp.headers.set('Cache-Control', 'no-store')
+    return resp
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     return NextResponse.json({ error: message }, { status: 400 })

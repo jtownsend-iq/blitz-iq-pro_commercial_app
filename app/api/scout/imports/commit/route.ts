@@ -96,13 +96,15 @@ export async function POST(request: Request) {
     }
     await svc.from('scout_imports').update({ status, error_log: log }).eq('id', importId)
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       importId,
       insertedRows: valid.length,
       rowsWithErrors: withErrors,
       totalRows: rows.length,
       status,
     })
+    resp.headers.set('Cache-Control', 'no-store')
+    return resp
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     return NextResponse.json({ error: message }, { status: 400 })

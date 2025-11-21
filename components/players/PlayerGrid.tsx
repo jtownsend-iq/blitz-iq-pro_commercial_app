@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useInView } from 'react-intersection-observer'
 import { formatDate } from '@/utils/date'
 
@@ -64,7 +63,6 @@ export default function PlayerGrid({
   players: PlayerRecord[]
   displayTimezone: string
 }) {
-  const router = useRouter()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [positionFilter, setPositionFilter] = useState<string>('ALL')
@@ -132,14 +130,18 @@ export default function PlayerGrid({
     })
   }, [players, search, statusFilter, positionFilter, classFilter])
 
-  const selectedBase = filtered.find((p) => p.id === selectedId) ?? filtered[0] ?? null
   const [overrides, setOverrides] = useState<Record<string, Partial<PlayerRecord>>>({})
-  const selected = selectedBase
-    ? ({
-        ...selectedBase,
-        ...(overrides[selectedBase.id] ?? {}),
-      } as PlayerRecord)
-    : null
+  const selectedBase = filtered.find((p) => p.id === selectedId) ?? filtered[0] ?? null
+  const selected = useMemo(
+    () =>
+      selectedBase
+        ? ({
+            ...selectedBase,
+            ...(overrides[selectedBase.id] ?? {}),
+          } as PlayerRecord)
+        : null,
+    [selectedBase, overrides]
+  )
 
   useEffect(() => {
     if (!selected) return
@@ -191,7 +193,7 @@ export default function PlayerGrid({
           setGoalsOffset((goalsJson.data?.length ?? 0))
           setGoalsHasMore((goalsJson.data?.length ?? 0) >= pageSize)
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setNotesError('Unable to load notes')
           setGoalsError('Unable to load goals')
@@ -220,7 +222,7 @@ export default function PlayerGrid({
     }
   }, [selectedBase?.id])
 
-  const loadMoreNotes = async () => {
+  const loadMoreNotes = useCallback(async () => {
     if (!selectedBase || notesLoading || !notesHasMore) return
     setNotesLoading(true)
     try {
@@ -233,14 +235,14 @@ export default function PlayerGrid({
       setNotes((prev) => [...prev, ...data])
       setNotesOffset((prev) => prev + data.length)
       setNotesHasMore(data.length >= pageSize)
-    } catch (err) {
-      setNotesError(err instanceof Error ? err.message : 'Unable to load more notes')
+    } catch {
+      setNotesError('Unable to load more notes')
     } finally {
       setNotesLoading(false)
     }
-  }
+  }, [selectedBase, notesLoading, notesHasMore, notesOffset, pageSize])
 
-  const loadMoreGoals = async () => {
+  const loadMoreGoals = useCallback(async () => {
     if (!selectedBase || goalsLoading || !goalsHasMore) return
     setGoalsLoading(true)
     try {
@@ -253,24 +255,24 @@ export default function PlayerGrid({
       setGoals((prev) => [...prev, ...data])
       setGoalsOffset((prev) => prev + data.length)
       setGoalsHasMore(data.length >= pageSize)
-    } catch (err) {
-      setGoalsError(err instanceof Error ? err.message : 'Unable to load more goals')
+    } catch {
+      setGoalsError('Unable to load more goals')
     } finally {
       setGoalsLoading(false)
     }
-  }
+  }, [selectedBase, goalsLoading, goalsHasMore, goalsOffset, pageSize])
 
   useEffect(() => {
     if (notesInView) {
       loadMoreNotes()
     }
-  }, [notesInView])
+  }, [notesInView, loadMoreNotes])
 
   useEffect(() => {
     if (goalsInView) {
       loadMoreGoals()
     }
-  }, [goalsInView])
+  }, [goalsInView, loadMoreGoals])
 
   async function handleUpdatePlayer() {
     if (!selectedBase) return
