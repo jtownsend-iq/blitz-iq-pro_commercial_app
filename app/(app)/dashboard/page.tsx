@@ -272,7 +272,13 @@ export default async function DashboardPage() {
           )}
         </div>
         {teams.length > 0 && (
-          <form action={setActiveTeam} className="flex flex-wrap items-center gap-2 text-sm">
+          <form
+            action={async (formData) => {
+              'use server'
+              await setActiveTeam(formData)
+            }}
+            className="flex flex-wrap items-center gap-2 text-sm"
+          >
             <label htmlFor="teamId" className="text-slate-400">
               Team:
             </label>
@@ -311,7 +317,13 @@ export default async function DashboardPage() {
               Finish seeding tags, position groups, and a sample game so analysts can chart without setup friction.
             </p>
           </div>
-          <form action={setActiveTeamAndGo} className="flex flex-wrap items-center gap-2">
+          <form
+            action={async (formData) => {
+              'use server'
+              await setActiveTeamAndGo(formData)
+            }}
+            className="flex flex-wrap items-center gap-2"
+          >
             <input type="hidden" name="teamId" value={activeTeam.id} />
             <input type="hidden" name="redirectTo" value="/onboarding/quickstart" />
             <ActionButton

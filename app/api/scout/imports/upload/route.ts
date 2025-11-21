@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     let errorRows = 0
     for (let i = 0; i < staged.length; i += chunkSize) {
       const chunk = staged.slice(i, i + chunkSize)
-      const { error: insertChunkError } = await svc.from('scout_import_rows').insert(chunk, { returning: 'minimal' })
+      const { error: insertChunkError } = await svc.from('scout_import_rows').insert(chunk)
       if (insertChunkError) {
         return NextResponse.json({ error: insertChunkError.message }, { status: 400 })
       }

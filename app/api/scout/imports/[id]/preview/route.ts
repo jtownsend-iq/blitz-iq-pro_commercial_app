@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 async function assertMembership(teamId: string, userId: string) {
@@ -15,7 +15,7 @@ async function assertMembership(teamId: string, userId: string) {
   return supabase
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-    const importId = params.id
+    const { id: importId } = await context.params
     if (!importId) return NextResponse.json({ error: 'importId is required' }, { status: 400 })
 
     const { searchParams } = new URL(request.url)

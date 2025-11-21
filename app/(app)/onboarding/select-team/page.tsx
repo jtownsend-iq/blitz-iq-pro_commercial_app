@@ -72,7 +72,13 @@ export default async function SelectTeamPage() {
         </p>
       </div>
 
-      <form action={setActiveTeam} className="space-y-4">
+      <form
+        action={async (formData) => {
+          'use server'
+          await setActiveTeam(formData)
+        }}
+        className="space-y-4"
+      >
         <div className="space-y-2">
           <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Team</label>
           <select

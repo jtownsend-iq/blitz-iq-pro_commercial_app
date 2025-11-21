@@ -82,7 +82,13 @@ export default async function QuickstartPage() {
             </div>
             <StepBadge state={states.positionGroups ? 'done' : 'pending'} />
           </div>
-          <form action={seedPositionGroups} className="pt-1">
+          <form
+            action={async (formData) => {
+              'use server'
+              await seedPositionGroups(formData)
+            }}
+            className="pt-1"
+          >
             <SubmitButton
               disabled={states.positionGroups}
               label={states.positionGroups ? 'Applied' : 'Apply defaults'}
@@ -103,7 +109,13 @@ export default async function QuickstartPage() {
             </div>
             <StepBadge state={states.tags ? 'done' : 'pending'} />
           </div>
-          <form action={seedChartTags} className="pt-1">
+          <form
+            action={async (formData) => {
+              'use server'
+              await seedChartTags(formData)
+            }}
+            className="pt-1"
+          >
             <SubmitButton
               disabled={states.tags}
               label={states.tags ? 'Added' : 'Add starter tags'}
@@ -124,7 +136,13 @@ export default async function QuickstartPage() {
             </div>
             <StepBadge state={states.schedule ? 'done' : 'pending'} />
           </div>
-          <form action={seedSchedule} className="pt-1">
+          <form
+            action={async (formData) => {
+              'use server'
+              await seedSchedule(formData)
+            }}
+            className="pt-1"
+          >
             <SubmitButton
               disabled={states.schedule}
               label={states.schedule ? 'Game created' : 'Create sample game'}

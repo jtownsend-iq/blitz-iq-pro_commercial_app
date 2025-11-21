@@ -31,8 +31,8 @@ export async function GET(request: Request) {
     await assertMembership(teamId, user.id)
 
     const [{ data: plays }, { data: imports }] = await Promise.all([
-      supabase.from('scout_plays').select('opponent_name, season', { distinct: true }).eq('team_id', teamId),
-      supabase.from('scout_imports').select('opponent_name, season', { distinct: true }).eq('team_id', teamId),
+      supabase.from('scout_plays').select('opponent_name, season').eq('team_id', teamId),
+      supabase.from('scout_imports').select('opponent_name, season').eq('team_id', teamId),
     ])
 
     const combined = [...(plays ?? []), ...(imports ?? [])]

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 async function assertMembership(playerId: string, userId: string) {
@@ -28,10 +28,11 @@ async function assertMembership(playerId: string, userId: string) {
 }
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: playerId } = await context.params
     const supabase = await createSupabaseServerClient()
     const {
       data: { user },
@@ -42,7 +43,6 @@ export async function GET(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const playerId = params.id
     const { supabase: svc, teamId } = await assertMembership(playerId, user.id)
 
     const url = new URL(request.url)
@@ -69,8 +69,8 @@ export async function GET(
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -84,7 +84,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const playerId = params.id
+    const { id: playerId } = await context.params
     const noteBody: string | undefined = body.body
     const tags: string[] = Array.isArray(body.tags) ? body.tags : []
 

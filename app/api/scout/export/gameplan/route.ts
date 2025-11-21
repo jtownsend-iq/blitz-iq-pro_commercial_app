@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import PDFDocument from 'pdfkit'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
@@ -16,7 +16,7 @@ async function assertMembership(teamId: string, userId: string) {
   return supabase
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -36,6 +36,18 @@ export async function GET(request: Request) {
     }
 
     await assertMembership(teamId, user.id)
+
+    const tagsParam = searchParams.get('tags')
+    const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
+    const hashFilter = searchParams.get('hash') || null
+    const fieldBucket = searchParams.get('fieldBucket') || null
+    const tags =
+      tagsParam && tagsParam.length
+        ? tagsParam
+            .split(',')
+            .map((t: string) => t.toLowerCase().trim())
+            .filter(Boolean)
+        : null
 
     const [tendRes, recentRes] = await Promise.all([
       supabase.rpc('get_scout_tendencies', {
@@ -66,7 +78,7 @@ export async function GET(request: Request) {
 
     const pdf = new PDFDocument({ margin: 36 })
     const chunks: Buffer[] = []
-    pdf.on('data', (c) => chunks.push(c))
+    pdf.on('data', (c: Buffer) => chunks.push(c))
 
     pdf.fontSize(16).text(`Gameplan: ${opponent} (${season})`, { underline: true })
     pdf.moveDown(0.5)
@@ -104,11 +116,9 @@ export async function GET(request: Request) {
         pdf
           .fontSize(9)
           .text(
-            `${t.down_bucket}/${t.distance_bucket} | ${t.formation || '—'} | ${t.personnel || '—'} | ${
-              t.play_family || '—'
-            } | hash ${t.hash || '—'} | samples ${t.samples} | expl ${
-              (Number(t.explosive_rate || 0) * 100).toFixed(0)
-            }% | TO ${(Number(t.turnover_rate || 0) * 100).toFixed(0)}% | gain ${Number(
+            `${t.down_bucket}/${t.distance_bucket} | ${t.formation || '—'} | ${t.personnel || '—'} | ${t.play_family || '—'} | hash ${t.hash || '—'} | samples ${t.samples} | expl ${(Number(
+              t.explosive_rate || 0
+            ) * 100).toFixed(0)}% | TO ${(Number(t.turnover_rate || 0) * 100).toFixed(0)}% | gain ${Number(
               t.avg_gain || 0
             ).toFixed(1)}`
           )
@@ -144,11 +154,7 @@ export async function GET(request: Request) {
         pdf
           .fontSize(9)
           .text(
-            `${p.phase} | ${p.down ?? '-'}&${p.distance ?? '-'} hash ${p.hash || '—'} | ${p.formation || '—'} | ${
-              p.personnel || '—'
-            } | ${p.play_family || p.result || '—'} | gain ${p.gained_yards ?? '—'} | expl ${
-              p.explosive ? 'Y' : 'N'
-            } | TO ${p.turnover ? 'Y' : 'N'} | tags ${Array.isArray(p.tags) ? p.tags.join(', ') : ''}`
+            `${p.phase} | ${p.down ?? '-'}&${p.distance ?? '-'} hash ${p.hash || '—'} | ${p.formation || '—'} | ${p.personnel || '—'} | ${p.play_family || p.result || '—'} | gain ${p.gained_yards ?? '—'} | expl ${p.explosive ? 'Y' : 'N'} | TO ${p.turnover ? 'Y' : 'N'} | tags ${Array.isArray(p.tags) ? p.tags.join(', ') : ''}`
           )
       })
     }
@@ -169,14 +175,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
-    const tagsParam = searchParams.get('tags')
-    const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
-    const hashFilter = searchParams.get('hash') || null
-    const fieldBucket = searchParams.get('fieldBucket') || null
-    const tags =
-      tagsParam && tagsParam.length
-        ? tagsParam
-            .split(',')
-            .map((t) => t.toLowerCase().trim())
-            .filter(Boolean)
-        : null

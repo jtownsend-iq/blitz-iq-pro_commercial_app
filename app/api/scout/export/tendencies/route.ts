@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 async function assertMembership(teamId: string, userId: string) {
@@ -15,7 +15,7 @@ async function assertMembership(teamId: string, userId: string) {
   return supabase
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -114,6 +114,6 @@ export async function GET(request: Request) {
       tagsParam && tagsParam.length
         ? tagsParam
             .split(',')
-            .map((t) => t.toLowerCase().trim())
+            .map((t: string) => t.toLowerCase().trim())
             .filter(Boolean)
         : null

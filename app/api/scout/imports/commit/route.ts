@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         turnover: r.turnover,
         tags: r.tags || [],
       }))
-      const { error: insertErr } = await svc.from('scout_plays').insert(chunk, { returning: 'minimal' })
+      const { error: insertErr } = await svc.from('scout_plays').insert(chunk)
       if (insertErr) {
         return NextResponse.json({ error: insertErr.message }, { status: 400 })
       }
