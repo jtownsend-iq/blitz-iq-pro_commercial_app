@@ -1,7 +1,7 @@
 ﻿@import "tailwindcss";
 
 /* ------------------------------------------------------------------
-   BlitzIQ Pro - Global Design Tokens & Base Styles
+   BlitzIQ Pro™ - Global Design Tokens & Base Styles
    ------------------------------------------------------------------ */
 
 /* Root CSS variables (also used by Tailwind tokens below) */
@@ -27,7 +27,7 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
 
-  /* BlitzIQ brand palette - used by text-brand, bg-brand, etc. */
+  /* BlitzIQ Pro™ brand palette - used by text-brand, bg-brand, etc. */
   --color-brand: #00e5ff;       /* main cyan from logo */
   --color-brand-soft: #38e8ff;  /* hover / subtle accents */
   --color-brand-dark: #0891b2;  /* deeper accent */

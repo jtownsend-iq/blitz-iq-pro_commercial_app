@@ -100,14 +100,14 @@ export function TopNav({ navItems }: TopNavProps) {
           <div className="relative h-10 w-16">
             <Image
               src="/blitziq-logo.png"
-              alt="BlitzIQ Pro"
+              alt="BlitzIQ Pro™"
               fill
               className="object-contain"
               priority
             />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-wide">BlitzIQ Pro</div>
+            <div className="text-sm font-semibold tracking-wide">BlitzIQ Pro™</div>
             <div className="text-[0.7rem] uppercase tracking-[0.16em] text-brand-soft">
               Engineered to Destroy Egos.
             </div>
@@ -135,9 +135,9 @@ export function Footer() {
     <footer className="border-t border-slate-800 bg-black/70">
       <div className="max-w-6xl mx-auto px-4 py-3 text-[0.7rem] text-slate-500 flex justify-between items-center">
         <span>
-          Ac {new Date().getFullYear()} Trips Right, LLC. All rights reserved.
+          © {new Date().getFullYear()} Trips Right, LLC. All rights reserved.
         </span>
-        <span className="text-slate-400">BlitzIQ Pro (TM)</span>
+        <span className="text-slate-400">BlitzIQ Pro™</span>
       </div>
     </footer>
   )

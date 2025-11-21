@@ -19,10 +19,10 @@ export default async function SignupPage() {
       <div className="w-full max-w-2xl space-y-6 bg-surface-raised border border-slate-800 rounded-2xl p-8 shadow-brand-card">
         <header className="space-y-2">
           <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-            BlitzIQ Pro | Early Access
+            BlitzIQ Pro™ | Early Access
           </p>
           <h1 className="text-2xl md:text-3xl font-bold">
-            Request early access to BlitzIQ Pro
+            Request early access to BlitzIQ Pro™
           </h1>
           <p className="text-xs text-slate-400">
             Already have an account?{' '}

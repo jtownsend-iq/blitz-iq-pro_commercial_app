@@ -16,7 +16,7 @@ export default function Home() {
           </h1>
 
           <p className="text-base md:text-lg text-slate-300 max-w-2xl leading-relaxed">
-            BlitzIQ Pro keeps your staff aligned with live charting in seconds, clear probabilities for the next call, and a single place to manage game plans, tendencies, and players all season. Built so coaches can react faster and make the right call when it matters.
+            BlitzIQ Pro™ keeps your staff aligned with live charting in seconds, clear probabilities for the next call, and a single place to manage game plans, tendencies, and players all season. Built so coaches can react faster and make the right call when it matters.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-1">
@@ -63,14 +63,14 @@ export default function Home() {
                 <div className="relative h-8 w-12">
                   <Image
                     src="/blitziq-logo.png"
-                    alt="BlitzIQ Pro logo"
+                    alt="BlitzIQ Pro™ logo"
                     fill
                     className="object-contain"
                     priority
                   />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-100">BlitzIQ Pro</p>
+                  <p className="text-xs font-semibold text-slate-100">BlitzIQ Pro™</p>
                   <p className="text-[0.7rem] text-slate-500">Game day preview</p>
                 </div>
               </div>
@@ -137,4 +137,3 @@ export default function Home() {
     </main>
   )
 }
-

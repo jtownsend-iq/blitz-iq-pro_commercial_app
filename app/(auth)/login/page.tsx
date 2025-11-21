@@ -54,7 +54,7 @@ export default async function LoginPage({
       <div className="w-full max-w-md space-y-6 bg-surface-raised border border-slate-800 rounded-2xl p-8 shadow-brand-card">
         <header className="space-y-2">
           <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-            BlitzIQ Pro
+            BlitzIQ Pro™
           </p>
         </header>
 

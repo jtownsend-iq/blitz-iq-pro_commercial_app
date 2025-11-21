@@ -106,7 +106,7 @@ const integrations = [
   {
     name: 'Catapult',
     status: 'Not Connected',
-    description: 'Push practice GPS data into BlitzIQ',
+    description: 'Push practice GPS data into BlitzIQ Pro™',
   },
   {
     name: 'OpenAI',
@@ -589,7 +589,7 @@ export default async function SettingsPage() {
           <SettingsSection id="profile" title="Personal Profile">
             <SettingsCard
               title="Identity"
-              description="Update how you appear to staff inside BlitzIQ."
+              description="Update how you appear to staff inside BlitzIQ Pro™."
             >
               <form
                 action={updateProfileIdentity}
@@ -649,7 +649,7 @@ export default async function SettingsPage() {
 
             <SettingsCard
               title="Alerts & Notifications"
-              description="Choose how BlitzIQ keeps you informed."
+              description="Choose how BlitzIQ Pro™ keeps you informed."
             >
               <form action={updateNotificationPreferences} className="space-y-4">
                 <div className="overflow-hidden rounded-2xl border border-slate-800">

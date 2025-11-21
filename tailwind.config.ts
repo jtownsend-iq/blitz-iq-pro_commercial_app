@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // BlitzIQ brand colors
+        // BlitzIQ Pro™ brand colors
         brand: {
           DEFAULT: '#00E5FF', // cyan from logo
           soft: '#38E8FF',
