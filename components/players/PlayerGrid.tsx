@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useInView } from 'react-intersection-observer'
 import { formatDate } from '@/utils/date'
 
 type PlayerRecord = {
@@ -94,6 +95,8 @@ export default function PlayerGrid({
   const [notesLoading, setNotesLoading] = useState(false)
   const [goalsLoading, setGoalsLoading] = useState(false)
   const pageSize = 20
+  const { ref: notesSentinelRef, inView: notesInView } = useInView({ threshold: 0.1 })
+  const { ref: goalsSentinelRef, inView: goalsInView } = useInView({ threshold: 0.1 })
 
   const positions = useMemo(() => {
     const set = new Set<string>()
@@ -216,6 +219,58 @@ export default function PlayerGrid({
       cancelled = true
     }
   }, [selectedBase?.id])
+
+  const loadMoreNotes = async () => {
+    if (!selectedBase || notesLoading || !notesHasMore) return
+    setNotesLoading(true)
+    try {
+      const res = await fetch(
+        `/api/players/${selectedBase.id}/notes?limit=${pageSize}&offset=${notesOffset}`
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Unable to load more notes')
+      const data: PlayerNote[] = json.data ?? []
+      setNotes((prev) => [...prev, ...data])
+      setNotesOffset((prev) => prev + data.length)
+      setNotesHasMore(data.length >= pageSize)
+    } catch (err) {
+      setNotesError(err instanceof Error ? err.message : 'Unable to load more notes')
+    } finally {
+      setNotesLoading(false)
+    }
+  }
+
+  const loadMoreGoals = async () => {
+    if (!selectedBase || goalsLoading || !goalsHasMore) return
+    setGoalsLoading(true)
+    try {
+      const res = await fetch(
+        `/api/players/${selectedBase.id}/goals?limit=${pageSize}&offset=${goalsOffset}`
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Unable to load more goals')
+      const data: PlayerGoal[] = json.data ?? []
+      setGoals((prev) => [...prev, ...data])
+      setGoalsOffset((prev) => prev + data.length)
+      setGoalsHasMore(data.length >= pageSize)
+    } catch (err) {
+      setGoalsError(err instanceof Error ? err.message : 'Unable to load more goals')
+    } finally {
+      setGoalsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (notesInView) {
+      loadMoreNotes()
+    }
+  }, [notesInView])
+
+  useEffect(() => {
+    if (goalsInView) {
+      loadMoreGoals()
+    }
+  }, [goalsInView])
 
   async function handleUpdatePlayer() {
     if (!selectedBase) return
@@ -677,33 +732,13 @@ export default function PlayerGrid({
                       ))}
                     </div>
                   )}
-                  {notesHasMore && (
-                    <button
-                      disabled={notesLoading}
-                    onClick={async () => {
-                      setNotesLoading(true)
-                      try {
-                        const res = await fetch(
-                            `/api/players/${selectedBase?.id}/notes?limit=${pageSize}&offset=${notesOffset}`
-                          )
-                          const json = await res.json()
-                          if (!res.ok) throw new Error(json.error || 'Unable to load more notes')
-                          const data: PlayerNote[] = json.data ?? []
-                          setNotes((prev) => [...prev, ...data])
-                          setNotesOffset((prev) => prev + data.length)
-                          setNotesHasMore(data.length >= pageSize)
-                        } catch (err) {
-                          setNotesError(err instanceof Error ? err.message : 'Unable to load more notes')
-                        } finally {
-                          setNotesLoading(false)
-                        }
-                      }}
-                      className="text-xs font-semibold text-brand hover:text-brand-soft"
-                    >
-                      {notesLoading ? 'Loading…' : 'Load more notes'}
-                    </button>
-                  )}
-                  {notesError ? <p className="text-xs text-amber-400">{notesError}</p> : null}
+                  <div ref={notesSentinelRef} className="h-6">
+                    {notesLoading ? <p className="text-[0.7rem] text-slate-500">Loading…</p> : null}
+                    {notesError ? <p className="text-xs text-amber-400">{notesError}</p> : null}
+                    {!notesHasMore && !notesLoading ? (
+                      <p className="text-[0.7rem] text-slate-600">End of notes</p>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -722,33 +757,13 @@ export default function PlayerGrid({
                       ))}
                     </div>
                   )}
-                  {goalsHasMore && (
-                    <button
-                      disabled={goalsLoading}
-                    onClick={async () => {
-                      setGoalsLoading(true)
-                      try {
-                        const res = await fetch(
-                            `/api/players/${selectedBase?.id}/goals?limit=${pageSize}&offset=${goalsOffset}`
-                          )
-                          const json = await res.json()
-                          if (!res.ok) throw new Error(json.error || 'Unable to load more goals')
-                          const data: PlayerGoal[] = json.data ?? []
-                          setGoals((prev) => [...prev, ...data])
-                          setGoalsOffset((prev) => prev + data.length)
-                          setGoalsHasMore(data.length >= pageSize)
-                        } catch (err) {
-                          setGoalsError(err instanceof Error ? err.message : 'Unable to load more goals')
-                        } finally {
-                          setGoalsLoading(false)
-                        }
-                      }}
-                      className="text-xs font-semibold text-brand hover:text-brand-soft"
-                    >
-                      {goalsLoading ? 'Loading…' : 'Load more goals'}
-                    </button>
-                  )}
-                  {goalsError ? <p className="text-xs text-amber-400">{goalsError}</p> : null}
+                  <div ref={goalsSentinelRef} className="h-6">
+                    {goalsLoading ? <p className="text-[0.7rem] text-slate-500">Loading…</p> : null}
+                    {goalsError ? <p className="text-xs text-amber-400">{goalsError}</p> : null}
+                    {!goalsHasMore && !goalsLoading ? (
+                      <p className="text-[0.7rem] text-slate-600">End of goals</p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
