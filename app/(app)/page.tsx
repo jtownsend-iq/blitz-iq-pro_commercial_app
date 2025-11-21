@@ -4,69 +4,66 @@ import Image from 'next/image'
 export default function Home() {
   return (
     <main className="min-h-[80vh] flex items-center justify-center bg-surface text-slate-50">
-      <div className="max-w-5xl w-full px-4 py-12 grid gap-12 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center">
+      <div className="max-w-5xl w-full px-4 py-14 grid gap-10 md:gap-14 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start">
         {/* Left: Hero copy */}
         <section className="space-y-6">
-          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-soft">
-            BlitzIQ Pro | High School & College Football
+          <p className="text-[0.75rem] uppercase tracking-[0.2em] text-brand-soft">
+            Built for high school and college football staffs
           </p>
 
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">
-            Engineered to destroy egos. Built for real-time in-game adjustments.
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-slate-50">
+            Faster calls. Smarter adjustments. Less chaos on game day.
           </h1>
 
-          <p className="text-sm md:text-base text-slate-400 max-w-xl">
-            BlitzIQ Pro gives your staff sub-10-second in-game charting, OpenAI-powered
-            call predictions, and live adjustment recommendations. Designed for high
-            school and college programs that want a real edge on Friday and Saturday
-            without adding hours of post-game busywork.
+          <p className="text-base md:text-lg text-slate-300 max-w-2xl leading-relaxed">
+            BlitzIQ Pro keeps your staff aligned with live charting in seconds, clear probabilities for the next call, and a single place to manage game plans, tendencies, and players all season. Built so coaches can react faster and make the right call when it matters.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-1">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center rounded-full bg-brand text-black text-xs font-semibold tracking-[0.16em] uppercase px-6 py-3 hover:bg-brand-soft transition-colors"
+              className="inline-flex items-center justify-center rounded-full bg-brand text-black text-xs md:text-sm font-semibold tracking-[0.14em] uppercase px-6 py-3 hover:bg-brand-soft transition-colors"
             >
-              Request early access
+              Request early access - limited spots
             </Link>
 
             <Link
               href="/login"
-              className="inline-flex items-center justify-center rounded-full border border-slate-700 text-xs font-semibold tracking-[0.16em] uppercase px-6 py-3 text-slate-200 hover:border-brand hover:text-brand transition-colors"
+              className="inline-flex items-center justify-center rounded-full border border-slate-700 text-xs md:text-sm font-semibold tracking-[0.14em] uppercase px-6 py-3 text-slate-200 hover:border-brand hover:text-brand transition-colors"
             >
               Log in
             </Link>
           </div>
 
-          <div className="flex flex-wrap gap-4 text-[0.7rem] text-slate-500 pt-4">
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>9-second charting on offense and defense - live on the sideline</span>
+          <div className="grid gap-3 sm:gap-2 text-sm text-slate-400 pt-3">
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
+              <span>Chart every snap in seconds from the sideline - no re-entering data Monday morning.</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>OpenAI-powered call predictions with target 90%+ accuracy</span>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
+              <span>See next-call probabilities and stress-beaters before the opponent adjusts.</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>Game planning, season management, and player development in one place</span>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
+              <span>Run game plans, season trends, and player notes from one place across the whole staff.</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              <span>Built for both sides of the ball - OC, DC, and special teams</span>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
+              <span>Built for offense, defense, and special teams working together - not separate tools.</span>
             </div>
           </div>
         </section>
 
         {/* Right: Product preview card */}
         <section className="relative">
-          <div className="rounded-2xl border border-slate-800 bg-surface-muted/60 backdrop-blur-sm p-4 shadow-brand-card">
-            <div className="flex items-center justify-between mb-4">
+          <div className="rounded-2xl border border-slate-800 bg-surface-muted/70 backdrop-blur-sm p-5 shadow-brand-card">
+            <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <div className="relative h-8 w-12">
                   <Image
                     src="/blitziq-logo.png"
-                    alt="BlitzIQ Pro"
+                    alt="BlitzIQ Pro logo"
                     fill
                     className="object-contain"
                     priority
@@ -74,74 +71,65 @@ export default function Home() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-100">BlitzIQ Pro</p>
-                  <p className="text-[0.65rem] text-slate-500">
-                    In-game charting & prediction preview
-                  </p>
+                  <p className="text-[0.7rem] text-slate-500">Game day preview</p>
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[0.6rem] px-2 py-1 border border-emerald-500/30">
+              <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[0.65rem] px-2 py-1 border border-emerald-500/30">
                 Early access
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {/* Next call prediction */}
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
-                <p className="text-[0.7rem] text-slate-400 mb-1">
-                  Live call prediction - 3rd &amp; 6, hash right
+              <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
+                <p className="text-[0.8rem] text-slate-300 mb-1.5">
+                  Live call probability: 3rd &amp; 6, right hash
                 </p>
-                <p className="text-sm font-semibold text-slate-100">
-                  Likely play: Field-side flood concept (70% confidence)
+                <p className="text-sm font-semibold text-slate-50">
+                  Likely call: Field flood concept (70% confidence)
                 </p>
-                <p className="text-[0.7rem] text-slate-500 mt-1">
-                  Based on last 40 snaps, formation, personnel, and down-and-distance.
+                <p className="text-[0.75rem] text-slate-500 mt-1">
+                  Weighted by last 40 snaps, formation, personnel, and down/distance.
                 </p>
               </div>
 
               {/* Quick charting + adjustments */}
-              <div className="grid grid-cols-2 gap-3 text-[0.7rem]">
-                <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
-                  <p className="text-slate-400 mb-1">In-game charting</p>
-                  <p className="text-slate-100 font-medium">
-                    9s per snap avg (offense)
-                  </p>
+              <div className="grid grid-cols-2 gap-3 text-[0.8rem]">
+                <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
+                  <p className="text-slate-300 mb-1">Charting tempo</p>
+                  <p className="text-slate-100 font-semibold">~9s per snap (offense)</p>
                   <p className="text-slate-500 mt-1">
-                    Formation | motion | play family | result, all from one screen.
+                    Tag formation, motion, family, and result from one surface.
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
-                  <p className="text-slate-400 mb-1">Adjustment engine</p>
-                  <p className="text-slate-100 font-medium">
-                    3 live recommendations
-                  </p>
+                <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
+                  <p className="text-slate-300 mb-1">Adjustment cues</p>
+                  <p className="text-slate-100 font-semibold">3 live recommendations</p>
                   <p className="text-slate-500 mt-1">
-                    Suggested coverage tags, front tweaks, and call tendencies.
+                    Coverage tags, front tweaks, and likely opponent counters.
                   </p>
                 </div>
               </div>
 
               {/* Season & player context */}
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3">
-                <p className="text-[0.7rem] text-slate-400 mb-1">
-                  Season & player development
-                </p>
-                <p className="text-[0.7rem] text-slate-500">
-                  Track calls, tendencies, and player evals across the season - from
-                  camp installs to playoff prep.
+              <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
+                <p className="text-[0.8rem] text-slate-300 mb-1">Season context</p>
+                <p className="text-[0.8rem] text-slate-500">
+                  Keep game plans, tendencies, and player notes synced from camp installs through playoffs.
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3">
-              <p className="text-[0.65rem] text-slate-500">
-                Built for staffs that live in Hudl, spreadsheets, and whiteboards today.
+            <div className="mt-5 flex items-center justify-between border-t border-slate-800 pt-3.5">
+              <p className="text-[0.75rem] text-slate-500">
+                Built for staffs moving between Hudl, spreadsheets, and whiteboards today.
               </p>
               <Link
                 href="/signup"
-              className="text-[0.65rem] font-semibold text-brand hover:text-brand-soft"
-            >
-              Get early access >
-            </Link>
+                className="text-[0.75rem] font-semibold text-brand hover:text-brand-soft"
+              >
+                Request access
+              </Link>
             </div>
           </div>
         </section>
@@ -149,6 +137,4 @@ export default function Home() {
     </main>
   )
 }
-
-
 
