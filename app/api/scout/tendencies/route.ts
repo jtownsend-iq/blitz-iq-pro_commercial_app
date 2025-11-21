@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
     const res = NextResponse.json({ tendencies: data ?? [] })
-    res.headers.set('Cache-Control', 'private, max-age=30')
+    res.headers.set('Cache-Control', 'private, max-age=60')
     return res
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'

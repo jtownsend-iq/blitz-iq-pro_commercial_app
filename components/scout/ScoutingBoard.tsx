@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 type Opponent = { opponent: string | null; season: string | null }
 type ImportRow = {
@@ -89,6 +90,8 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
   const [viewName, setViewName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const baseExportParams = useMemo(() => {
     const params = new URLSearchParams()
     params.set('teamId', teamId)
@@ -103,10 +106,50 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   }, [teamId, opponent, season, phase, tagFilter, tagLogic, hashFilter, fieldBucket])
   const tendencyExportUrl = opponent && season ? `/api/scout/export/tendencies?${baseExportParams}` : ''
   const recentExportUrl = opponent && season ? `/api/scout/export/recent?${baseExportParams}` : ''
+  const clearFilters = () => {
+    setTagFilter('')
+    setTagLogic('OR')
+    setHashFilter('ALL')
+    setFieldBucket('ALL')
+    setSelectedViewId(null)
+    setViewName('')
+  }
 
-  // Server-side filtering handles tag/hash/field; client keeps arrays as-is
+  // Server-side filtering already applied; keep names for rendering
   const filteredTendencies = tendencies
   const filteredRecent = recent
+
+  // Hydrate from URL once
+  useEffect(() => {
+    const opp = searchParams.get('opponent')
+    const seas = searchParams.get('season')
+    const ph = searchParams.get('phase')
+    const tags = searchParams.get('tags')
+    const logic = searchParams.get('tagLogic')
+    const hash = searchParams.get('hash')
+    const field = searchParams.get('fieldBucket')
+    if (opp) setOpponent(opp)
+    if (seas) setSeason(seas)
+    if (ph === 'OFFENSE' || ph === 'DEFENSE' || ph === 'ALL') setPhase(ph)
+    if (tags) setTagFilter(tags)
+    if (logic === 'AND' || logic === 'OR') setTagLogic(logic)
+    if (hash) setHashFilter(hash)
+    if (field) setFieldBucket(field)
+  }, [searchParams])
+
+  // Sync URL on filter change
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set('teamId', teamId)
+    if (opponent) params.set('opponent', opponent)
+    if (season) params.set('season', season)
+    if (phase !== 'ALL') params.set('phase', phase)
+    if (tagFilter) params.set('tags', tagFilter)
+    if (tagLogic) params.set('tagLogic', tagLogic)
+    if (hashFilter !== 'ALL') params.set('hash', hashFilter)
+    if (fieldBucket !== 'ALL') params.set('fieldBucket', fieldBucket)
+    router.replace(`?${params.toString()}`)
+  }, [teamId, opponent, season, phase, tagFilter, tagLogic, hashFilter, fieldBucket, router])
 
   useEffect(() => {
     if (!opponent || !season) {
@@ -479,6 +522,13 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                     Delete view
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-xs px-2 py-1 rounded bg-slate-700 text-slate-100 hover:bg-slate-600"
+                >
+                  Clear filters
+                </button>
               </div>
               {tendencyExportUrl && (
                 <a

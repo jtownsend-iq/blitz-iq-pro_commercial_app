@@ -70,7 +70,15 @@ export async function GET(request: Request) {
 
     pdf.fontSize(16).text(`Gameplan: ${opponent} (${season})`, { underline: true })
     pdf.moveDown(0.5)
-    pdf.fontSize(10).text(`Phase: ${phase ?? 'ALL'} | Generated: ${new Date().toLocaleString()}`)
+    const filterSummary = [
+      `Phase: ${phase ?? 'ALL'}`,
+      tags ? `Tags: ${tags.join(',')}` : null,
+      hashFilter ? `Hash: ${hashFilter}` : null,
+      fieldBucket ? `Field: ${fieldBucket}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ')
+    pdf.fontSize(10).text(`${filterSummary} | Generated: ${new Date().toLocaleString()}`)
     pdf.moveDown()
 
     // Tendencies

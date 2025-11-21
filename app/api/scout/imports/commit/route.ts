@@ -96,6 +96,15 @@ export async function POST(request: Request) {
     }
     await svc.from('scout_imports').update({ status, error_log: log }).eq('id', importId)
 
+    // Refresh precomputed tendencies for this opponent/season
+    if (valid.length > 0) {
+      await svc.rpc('refresh_scout_tendencies', {
+        p_team: imp.team_id,
+        p_opponent: imp.opponent_name,
+        p_season: imp.season,
+      })
+    }
+
     const resp = NextResponse.json({
       importId,
       insertedRows: valid.length,
