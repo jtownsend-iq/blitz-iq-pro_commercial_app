@@ -48,10 +48,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const csvLines = [
       headers.join(','),
       ...(rows ?? []).map((r) => {
-        const rowNum = (r.raw_row as any)?.row_number ?? ''
+        const raw = r.raw_row as Record<string, unknown> | null
+        const rowNum = (raw?.row_number as number | string | undefined) ?? ''
         const errs = Array.isArray(r.errors) ? r.errors.join('|') : ''
-        const raw = JSON.stringify(r.raw_row || {})
-        return [rowNum, errs, raw].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')
+        const rawStr = JSON.stringify(raw || {})
+        return [rowNum, errs, rawStr].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')
       }),
     ].join('\n')
 

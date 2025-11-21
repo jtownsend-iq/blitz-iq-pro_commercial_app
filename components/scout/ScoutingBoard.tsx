@@ -62,6 +62,10 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const [opponent, setOpponent] = useState(opponents[0]?.opponent ?? '')
   const [season, setSeason] = useState(opponents[0]?.season ?? '')
   const [phase, setPhase] = useState<'OFFENSE' | 'DEFENSE' | 'ALL'>('ALL')
+  const [tagFilter, setTagFilter] = useState('')
+  const [tagLogic, setTagLogic] = useState<'AND' | 'OR'>('OR')
+  const [hashFilter, setHashFilter] = useState<string>('ALL')
+  const [fieldBucket, setFieldBucket] = useState<string>('ALL')
   const [tendencies, setTendencies] = useState<Tendency[]>([])
   const [recent, setRecent] = useState<RecentPlay[]>([])
   const [recentOffset, setRecentOffset] = useState(0)
@@ -73,6 +77,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const [uploadInfo, setUploadInfo] = useState<{ importId: string; rows: number; rowsWithErrors: number } | null>(null)
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
   const [committing, setCommitting] = useState(false)
+  const [errorCsvUrl, setErrorCsvUrl] = useState<string | null>(null)
   const tendencyExportUrl = opponent && season ? `/api/scout/export/tendencies?teamId=${encodeURIComponent(teamId)}&opponent=${encodeURIComponent(opponent)}&season=${encodeURIComponent(season)}${phase !== 'ALL' ? `&phase=${phase}` : ''}` : ''
   const recentExportUrl = opponent && season ? `/api/scout/export/recent?teamId=${encodeURIComponent(teamId)}&opponent=${encodeURIComponent(opponent)}&season=${encodeURIComponent(season)}` : ''
 
@@ -161,6 +166,11 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       const json = await resp.json()
       if (!resp.ok) throw new Error(json.error || 'Upload failed')
       setUploadInfo({ importId: json.importId, rows: json.totalRows, rowsWithErrors: json.rowsWithErrors })
+      setErrorCsvUrl(
+        json.rowsWithErrors > 0
+          ? `/api/scout/imports/${json.importId}/errors`
+          : null
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -207,6 +217,53 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
     }
   }
 
+  const filteredTendencies = useMemo(() => {
+    const tags = tagFilter
+      .split(',')
+      .map((t) => t.toLowerCase().trim())
+      .filter(Boolean)
+    return tendencies.filter((t) => {
+      const matchesHash = hashFilter === 'ALL' || (t.hash || '').toLowerCase() === hashFilter.toLowerCase()
+      const fpBucket = (() => {
+        // hash is best proxy we have; if we had field_position in RPC we would bucket that.
+        return 'ALL'
+      })()
+      const matchesField = fieldBucket === 'ALL' || fieldBucket === fpBucket
+      if (tags.length === 0) return matchesHash && matchesField
+      const rowTags = []
+      if (t.formation) rowTags.push(...t.formation.toLowerCase().split(/\s+/))
+      if (t.personnel) rowTags.push(t.personnel.toLowerCase())
+      if (t.play_family) rowTags.push(t.play_family.toLowerCase())
+      const tagMatch =
+        tagLogic === 'AND' ? tags.every((tg) => rowTags.some((rt) => rt.includes(tg))) : tags.some((tg) => rowTags.some((rt) => rt.includes(tg)))
+      return matchesHash && matchesField && tagMatch
+    })
+  }, [tendencies, tagFilter, tagLogic, hashFilter, fieldBucket])
+
+  const filteredRecent = useMemo(() => {
+    const tags = tagFilter
+      .split(',')
+      .map((t) => t.toLowerCase().trim())
+      .filter(Boolean)
+    return recent.filter((p) => {
+      const matchesHash = hashFilter === 'ALL' || (p.hash || '').toLowerCase() === hashFilter.toLowerCase()
+      const fpBucket =
+        typeof p.field_position === 'number'
+          ? p.field_position >= 80
+            ? 'RZ'
+            : p.field_position <= 20
+              ? 'BACKED_UP'
+              : 'MIDFIELD'
+          : 'ALL'
+      const matchesField = fieldBucket === 'ALL' || fieldBucket === fpBucket
+      if (tags.length === 0) return matchesHash && matchesField
+      const rowTags = Array.isArray(p.tags) ? p.tags.map((tg) => tg.toLowerCase()) : []
+      const tagMatch =
+        tagLogic === 'AND' ? tags.every((tg) => rowTags.some((rt) => rt.includes(tg))) : tags.some((tg) => rowTags.some((rt) => rt.includes(tg)))
+      return matchesHash && matchesField && tagMatch
+    })
+  }, [recent, tagFilter, tagLogic, hashFilter, fieldBucket])
+
   return (
     <div className="space-y-8">
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -236,6 +293,14 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
               <div>
                 Staged rows: {uploadInfo.rows} (with errors: {uploadInfo.rowsWithErrors})
               </div>
+              {errorCsvUrl && (
+                <a
+                  className="inline-flex text-amber-200 underline underline-offset-2"
+                  href={errorCsvUrl}
+                >
+                  Download errors CSV
+                </a>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={onPreview}
@@ -288,6 +353,40 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                 <option value="OFFENSE">Offense</option>
                 <option value="DEFENSE">Defense</option>
               </select>
+              <input
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                placeholder="Filter tags (comma)"
+                className="bg-slate-800 border border-slate-700 rounded px-3 py-1 text-slate-100"
+              />
+              <select
+                value={tagLogic}
+                onChange={(e) => setTagLogic(e.target.value as 'AND' | 'OR')}
+                className="bg-slate-800 border border-slate-700 rounded px-3 py-1 text-slate-100"
+              >
+                <option value="OR">Tags: OR</option>
+                <option value="AND">Tags: AND</option>
+              </select>
+              <select
+                value={hashFilter}
+                onChange={(e) => setHashFilter(e.target.value)}
+                className="bg-slate-800 border border-slate-700 rounded px-3 py-1 text-slate-100"
+              >
+                <option value="ALL">Hash: All</option>
+                <option value="L">Left</option>
+                <option value="M">Middle</option>
+                <option value="R">Right</option>
+              </select>
+              <select
+                value={fieldBucket}
+                onChange={(e) => setFieldBucket(e.target.value)}
+                className="bg-slate-800 border border-slate-700 rounded px-3 py-1 text-slate-100"
+              >
+                <option value="ALL">Field pos: All</option>
+                <option value="RZ">Red zone (20+)</option>
+                <option value="MIDFIELD">Midfield</option>
+                <option value="BACKED_UP">Backed up</option>
+              </select>
               {tendencyExportUrl && (
                 <a
                   href={tendencyExportUrl}
@@ -313,7 +412,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                 <h4 className="text-sm font-semibold text-slate-100">Tendencies</h4>
                 {loadingTendencies && <span className="text-[0.7rem] text-slate-500">Loading…</span>}
               </div>
-              {tendencies.length === 0 ? (
+              {filteredTendencies.length === 0 ? (
                 <p className="text-xs text-slate-500">No data yet.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -332,7 +431,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {tendencies.map((t, idx) => (
+                      {filteredTendencies.map((t, idx) => (
                         <tr key={`${t.formation}-${t.personnel}-${t.play_family}-${idx}`} className="border-t border-slate-800/70">
                           <td className="px-2 py-1">{t.down_bucket}</td>
                           <td className="px-2 py-1">{t.distance_bucket}</td>
@@ -356,10 +455,10 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                 {loadingRecent && <span className="text-[0.7rem] text-slate-500">Loading…</span>}
               </div>
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                {recent.length === 0 ? (
+                {filteredRecent.length === 0 ? (
                   <p className="text-xs text-slate-500">No recent plays yet.</p>
                 ) : (
-                  recent.map((p) => (
+                  filteredRecent.map((p) => (
                     <div key={p.id} className="rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-100">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">
