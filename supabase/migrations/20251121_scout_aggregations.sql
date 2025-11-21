@@ -4,7 +4,11 @@ create or replace function public.get_scout_tendencies(
   p_team uuid,
   p_opponent text,
   p_season text,
-  p_phase public.offense_defense default null
+  p_phase public.offense_defense default null,
+  p_tags text[] default null,
+  p_tag_logic text default 'OR',
+  p_hash text default null,
+  p_field_bucket text default null
 )
 returns table (
   formation text,
@@ -50,6 +54,41 @@ as $$
     and sp.opponent_name = p_opponent
     and coalesce(sp.season, '') = coalesce(p_season, '')
     and (p_phase is null or sp.phase = p_phase)
+    and (
+      p_hash is null
+      or lower(coalesce(sp.hash, '')) = lower(p_hash)
+    )
+    and (
+      p_field_bucket is null
+      or p_field_bucket = ''
+      or (
+        case upper(p_field_bucket)
+          when 'RZ' then sp.field_position >= 80
+          when 'BACKED_UP' then sp.field_position <= 20
+          when 'MIDFIELD' then sp.field_position between 21 and 79
+          else true
+        end
+      )
+    )
+    and (
+      p_tags is null
+      or cardinality(p_tags) = 0
+      or (
+        case when upper(coalesce(p_tag_logic, 'OR')) = 'AND'
+          then array(
+            select lower(t)
+            from unnest(coalesce(sp.tags, '{}')) t
+          ) @> array(
+            select lower(t) from unnest(p_tags) t
+          )
+          else exists (
+            select 1
+            from unnest(p_tags) t
+            where lower(t) = any(array(select lower(x) from unnest(coalesce(sp.tags, '{}')) x))
+          )
+        end
+      )
+    )
   group by 1,2,3,4,5,6
   order by samples desc nulls last, avg_gain desc;
 $$;
@@ -59,7 +98,11 @@ create or replace function public.get_scout_recent(
   p_opponent text,
   p_season text,
   p_limit int default 25,
-  p_offset int default 0
+  p_offset int default 0,
+  p_tags text[] default null,
+  p_tag_logic text default 'OR',
+  p_hash text default null,
+  p_field_bucket text default null
 )
 returns table (
   id uuid,
@@ -106,6 +149,41 @@ as $$
   where sp.team_id = p_team
     and sp.opponent_name = p_opponent
     and coalesce(sp.season, '') = coalesce(p_season, '')
+    and (
+      p_hash is null
+      or lower(coalesce(sp.hash, '')) = lower(p_hash)
+    )
+    and (
+      p_field_bucket is null
+      or p_field_bucket = ''
+      or (
+        case upper(p_field_bucket)
+          when 'RZ' then sp.field_position >= 80
+          when 'BACKED_UP' then sp.field_position <= 20
+          when 'MIDFIELD' then sp.field_position between 21 and 79
+          else true
+        end
+      )
+    )
+    and (
+      p_tags is null
+      or cardinality(p_tags) = 0
+      or (
+        case when upper(coalesce(p_tag_logic, 'OR')) = 'AND'
+          then array(
+            select lower(t)
+            from unnest(coalesce(sp.tags, '{}')) t
+          ) @> array(
+            select lower(t) from unnest(p_tags) t
+          )
+          else exists (
+            select 1
+            from unnest(p_tags) t
+            where lower(t) = any(array(select lower(x) from unnest(coalesce(sp.tags, '{}')) x))
+          )
+        end
+      )
+    )
   order by sp.created_at desc, sp.id desc
   limit greatest(p_limit, 0)
   offset greatest(p_offset, 0);

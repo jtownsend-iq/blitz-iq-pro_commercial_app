@@ -58,6 +58,14 @@ type Props = {
   imports: ImportRow[]
 }
 
+type SavedView = {
+  id: string
+  name: string
+  opponent_name: string | null
+  season: string | null
+  filters: Record<string, unknown>
+}
+
 export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const [opponent, setOpponent] = useState(opponents[0]?.opponent ?? '')
   const [season, setSeason] = useState(opponents[0]?.season ?? '')
@@ -78,10 +86,27 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
   const [committing, setCommitting] = useState(false)
   const [errorCsvUrl, setErrorCsvUrl] = useState<string | null>(null)
-  const tendencyExportUrl = opponent && season ? `/api/scout/export/tendencies?teamId=${encodeURIComponent(teamId)}&opponent=${encodeURIComponent(opponent)}&season=${encodeURIComponent(season)}${phase !== 'ALL' ? `&phase=${phase}` : ''}` : ''
-  const recentExportUrl = opponent && season ? `/api/scout/export/recent?teamId=${encodeURIComponent(teamId)}&opponent=${encodeURIComponent(opponent)}&season=${encodeURIComponent(season)}` : ''
+  const [savedViews, setSavedViews] = useState<SavedView[]>([])
+  const [viewName, setViewName] = useState('')
+  const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
+  const baseExportParams = useMemo(() => {
+    const params = new URLSearchParams()
+    params.set('teamId', teamId)
+    if (opponent) params.set('opponent', opponent)
+    if (season) params.set('season', season)
+    if (phase !== 'ALL') params.set('phase', phase)
+    if (tagFilter) params.set('tags', tagFilter)
+    if (tagLogic) params.set('tagLogic', tagLogic)
+    if (hashFilter !== 'ALL') params.set('hash', hashFilter)
+    if (fieldBucket !== 'ALL') params.set('fieldBucket', fieldBucket)
+    return params.toString()
+  }, [teamId, opponent, season, phase, tagFilter, tagLogic, hashFilter, fieldBucket])
+  const tendencyExportUrl = opponent && season ? `/api/scout/export/tendencies?${baseExportParams}` : ''
+  const recentExportUrl = opponent && season ? `/api/scout/export/recent?${baseExportParams}` : ''
 
-  const opponentKey = useMemo(() => `${opponent || 'none'}|${season || 'any'}`, [opponent, season])
+  // Server-side filtering handles tag/hash/field; client keeps arrays as-is
+  const filteredTendencies = tendencies
+  const filteredRecent = recent
 
   useEffect(() => {
     if (!opponent || !season) {
@@ -89,13 +114,22 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       setRecent([])
       return
     }
+    const params = new URLSearchParams({
+      teamId,
+      opponent,
+      season,
+    })
+    if (phase !== 'ALL') params.set('phase', phase)
+    if (tagFilter) params.set('tags', tagFilter)
+    if (tagLogic) params.set('tagLogic', tagLogic)
+    if (hashFilter !== 'ALL') params.set('hash', hashFilter)
+    if (fieldBucket !== 'ALL') params.set('fieldBucket', fieldBucket)
+
     const load = async () => {
       setLoadingTendencies(true)
       setError(null)
       try {
-        const resp = await fetch(
-          `/api/scout/tendencies?teamId=${encodeURIComponent(teamId)}&opponent=${encodeURIComponent(opponent)}&season=${encodeURIComponent(season)}${phase !== 'ALL' ? `&phase=${phase}` : ''}`
-        )
+        const resp = await fetch(`/api/scout/tendencies?${params.toString()}`)
         const json = await resp.json()
         if (!resp.ok) throw new Error(json.error || 'Failed to load tendencies')
         setTendencies(json.tendencies || [])
@@ -106,21 +140,14 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
         setLoadingTendencies(false)
       }
     }
-    load()
-  }, [opponent, season, phase, teamId, opponentKey])
-
-  useEffect(() => {
-    if (!opponent || !season) {
-      setRecent([])
-      return
-    }
-    const load = async () => {
+    const loadRecent = async () => {
       setLoadingRecent(true)
       setError(null)
       try {
-        const resp = await fetch(
-          `/api/scout/recent?teamId=${encodeURIComponent(teamId)}&opponent=${encodeURIComponent(opponent)}&season=${encodeURIComponent(season)}&limit=25&offset=0`
-        )
+        const recentParams = new URLSearchParams(params.toString())
+        recentParams.set('limit', '25')
+        recentParams.set('offset', '0')
+        const resp = await fetch(`/api/scout/recent?${recentParams.toString()}`)
         const json = await resp.json()
         if (!resp.ok) throw new Error(json.error || 'Failed to load plays')
         setRecent(json.plays || [])
@@ -134,7 +161,8 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       }
     }
     load()
-  }, [opponent, season, teamId, opponentKey])
+    loadRecent()
+  }, [opponent, season, phase, teamId, tagFilter, tagLogic, hashFilter, fieldBucket])
 
   const loadMoreRecent = async () => {
     if (recentEnd || !opponent || !season) return
@@ -217,52 +245,76 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
     }
   }
 
-  const filteredTendencies = useMemo(() => {
-    const tags = tagFilter
-      .split(',')
-      .map((t) => t.toLowerCase().trim())
-      .filter(Boolean)
-    return tendencies.filter((t) => {
-      const matchesHash = hashFilter === 'ALL' || (t.hash || '').toLowerCase() === hashFilter.toLowerCase()
-      const fpBucket = (() => {
-        // hash is best proxy we have; if we had field_position in RPC we would bucket that.
-        return 'ALL'
-      })()
-      const matchesField = fieldBucket === 'ALL' || fieldBucket === fpBucket
-      if (tags.length === 0) return matchesHash && matchesField
-      const rowTags = []
-      if (t.formation) rowTags.push(...t.formation.toLowerCase().split(/\s+/))
-      if (t.personnel) rowTags.push(t.personnel.toLowerCase())
-      if (t.play_family) rowTags.push(t.play_family.toLowerCase())
-      const tagMatch =
-        tagLogic === 'AND' ? tags.every((tg) => rowTags.some((rt) => rt.includes(tg))) : tags.some((tg) => rowTags.some((rt) => rt.includes(tg)))
-      return matchesHash && matchesField && tagMatch
-    })
-  }, [tendencies, tagFilter, tagLogic, hashFilter, fieldBucket])
+  useEffect(() => {
+    const loadViews = async () => {
+      try {
+        const resp = await fetch(`/api/scout/views?teamId=${encodeURIComponent(teamId)}`)
+        const json = await resp.json()
+        if (!resp.ok) throw new Error(json.error || 'Failed to load views')
+        setSavedViews(json.views || [])
+      } catch {
+        setSavedViews([])
+      }
+    }
+    loadViews()
+  }, [teamId])
 
-  const filteredRecent = useMemo(() => {
-    const tags = tagFilter
-      .split(',')
-      .map((t) => t.toLowerCase().trim())
-      .filter(Boolean)
-    return recent.filter((p) => {
-      const matchesHash = hashFilter === 'ALL' || (p.hash || '').toLowerCase() === hashFilter.toLowerCase()
-      const fpBucket =
-        typeof p.field_position === 'number'
-          ? p.field_position >= 80
-            ? 'RZ'
-            : p.field_position <= 20
-              ? 'BACKED_UP'
-              : 'MIDFIELD'
-          : 'ALL'
-      const matchesField = fieldBucket === 'ALL' || fieldBucket === fpBucket
-      if (tags.length === 0) return matchesHash && matchesField
-      const rowTags = Array.isArray(p.tags) ? p.tags.map((tg) => tg.toLowerCase()) : []
-      const tagMatch =
-        tagLogic === 'AND' ? tags.every((tg) => rowTags.some((rt) => rt.includes(tg))) : tags.some((tg) => rowTags.some((rt) => rt.includes(tg)))
-      return matchesHash && matchesField && tagMatch
-    })
-  }, [recent, tagFilter, tagLogic, hashFilter, fieldBucket])
+  const handleSaveView = async () => {
+    if (!viewName.trim()) return
+    const filters = {
+      phase,
+      tagFilter,
+      tagLogic,
+      hashFilter,
+      fieldBucket,
+    }
+    try {
+      const resp = await fetch('/api/scout/views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          name: viewName.trim(),
+          opponent: opponent || null,
+          season: season || null,
+          filters,
+        }),
+      })
+      const json = await resp.json()
+      if (!resp.ok) throw new Error(json.error || 'Failed to save view')
+      setViewName('')
+      // reload
+      const refresh = await fetch(`/api/scout/views?teamId=${encodeURIComponent(teamId)}`)
+      const refreshJson = await refresh.json()
+      setSavedViews(refreshJson.views || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save view')
+    }
+  }
+
+  const applyView = (view: SavedView) => {
+    setSelectedViewId(view.id)
+    if (view.opponent_name) setOpponent(view.opponent_name)
+    if (view.season) setSeason(view.season)
+    const f = (view.filters || {}) as Record<string, unknown>
+    if (typeof f.phase === 'string') setPhase(f.phase as 'OFFENSE' | 'DEFENSE' | 'ALL')
+    if (typeof f.tagFilter === 'string') setTagFilter(f.tagFilter)
+    if (f.tagLogic === 'AND' || f.tagLogic === 'OR') setTagLogic(f.tagLogic)
+    if (typeof f.hashFilter === 'string') setHashFilter(f.hashFilter)
+    if (typeof f.fieldBucket === 'string') setFieldBucket(f.fieldBucket)
+  }
+
+  const handleDeleteView = async (id: string) => {
+    try {
+      const resp = await fetch(`/api/scout/views/${id}`, { method: 'DELETE' })
+      const json = await resp.json()
+      if (!resp.ok) throw new Error(json.error || 'Failed to delete view')
+      setSavedViews((prev) => prev.filter((v) => v.id !== id))
+      if (selectedViewId === id) setSelectedViewId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete view')
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -387,6 +439,47 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                 <option value="MIDFIELD">Midfield</option>
                 <option value="BACKED_UP">Backed up</option>
               </select>
+              <div className="flex flex-wrap gap-1">
+                <input
+                  value={viewName}
+                  onChange={(e) => setViewName(e.target.value)}
+                  placeholder="Save view name"
+                  className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveView}
+                  className="text-xs px-3 py-1 rounded bg-slate-800 text-slate-100 hover:bg-slate-700"
+                >
+                  Save view
+                </button>
+                {savedViews.length > 0 && (
+                  <select
+                    className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs"
+                    value={selectedViewId || ''}
+                    onChange={(e) => {
+                      const v = savedViews.find((sv) => sv.id === e.target.value)
+                      if (v) applyView(v)
+                    }}
+                  >
+                    <option value="">Load view…</option>
+                    {savedViews.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {selectedViewId && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteView(selectedViewId)}
+                    className="text-xs px-2 py-1 rounded bg-rose-600 text-white hover:bg-rose-500"
+                  >
+                    Delete view
+                  </button>
+                )}
+              </div>
               {tendencyExportUrl && (
                 <a
                   href={tendencyExportUrl}

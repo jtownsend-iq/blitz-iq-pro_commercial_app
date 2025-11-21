@@ -43,6 +43,10 @@ export async function GET(request: Request) {
         p_opponent: opponent,
         p_season: season,
         p_phase: phase ?? null,
+        p_tags: tags,
+        p_tag_logic: tagLogic,
+        p_hash: hashFilter,
+        p_field_bucket: fieldBucket,
       }),
       supabase.rpc('get_scout_recent', {
         p_team: teamId,
@@ -50,6 +54,10 @@ export async function GET(request: Request) {
         p_season: season,
         p_limit: 100,
         p_offset: 0,
+        p_tags: tags,
+        p_tag_logic: tagLogic,
+        p_hash: hashFilter,
+        p_field_bucket: fieldBucket,
       }),
     ])
 
@@ -153,3 +161,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
+    const tagsParam = searchParams.get('tags')
+    const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
+    const hashFilter = searchParams.get('hash') || null
+    const fieldBucket = searchParams.get('fieldBucket') || null
+    const tags =
+      tagsParam && tagsParam.length
+        ? tagsParam
+            .split(',')
+            .map((t) => t.toLowerCase().trim())
+            .filter(Boolean)
+        : null

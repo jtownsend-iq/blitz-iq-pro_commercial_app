@@ -76,7 +76,14 @@ create table if not exists public.scout_plays (
 );
 
 alter table public.scout_plays
+  add column if not exists phase public.offense_defense not null default 'OFFENSE',
   add column if not exists season text,
+  add column if not exists down smallint,
+  add column if not exists distance smallint,
+  add column if not exists hash text,
+  add column if not exists field_position smallint,
+  add column if not exists quarter smallint,
+  add column if not exists time_remaining_seconds int,
   add column if not exists formation text,
   add column if not exists personnel text,
   add column if not exists front text,

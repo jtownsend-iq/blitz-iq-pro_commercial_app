@@ -30,6 +30,17 @@ export async function GET(request: Request) {
     const season = searchParams.get('season')
     const limit = Math.max(0, Math.min(200, Number(searchParams.get('limit')) || 25))
     const offset = Math.max(0, Number(searchParams.get('offset')) || 0)
+    const tagsParam = searchParams.get('tags')
+    const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
+    const hashFilter = searchParams.get('hash') || null
+    const fieldBucket = searchParams.get('fieldBucket') || null
+    const tags =
+      tagsParam && tagsParam.length
+        ? tagsParam
+            .split(',')
+            .map((t) => t.toLowerCase().trim())
+            .filter(Boolean)
+        : null
 
     if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
     if (!opponent) return NextResponse.json({ error: 'opponent is required' }, { status: 400 })
@@ -43,6 +54,10 @@ export async function GET(request: Request) {
       p_season: season,
       p_limit: limit,
       p_offset: offset,
+      p_tags: tags,
+      p_tag_logic: tagLogic,
+      p_hash: hashFilter,
+      p_field_bucket: fieldBucket,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
