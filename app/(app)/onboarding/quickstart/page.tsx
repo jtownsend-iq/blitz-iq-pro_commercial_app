@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { seedChartTags, seedPositionGroups, seedSchedule, finishQuickstart } from './actions'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { SubmitButton } from './SubmitButton'

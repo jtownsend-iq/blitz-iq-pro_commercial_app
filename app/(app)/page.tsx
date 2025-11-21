@@ -138,10 +138,10 @@ export default function Home() {
               </p>
               <Link
                 href="/signup"
-                className="text-[0.65rem] font-semibold text-brand hover:text-brand-soft"
-              >
-                Get early access ->
-              </Link>
+              className="text-[0.65rem] font-semibold text-brand hover:text-brand-soft"
+            >
+              Get early access >
+            </Link>
             </div>
           </div>
         </section>
