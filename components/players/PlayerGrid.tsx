@@ -59,15 +59,9 @@ function normalize(val?: string | null) {
 export default function PlayerGrid({
   players,
   displayTimezone,
-  notes,
-  goals,
 }: {
   players: PlayerRecord[]
   displayTimezone: string
-  notes: PlayerNote[]
-  goals: PlayerGoal[]
-  notesError?: string
-  goalsError?: string
 }) {
   const router = useRouter()
   const [search, setSearch] = useState('')
@@ -89,8 +83,17 @@ export default function PlayerGrid({
   const [actionMessage, setActionMessage] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [pending, setPending] = useState<boolean>(false)
-
-  const displayTz = displayTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+  const [notes, setNotes] = useState<PlayerNote[]>([])
+  const [goals, setGoals] = useState<PlayerGoal[]>([])
+  const [notesError, setNotesError] = useState<string | null>(null)
+  const [goalsError, setGoalsError] = useState<string | null>(null)
+  const [notesOffset, setNotesOffset] = useState(0)
+  const [goalsOffset, setGoalsOffset] = useState(0)
+  const [notesHasMore, setNotesHasMore] = useState(false)
+  const [goalsHasMore, setGoalsHasMore] = useState(false)
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [goalsLoading, setGoalsLoading] = useState(false)
+  const pageSize = 20
 
   const positions = useMemo(() => {
     const set = new Set<string>()
@@ -126,7 +129,14 @@ export default function PlayerGrid({
     })
   }, [players, search, statusFilter, positionFilter, classFilter])
 
-  const selected = filtered.find((p) => p.id === selectedId) ?? filtered[0] ?? null
+  const selectedBase = filtered.find((p) => p.id === selectedId) ?? filtered[0] ?? null
+  const [overrides, setOverrides] = useState<Record<string, Partial<PlayerRecord>>>({})
+  const selected = selectedBase
+    ? ({
+        ...selectedBase,
+        ...(overrides[selectedBase.id] ?? {}),
+      } as PlayerRecord)
+    : null
 
   useEffect(() => {
     if (!selected) return
@@ -145,62 +155,130 @@ export default function PlayerGrid({
     setErrorMessage('')
   }, [selected])
 
-  const notesByPlayer = useMemo(() => {
-    const map = new Map<string, PlayerNote[]>()
-    notes.forEach((n) => {
-      if (!map.has(n.player_id)) map.set(n.player_id, [])
-      map.get(n.player_id)!.push(n)
-    })
-    return map
-  }, [notes])
-
-  const goalsByPlayer = useMemo(() => {
-    const map = new Map<string, PlayerGoal[]>()
-    goals.forEach((g) => {
-      if (!map.has(g.player_id)) map.set(g.player_id, [])
-      map.get(g.player_id)!.push(g)
-    })
-    return map
-  }, [goals])
+  useEffect(() => {
+    let cancelled = false
+    async function fetchNotesGoals(playerId: string) {
+      if (cancelled) return
+      setNotesError(null)
+      setGoalsError(null)
+      setNotesLoading(true)
+      setGoalsLoading(true)
+      try {
+        const [notesRes, goalsRes] = await Promise.all([
+          fetch(`/api/players/${playerId}/notes?limit=${pageSize}&offset=0`),
+          fetch(`/api/players/${playerId}/goals?limit=${pageSize}&offset=0`),
+        ])
+        const notesJson = await notesRes.json()
+        const goalsJson = await goalsRes.json()
+        if (!notesRes.ok) {
+          setNotesError(notesJson.error || 'Unable to load notes')
+          setNotes([])
+          setNotesHasMore(false)
+        } else if (!cancelled) {
+          setNotes(notesJson.data ?? [])
+          setNotesOffset((notesJson.data?.length ?? 0))
+          setNotesHasMore((notesJson.data?.length ?? 0) >= pageSize)
+        }
+        if (!goalsRes.ok) {
+          setGoalsError(goalsJson.error || 'Unable to load goals')
+          setGoals([])
+          setGoalsHasMore(false)
+        } else if (!cancelled) {
+          setGoals(goalsJson.data ?? [])
+          setGoalsOffset((goalsJson.data?.length ?? 0))
+          setGoalsHasMore((goalsJson.data?.length ?? 0) >= pageSize)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setNotesError('Unable to load notes')
+          setGoalsError('Unable to load goals')
+          setNotes([])
+          setGoals([])
+          setNotesHasMore(false)
+          setGoalsHasMore(false)
+        }
+      } finally {
+        if (!cancelled) {
+          setNotesLoading(false)
+          setGoalsLoading(false)
+        }
+      }
+    }
+    if (selectedBase?.id) {
+      fetchNotesGoals(selectedBase.id)
+    } else {
+      setNotes([])
+      setGoals([])
+      setNotesHasMore(false)
+      setGoalsHasMore(false)
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [selectedBase?.id])
 
   async function handleUpdatePlayer() {
-    if (!selected) return
+    if (!selectedBase) return
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
+    const prevOverride = overrides[selectedBase.id] || undefined
     try {
       const trimmedPitch = pitchDraft.trim()
-      const pitchCount =
-        trimmedPitch === '' ? null : Number(trimmedPitch)
+      const pitchCount = trimmedPitch === '' ? null : Number(trimmedPitch)
       if (pitchCount !== null && (Number.isNaN(pitchCount) || pitchCount < 0)) {
         throw new Error('Pitch count must be a non-negative number')
+      }
+
+      const payload = {
+        playerId: selectedBase.id,
+        status: statusDraft,
+        statusReason: statusReasonDraft,
+        returnTargetDate: returnDateDraft || null,
+        pitchCount,
+        packages: packagesDraft
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        tags: tagsDraft
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        scoutTeam: scoutDraft,
       }
 
       const res = await fetch('/api/players/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playerId: selected.id,
-          status: statusDraft,
-          statusReason: statusReasonDraft,
-          returnTargetDate: returnDateDraft || null,
-          pitchCount,
-          packages: packagesDraft
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-          tags: tagsDraft
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-          scoutTeam: scoutDraft,
-        }),
+        body: JSON.stringify(payload),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to update player')
+
+      setOverrides((prev) => ({
+        ...prev,
+        [selectedBase.id]: {
+          status: payload.status,
+          status_reason: payload.statusReason,
+          return_target_date: payload.returnTargetDate,
+          pitch_count: payload.pitchCount === null ? null : payload.pitchCount,
+          packages: payload.packages,
+          tags: payload.tags,
+          scout_team: payload.scoutTeam,
+        },
+      }))
+
       setActionMessage('Player updated')
-      router.refresh()
     } catch (err) {
+      setOverrides((prev) => {
+        const next = { ...prev }
+        if (prevOverride) {
+          next[selectedBase.id] = prevOverride
+        } else {
+          delete next[selectedBase.id]
+        }
+        return next
+      })
       setErrorMessage(err instanceof Error ? err.message : 'Failed to update player')
     } finally {
       setPending(false)
@@ -208,7 +286,7 @@ export default function PlayerGrid({
   }
 
   async function handleAddNote() {
-    if (!selected) return
+    if (!selectedBase) return
     if (!noteBody.trim()) {
       setErrorMessage('Note body is required')
       return
@@ -216,12 +294,12 @@ export default function PlayerGrid({
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
+    let optimisticId: string | null = null
     try {
-      const res = await fetch('/api/players/note', {
+      const res = await fetch(`/api/players/${selectedBase.id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          playerId: selected.id,
           body: noteBody.trim(),
           tags: noteTags
             .split(',')
@@ -231,11 +309,29 @@ export default function PlayerGrid({
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to add note')
+
+      optimisticId = crypto.randomUUID()
+      setNotes((prev) => [
+        {
+          id: optimisticId,
+          player_id: selectedBase.id,
+          body: noteBody.trim(),
+          tags: noteTags
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ])
+
       setNoteBody('')
       setNoteTags('')
       setActionMessage('Note added')
-      router.refresh()
     } catch (err) {
+      if (optimisticId) {
+        setNotes((prev) => prev.filter((n) => n.id !== optimisticId))
+      }
       setErrorMessage(err instanceof Error ? err.message : 'Failed to add note')
     } finally {
       setPending(false)
@@ -243,7 +339,7 @@ export default function PlayerGrid({
   }
 
   async function handleAddGoal() {
-    if (!selected) return
+    if (!selectedBase) return
     if (!goalText.trim()) {
       setErrorMessage('Goal text is required')
       return
@@ -251,31 +347,47 @@ export default function PlayerGrid({
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
+    let optimisticId: string | null = null
     try {
-      const res = await fetch('/api/players/goal', {
+      const res = await fetch(`/api/players/${selectedBase.id}/goals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          playerId: selected.id,
           goal: goalText.trim(),
           dueDate: goalDue || null,
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to add goal')
+
+      optimisticId = crypto.randomUUID()
+      setGoals((prev) => [
+        {
+          id: optimisticId,
+          player_id: selectedBase.id,
+          goal: goalText.trim(),
+          status: 'open',
+          due_date: goalDue || null,
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ])
+
       setGoalText('')
       setGoalDue('')
       setActionMessage('Goal added')
-      router.refresh()
     } catch (err) {
+      if (optimisticId) {
+        setGoals((prev) => prev.filter((g) => g.id !== optimisticId))
+      }
       setErrorMessage(err instanceof Error ? err.message : 'Failed to add goal')
     } finally {
       setPending(false)
     }
   }
 
-  const selectedNotes = selected ? (notesByPlayer.get(selected.id) ?? []).slice(0, 3) : []
-  const selectedGoals = selected ? (goalsByPlayer.get(selected.id) ?? []).slice(0, 3) : []
+  const selectedNotes = selectedBase ? notes.filter((n) => n.player_id === selectedBase.id).slice(0, 3) : []
+  const selectedGoals = selectedBase ? goals.filter((g) => g.player_id === selectedBase.id).slice(0, 3) : []
 
   return (
     <div className="space-y-4">
@@ -339,6 +451,7 @@ export default function PlayerGrid({
               {goalsError ? <p>Goals unavailable: {goalsError}</p> : null}
             </div>
           )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((p) => {
               const status = normalize(p.status) || 'READY'
@@ -447,7 +560,7 @@ export default function PlayerGrid({
                     />
                     {returnDateDraft ? (
                       <span className="text-[0.7rem] text-slate-500">
-                        Displays in {displayTz}: {formatDate(returnDateDraft, displayTz)}
+                        Displays in {displayTimezone}: {formatDate(returnDateDraft, displayTimezone)}
                       </span>
                     ) : null}
                   </label>
@@ -548,7 +661,7 @@ export default function PlayerGrid({
                     <div className="space-y-2">
                       {selectedNotes.map((n) => (
                         <div key={n.id} className="rounded-lg border border-slate-800 bg-black/30 p-2 text-xs text-slate-200">
-                          <p className="font-semibold">{formatDate(n.created_at, displayTz)}</p>
+                          <p className="font-semibold">{formatDate(n.created_at, displayTimezone)}</p>
                           <p className="text-slate-300">{n.body}</p>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {(n.tags ?? []).map((t) => (
@@ -564,6 +677,33 @@ export default function PlayerGrid({
                       ))}
                     </div>
                   )}
+                  {notesHasMore && (
+                    <button
+                      disabled={notesLoading}
+                    onClick={async () => {
+                      setNotesLoading(true)
+                      try {
+                        const res = await fetch(
+                            `/api/players/${selectedBase?.id}/notes?limit=${pageSize}&offset=${notesOffset}`
+                          )
+                          const json = await res.json()
+                          if (!res.ok) throw new Error(json.error || 'Unable to load more notes')
+                          const data: PlayerNote[] = json.data ?? []
+                          setNotes((prev) => [...prev, ...data])
+                          setNotesOffset((prev) => prev + data.length)
+                          setNotesHasMore(data.length >= pageSize)
+                        } catch (err) {
+                          setNotesError(err instanceof Error ? err.message : 'Unable to load more notes')
+                        } finally {
+                          setNotesLoading(false)
+                        }
+                      }}
+                      className="text-xs font-semibold text-brand hover:text-brand-soft"
+                    >
+                      {notesLoading ? 'Loading…' : 'Load more notes'}
+                    </button>
+                  )}
+                  {notesError ? <p className="text-xs text-amber-400">{notesError}</p> : null}
                 </div>
 
                 <div className="space-y-2">
@@ -576,12 +716,39 @@ export default function PlayerGrid({
                         <div key={g.id} className="rounded-lg border border-slate-800 bg-black/30 p-2 text-xs text-slate-200">
                           <p className="font-semibold">{g.goal}</p>
                           <p className="text-slate-400">
-                            Status: {g.status} {g.due_date ? `• Due ${formatDate(g.due_date, displayTz)}` : ''}
+                            Status: {g.status} {g.due_date ? `• Due ${formatDate(g.due_date, displayTimezone)}` : ''}
                           </p>
                         </div>
                       ))}
                     </div>
                   )}
+                  {goalsHasMore && (
+                    <button
+                      disabled={goalsLoading}
+                    onClick={async () => {
+                      setGoalsLoading(true)
+                      try {
+                        const res = await fetch(
+                            `/api/players/${selectedBase?.id}/goals?limit=${pageSize}&offset=${goalsOffset}`
+                          )
+                          const json = await res.json()
+                          if (!res.ok) throw new Error(json.error || 'Unable to load more goals')
+                          const data: PlayerGoal[] = json.data ?? []
+                          setGoals((prev) => [...prev, ...data])
+                          setGoalsOffset((prev) => prev + data.length)
+                          setGoalsHasMore(data.length >= pageSize)
+                        } catch (err) {
+                          setGoalsError(err instanceof Error ? err.message : 'Unable to load more goals')
+                        } finally {
+                          setGoalsLoading(false)
+                        }
+                      }}
+                      className="text-xs font-semibold text-brand hover:text-brand-soft"
+                    >
+                      {goalsLoading ? 'Loading…' : 'Load more goals'}
+                    </button>
+                  )}
+                  {goalsError ? <p className="text-xs text-amber-400">{goalsError}</p> : null}
                 </div>
               </div>
 

@@ -48,7 +48,13 @@ export async function POST(request: Request) {
     const { supabase: svc } = await assertMembership(playerId, user.id)
 
     const update: Record<string, unknown> = {}
-    if (typeof body.status === 'string') update.status = body.status
+    if (typeof body.status === 'string') {
+      const statusVal = body.status.trim()
+      if (statusVal.length > 50) {
+        return NextResponse.json({ error: 'status too long (max 50 chars)' }, { status: 400 })
+      }
+      update.status = statusVal
+    }
     if (typeof body.statusReason === 'string') {
       const reason = body.statusReason.trim()
       if (reason.length > 500) {
@@ -79,8 +85,12 @@ export async function POST(request: Request) {
       return cleaned
     }
 
-    if (Array.isArray(body.packages)) update.packages = validateStringArray(body.packages, 'packages')
-    if (Array.isArray(body.tags)) update.tags = validateStringArray(body.tags, 'tags')
+    const normalizeArray = (arr: string[]) =>
+      Array.from(new Set(arr.map((s) => s.toLowerCase().trim()).filter(Boolean))).sort()
+
+    if (Array.isArray(body.packages))
+      update.packages = normalizeArray(validateStringArray(body.packages, 'packages') ?? [])
+    if (Array.isArray(body.tags)) update.tags = normalizeArray(validateStringArray(body.tags, 'tags') ?? [])
     if (typeof body.scoutTeam === 'boolean') update.scout_team = body.scoutTeam
 
     const { error } = await svc.from('players').update(update).eq('id', playerId)

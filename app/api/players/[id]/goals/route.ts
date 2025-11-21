@@ -27,7 +27,51 @@ async function assertMembership(playerId: string, userId: string) {
   return { supabase, teamId: player.team_id as string }
 }
 
-export async function POST(request: Request) {
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    const playerId = params.id
+    const { supabase: svc, teamId } = await assertMembership(playerId, user.id)
+
+    const url = new URL(request.url)
+    const limit = Math.min(Number(url.searchParams.get('limit') || '20'), 100)
+    const offset = Math.max(Number(url.searchParams.get('offset') || '0'), 0)
+
+    const { data, error } = await svc
+      .from('player_goals')
+      .select('id, player_id, goal, status, due_date, created_at')
+      .eq('team_id', teamId)
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + (limit > 0 ? limit : 20) - 1)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ ok: true, data: data ?? [] })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -40,10 +84,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const playerId: string | undefined = body.playerId
+    const playerId = params.id
     const goalText: string | undefined = body.goal
     const dueDate: string | null = body.dueDate ?? null
-    const status: string = typeof body.status === 'string' ? body.status : 'open'
+    const status: string = typeof body.status === 'string' ? body.status.trim() : 'open'
     const ownerId: string | null = typeof body.ownerId === 'string' ? body.ownerId : user.id
 
     if (!playerId || !goalText || goalText.trim().length === 0) {
@@ -53,6 +97,9 @@ export async function POST(request: Request) {
     const trimmed = goalText.trim()
     if (trimmed.length > 500) {
       return NextResponse.json({ error: 'Goal text too long (max 500 chars)' }, { status: 400 })
+    }
+    if (status.length > 50) {
+      return NextResponse.json({ error: 'Status too long (max 50 chars)' }, { status: 400 })
     }
 
     const { supabase: svc, teamId } = await assertMembership(playerId, user.id)

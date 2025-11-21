@@ -91,34 +91,25 @@ export default async function PlayersPage() {
     )
   }
 
-  const { data: notes, error: notesError } = await supabase
-    .from('player_notes')
-    .select('id, player_id, body, tags, created_at')
-    .eq('team_id', activeTeamId)
-    .order('created_at', { ascending: false })
+  let displayTimezone = DEFAULT_TIMEZONE
+  try {
+    const { data: teamSettings } = await supabase
+      .from('team_settings')
+      .select('default_timezone')
+      .eq('team_id', activeTeamId)
+      .maybeSingle()
 
-  const { data: goals, error: goalsError } = await supabase
-    .from('player_goals')
-    .select('id, player_id, goal, status, due_date, created_at')
-    .eq('team_id', activeTeamId)
-    .order('created_at', { ascending: false })
+    const { data: userTimezone } = await supabase
+      .from('users')
+      .select('timezone')
+      .eq('id', user.id)
+      .maybeSingle()
 
-  const displayTimezone =
-    (
-      await supabase
-        .from('team_settings')
-        .select('default_timezone')
-        .eq('team_id', activeTeamId)
-        .maybeSingle()
-    ).data?.default_timezone ||
-    (
-      await supabase
-        .from('users')
-        .select('timezone')
-        .eq('id', user.id)
-        .maybeSingle()
-    ).data?.timezone ||
-    DEFAULT_TIMEZONE
+    displayTimezone = teamSettings?.default_timezone || userTimezone?.timezone || DEFAULT_TIMEZONE
+  } catch (tzErr) {
+    console.error('Timezone lookup failed; using default.', tzErr)
+    displayTimezone = DEFAULT_TIMEZONE
+  }
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
@@ -133,11 +124,7 @@ export default async function PlayersPage() {
 
       <PlayerGrid
         players={players ?? []}
-        notes={notes ?? []}
-        goals={goals ?? []}
         displayTimezone={displayTimezone || DEFAULT_TIMEZONE}
-        notesError={notesError?.message}
-        goalsError={goalsError?.message}
       />
     </main>
   )
