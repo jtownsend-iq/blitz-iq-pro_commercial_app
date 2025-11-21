@@ -61,7 +61,7 @@ export default async function QuickstartPage() {
           Launch your program in minutes
         </h1>
         <p className="text-sm text-slate-400 max-w-2xl">
-          We'll seed roster groups, tags, and a sample schedule so analysts can start charting right
+          We&apos;ll seed roster groups, tags, and a sample schedule so analysts can start charting right
           away. You can refine everything later from Settings and Games.
         </p>
         <p className="text-xs text-slate-500">

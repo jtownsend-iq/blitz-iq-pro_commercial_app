@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { acceptInvite } from '../actions'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
@@ -13,7 +12,7 @@ type InviteRow = {
     | {
         name: string | null
       }
-    | { name: any }[]
+    | { name: string | null }[]
     | null
 }
 
@@ -43,7 +42,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   }
 
   const invalid = !invite
-  const now = Date.now()
+  const now = Date.parse(new Date().toISOString())
   const expiresAt = invite?.expires_at ? new Date(invite.expires_at).getTime() : 0
   const expired = expiresAt > 0 && expiresAt < now
   const used = invite?.status && invite.status !== 'pending'

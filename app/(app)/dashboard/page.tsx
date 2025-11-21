@@ -166,24 +166,6 @@ export default async function DashboardPage() {
     redirect('/onboarding/select-team')
   }
 
-  let nextGame: GameRow | null = null
-  if (activeTeam) {
-    const nowIso = new Date().toISOString()
-    const { data: gamesData, error: gamesError } = await supabase
-      .from('games')
-      .select('id, opponent_name, start_time, home_or_away, location')
-      .eq('team_id', activeTeam.id)
-      .gte('start_time', nowIso)
-      .order('start_time', { ascending: true })
-      .limit(1)
-
-    if (gamesError) {
-      console.error('Error fetching next game:', gamesError.message)
-    } else if (gamesData && gamesData.length > 0) {
-      nextGame = gamesData[0] as GameRow
-    }
-  }
-
   let sessionSummaries: SessionSummary[] = []
   let recentEvents: EventSummary[] = []
   let aiSnapshots: SnapshotRow[] = []
@@ -292,17 +274,6 @@ export default async function DashboardPage() {
       helper: 'Analysts charting now',
     },
   ]
-
-  const snapshotGroups = ['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS']
-    .map((unit) => ({
-      unit,
-      label: formatUnitLabel(unit),
-      snapshots: aiSnapshots.filter(
-        (snapshot) =>
-          (snapshot.situation?.unit as string | undefined)?.toUpperCase() === unit
-      ),
-    }))
-    .filter((group) => group.snapshots.length > 0)
 
   const quickstartNeeded =
     activeTeam &&
@@ -596,33 +567,6 @@ function formatEventTimestamp(value: string | null) {
     minute: '2-digit',
   }).format(new Date(value))
 }
-
-function formatKickoffDisplay(game: GameRow) {
-  if (!game.start_time) return 'Kickoff TBD'
-  const kickoff = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(game.start_time))
-  const location = game.location ? ` | ${game.location}` : ''
-  const homeAway = game.home_or_away?.toUpperCase() || 'TBD'
-  return `${kickoff} | ${homeAway}${location}`
-}
-
-function formatSnapshotSituation(situation: Record<string, unknown> | null) {
-  if (!situation) return 'Latest insight'
-  const parts: string[] = []
-  if (situation.down) parts.push(`Down ${situation.down}`)
-  if (situation.distance) parts.push(`${situation.distance} to go`)
-  if (situation.hash) parts.push(`${situation.hash} hash`)
-  return parts.length > 0 ? parts.join(' | ') : 'Latest insight'
-}
-
-
-
-
-
 
 
 
