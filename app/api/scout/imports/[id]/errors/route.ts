@@ -15,8 +15,10 @@ async function assertMembership(teamId: string, userId: string) {
   return supabase
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const resolved = await params
+    const importId = resolved.id
     const supabase = await createSupabaseServerClient()
     const {
       data: { user },
@@ -24,7 +26,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
     } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-    const importId = params.id
     if (!importId) return NextResponse.json({ error: 'importId is required' }, { status: 400 })
 
     const { data: imp, error: impErr } = await supabase

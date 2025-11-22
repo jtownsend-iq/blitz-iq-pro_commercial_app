@@ -15,8 +15,10 @@ async function assertMembership(teamId: string, userId: string) {
   return supabase
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const resolved = await params
+    const viewId = resolved.id
     const supabase = await createSupabaseServerClient()
     const {
       data: { user },
@@ -24,7 +26,6 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-    const viewId = params.id
     if (!viewId) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
     const { data: view, error: viewErr } = await supabase
