@@ -351,7 +351,7 @@ export default function PlayerGrid({
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
-    let optimisticId: string = crypto.randomUUID()
+    const optimisticId: string = crypto.randomUUID()
     try {
       const res = await fetch(`/api/players/${selectedBase.id}/notes`, {
         method: 'POST',
@@ -401,7 +401,7 @@ export default function PlayerGrid({
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
-    let optimisticId: string = crypto.randomUUID()
+    const optimisticId: string = crypto.randomUUID()
     try {
       const res = await fetch(`/api/players/${selectedBase.id}/goals`, {
         method: 'POST',
