@@ -169,7 +169,14 @@ export default async function GamesPage({
             </p>
           </div>
         </div>
-        <form action={createGame} className="grid gap-3 md:grid-cols-2">
+        <form
+          action={async (formData) => {
+            'use server'
+            await createGame(formData)
+            return
+          }}
+          className="grid gap-3 md:grid-cols-2"
+        >
           <label className="space-y-1 text-xs text-slate-400">
             <span className="uppercase tracking-[0.2em]">Opponent</span>
             <input
@@ -311,6 +318,7 @@ export default async function GamesPage({
                                 action={async (formData) => {
                                   'use server'
                                   await closeGameSession(formData)
+                                  return
                                 }}
                                 className="flex-1"
                               >
@@ -337,6 +345,7 @@ export default async function GamesPage({
                             action={async (formData) => {
                               'use server'
                               await startGameSession(formData)
+                              return
                             }}
                             className="space-y-2"
                           >

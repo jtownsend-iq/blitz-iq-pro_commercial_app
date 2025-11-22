@@ -593,7 +593,11 @@ export default async function SettingsPage() {
               description="Update how you appear to staff inside BlitzIQ Pro™."
             >
               <form
-                action={updateProfileIdentity}
+                action={async (formData) => {
+                  'use server'
+                  await updateProfileIdentity(formData)
+                  return
+                }}
                 className="grid gap-4 md:grid-cols-2"
               >
                 <label className="space-y-1 text-sm">
@@ -652,7 +656,14 @@ export default async function SettingsPage() {
               title="Alerts & Notifications"
               description="Choose how BlitzIQ Pro™ keeps you informed."
             >
-              <form action={updateNotificationPreferences} className="space-y-4">
+              <form
+                action={async (formData) => {
+                  'use server'
+                  await updateNotificationPreferences(formData)
+                  return
+                }}
+                className="space-y-4"
+              >
                 <div className="overflow-hidden rounded-2xl border border-slate-800">
                   <table className="min-w-full text-sm">
                     <thead className="bg-black/40 text-slate-400">
@@ -743,7 +754,14 @@ export default async function SettingsPage() {
               title="Branding & Identity"
               description="Logo, colors, and copy that appear across dashboards and exports."
             >
-              <form action={updateTeamBranding} className="space-y-4">
+              <form
+                action={async (formData) => {
+                  'use server'
+                  await updateTeamBranding(formData)
+                  return
+                }}
+                className="space-y-4"
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1 text-sm">
                     <span className="text-slate-300">Program Name</span>
@@ -825,7 +843,14 @@ export default async function SettingsPage() {
               title="Season Metadata"
               description="Control the default season context for analytics and reports."
             >
-              <form action={updateSeasonMetadata} className="grid gap-4 md:grid-cols-2">
+              <form
+                action={async (formData) => {
+                  'use server'
+                  await updateSeasonMetadata(formData)
+                  return
+                }}
+                className="grid gap-4 md:grid-cols-2"
+              >
                 <label className="space-y-1 text-sm">
                   <span className="text-slate-300">Season Year</span>
                   <input
@@ -897,7 +922,11 @@ export default async function SettingsPage() {
                               <td className="px-4 py-3">
                                 {canEdit ? (
                                   <form
-                                    action={updateStaffRole}
+                                    action={async (formData) => {
+                                      'use server'
+                                      await updateStaffRole(formData)
+                                      return
+                                    }}
                                     className="flex flex-wrap items-center gap-2"
                                   >
                                     <input type="hidden" name="member_user_id" value={member.user_id} />
@@ -927,7 +956,13 @@ export default async function SettingsPage() {
                               </td>
                               <td className="px-4 py-3">
                                 {canEdit ? (
-                                  <form action={removeStaffMember}>
+                                  <form
+                                    action={async (formData) => {
+                                      'use server'
+                                      await removeStaffMember(formData)
+                                      return
+                                    }}
+                                  >
                                     <input
                                       type="hidden"
                                       name="member_user_id"
@@ -967,7 +1002,13 @@ export default async function SettingsPage() {
                                 {invite.created_at ? formatDate(invite.created_at) : 'Recently'}
                               </p>
                           </div>
-                          <form action={cancelStaffInvite}>
+                          <form
+                            action={async (formData) => {
+                              'use server'
+                              await cancelStaffInvite(formData)
+                              return
+                            }}
+                          >
                             <input type="hidden" name="invite_id" value={invite.id} />
                             <button className="text-xs font-semibold text-amber-200">
                               Cancel
@@ -980,7 +1021,11 @@ export default async function SettingsPage() {
                 )}
 
                 <form
-                  action={inviteStaffMember}
+                  action={async (formData) => {
+                    'use server'
+                    await inviteStaffMember(formData)
+                    return
+                  }}
                   className="grid gap-3 md:grid-cols-[2fr_1fr_auto]"
                 >
                   <label className="space-y-1 text-xs text-slate-400">
@@ -1091,7 +1136,13 @@ export default async function SettingsPage() {
                               {player.class_year ?? '--'}
                             </td>
                             <td className="px-4 py-3">
-                              <form action={removeRosterPlayer}>
+                              <form
+                                action={async (formData) => {
+                                  'use server'
+                                  await removeRosterPlayer(formData)
+                                  return
+                                }}
+                              >
                                 <input type="hidden" name="player_id" value={player.id} />
                                 <button className="text-xs font-semibold text-red-400">
                                   Remove
@@ -1106,7 +1157,11 @@ export default async function SettingsPage() {
                 )}
 
                 <form
-                  action={addRosterPlayer}
+                  action={async (formData) => {
+                    'use server'
+                    await addRosterPlayer(formData)
+                    return
+                  }}
                   className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))]"
                 >
                   <label className="space-y-1 text-xs text-slate-400">
@@ -1180,7 +1235,14 @@ export default async function SettingsPage() {
               title="Positional Groupings"
               description="Drive charting templates and reporting groups."
             >
-              <form action={savePositionGroups} className="space-y-4">
+              <form
+                action={async (formData) => {
+                  'use server'
+                  await savePositionGroups(formData)
+                  return
+                }}
+                className="space-y-4"
+              >
                 <div className="space-y-3">
                   {positionGroupFormRows.map((group, index) => (
                     <div
@@ -1229,7 +1291,14 @@ export default async function SettingsPage() {
               title="Default Charting Tags"
               description="Analysts can move faster when tags match your language."
             >
-              <form action={saveDefaultChartTags} className="space-y-6">
+              <form
+                action={async (formData) => {
+                  'use server'
+                  await saveDefaultChartTags(formData)
+                  return
+                }}
+                className="space-y-6"
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2 text-sm text-slate-300">
                     <div className="flex items-center justify-between">
@@ -1338,7 +1407,14 @@ export default async function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                <form action={saveChartingThresholds} className="grid gap-3 md:grid-cols-3">
+                <form
+                  action={async (formData) => {
+                    'use server'
+                    await saveChartingThresholds(formData)
+                    return
+                  }}
+                  className="grid gap-3 md:grid-cols-3"
+                >
                   <label className="space-y-1 text-sm text-slate-300">
                     <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
                       Explosive run (yds)

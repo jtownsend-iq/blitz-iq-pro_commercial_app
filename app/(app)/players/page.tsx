@@ -2,8 +2,26 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DEFAULT_TIMEZONE } from '@/utils/timezone'
 import PlayerGrid from '@/components/players/PlayerGrid'
+import type { FC } from 'react'
 
-export default async function PlayersPage() {
+type PlayerRow = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  jersey_number: string | null
+  position: string | null
+  unit: string | null
+  class_year: number | null
+  status: string | null
+  status_reason: string | null
+  return_target_date: string | null
+  pitch_count: number | null
+  packages: string[] | null
+  scout_team: boolean | null
+  tags: string[] | null
+}
+
+const PlayersPage: FC = async () => {
   const supabase = await createSupabaseServerClient()
 
   const {
@@ -111,6 +129,11 @@ export default async function PlayersPage() {
     displayTimezone = DEFAULT_TIMEZONE
   }
 
+  const safePlayers: PlayerRow[] =
+    Array.isArray(players) && players.every((p) => p && typeof p === 'object' && 'id' in p)
+      ? (players as PlayerRow[])
+      : []
+
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
       <header className="space-y-2">
@@ -123,9 +146,11 @@ export default async function PlayersPage() {
       </header>
 
       <PlayerGrid
-        players={players ?? []}
+        players={safePlayers}
         displayTimezone={displayTimezone || DEFAULT_TIMEZONE}
       />
     </main>
   )
 }
+
+export default PlayersPage

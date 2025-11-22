@@ -83,9 +83,9 @@ export default async function QuickstartPage() {
             <StepBadge state={states.positionGroups ? 'done' : 'pending'} />
           </div>
           <form
-            action={async (formData) => {
+            action={async () => {
               'use server'
-              await seedPositionGroups(formData)
+              await seedPositionGroups()
             }}
             className="pt-1"
           >
@@ -110,9 +110,9 @@ export default async function QuickstartPage() {
             <StepBadge state={states.tags ? 'done' : 'pending'} />
           </div>
           <form
-            action={async (formData) => {
+            action={async () => {
               'use server'
-              await seedChartTags(formData)
+              await seedChartTags()
             }}
             className="pt-1"
           >
@@ -137,9 +137,9 @@ export default async function QuickstartPage() {
             <StepBadge state={states.schedule ? 'done' : 'pending'} />
           </div>
           <form
-            action={async (formData) => {
+            action={async () => {
               'use server'
-              await seedSchedule(formData)
+              await seedSchedule()
             }}
             className="pt-1"
           >

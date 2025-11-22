@@ -46,7 +46,7 @@ export default async function ScoutingPage() {
   }
 
   const [{ data: opponentsData }, { data: importsData, error: importsError }] = await Promise.all([
-    supabase.from('scout_plays').select('opponent_name, season', { distinct: true }).eq('team_id', activeTeamId),
+    supabase.from('scout_plays').select('opponent_name, season').eq('team_id', activeTeamId),
     supabase
       .from('scout_imports')
       .select('id, opponent_name, season, status, created_at, original_filename, file_hash, error_log')
@@ -56,7 +56,14 @@ export default async function ScoutingPage() {
 
   const opponents =
     opponentsData && opponentsData.length > 0
-      ? opponentsData.map((o) => ({ opponent: o.opponent_name, season: o.season }))
+      ? Array.from(
+          new Map(
+            opponentsData.map((o) => {
+              const key = `${o.opponent_name || ''}|${o.season || ''}`
+              return [key, { opponent: o.opponent_name, season: o.season }]
+            })
+          ).values()
+        )
       : [{ opponent: 'Set Opponent', season: '' }]
 
   const imports = importsData ?? []

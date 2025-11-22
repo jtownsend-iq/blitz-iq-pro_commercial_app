@@ -351,7 +351,7 @@ export default function PlayerGrid({
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
-    let optimisticId: string | null = null
+    let optimisticId: string = crypto.randomUUID()
     try {
       const res = await fetch(`/api/players/${selectedBase.id}/notes`, {
         method: 'POST',
@@ -367,7 +367,6 @@ export default function PlayerGrid({
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to add note')
 
-      optimisticId = crypto.randomUUID()
       setNotes((prev) => [
         {
           id: optimisticId,
@@ -386,9 +385,7 @@ export default function PlayerGrid({
       setNoteTags('')
       setActionMessage('Note added')
     } catch (err) {
-      if (optimisticId) {
-        setNotes((prev) => prev.filter((n) => n.id !== optimisticId))
-      }
+      setNotes((prev) => prev.filter((n) => n.id !== optimisticId))
       setErrorMessage(err instanceof Error ? err.message : 'Failed to add note')
     } finally {
       setPending(false)
@@ -404,7 +401,7 @@ export default function PlayerGrid({
     setPending(true)
     setErrorMessage('')
     setActionMessage('')
-    let optimisticId: string | null = null
+    let optimisticId: string = crypto.randomUUID()
     try {
       const res = await fetch(`/api/players/${selectedBase.id}/goals`, {
         method: 'POST',
@@ -417,7 +414,6 @@ export default function PlayerGrid({
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to add goal')
 
-      optimisticId = crypto.randomUUID()
       setGoals((prev) => [
         {
           id: optimisticId,
@@ -434,9 +430,7 @@ export default function PlayerGrid({
       setGoalDue('')
       setActionMessage('Goal added')
     } catch (err) {
-      if (optimisticId) {
-        setGoals((prev) => prev.filter((g) => g.id !== optimisticId))
-      }
+      setGoals((prev) => prev.filter((g) => g.id !== optimisticId))
       setErrorMessage(err instanceof Error ? err.message : 'Failed to add goal')
     } finally {
       setPending(false)

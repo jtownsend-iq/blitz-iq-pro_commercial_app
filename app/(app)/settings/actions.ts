@@ -848,7 +848,13 @@ export async function saveChartingThresholds(formData: FormData) {
         success_3rd_pct: DEFAULT_SUCCESS_THRESHOLDS.thirdDownPct,
         success_4th_pct: DEFAULT_SUCCESS_THRESHOLDS.fourthDownPct,
       }
-    : parsedPayload.data
+    : parsedPayload.success
+      ? parsedPayload.data
+      : undefined
+
+  if (!parsed) {
+    return { success: false, error: 'invalid_input' }
+  }
 
   const { error } = await serviceClient
     .from('charting_defaults')

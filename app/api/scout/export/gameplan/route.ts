@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     pdf.moveDown()
 
     // Tendencies
-    pdf.fontSize(12).text('Tendencies', { bold: true })
+    pdf.fontSize(12).text('Tendencies')
     pdf.moveDown(0.25)
     const tendencies =
       (tendRes.data as {
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
     }
 
     pdf.moveDown()
-    pdf.fontSize(12).text('Recent Plays', { bold: true })
+    pdf.fontSize(12).text('Recent Plays')
     pdf.moveDown(0.25)
     const plays =
       (recentRes.data as {

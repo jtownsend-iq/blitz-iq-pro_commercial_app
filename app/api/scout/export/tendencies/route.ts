@@ -36,6 +36,18 @@ export async function GET(request: NextRequest) {
 
     await assertMembership(teamId, user.id)
 
+    const tagsParam = searchParams.get('tags')
+    const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
+    const hashFilter = searchParams.get('hash') || null
+    const fieldBucket = searchParams.get('fieldBucket') || null
+    const tags =
+      tagsParam && tagsParam.length
+        ? tagsParam
+            .split(',')
+            .map((t: string) => t.toLowerCase().trim())
+            .filter(Boolean)
+        : null
+
     const { data, error } = await supabase.rpc('get_scout_tendencies', {
       p_team: teamId,
       p_opponent: opponent,
@@ -106,14 +118,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
-    const tagsParam = searchParams.get('tags')
-    const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
-    const hashFilter = searchParams.get('hash') || null
-    const fieldBucket = searchParams.get('fieldBucket') || null
-    const tags =
-      tagsParam && tagsParam.length
-        ? tagsParam
-            .split(',')
-            .map((t: string) => t.toLowerCase().trim())
-            .filter(Boolean)
-        : null
