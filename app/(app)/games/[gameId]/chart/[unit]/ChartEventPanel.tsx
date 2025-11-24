@@ -28,9 +28,53 @@ type EventRow = {
 type ChartEventPanelProps = {
   sessionId: string
   unitLabel: string
+  unit: 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'
   initialEvents: EventRow[]
   nextSequence: number
   recordAction: typeof recordChartEvent
+  offenseFormations: {
+    personnel: string
+    formation: string
+    family: string
+    aliases: string[]
+    notes: string
+  }[]
+  offensePersonnel: string[]
+  backfieldOptions: {
+    code: string
+    backs: number
+    personnelGroups: string[]
+    description: string
+  }[]
+  backfieldFamilies?: {
+    backsLabel: string
+    classification: string
+    families: string
+    defaultQBAlignment: string
+  }[]
+  defenseStructures: {
+    name: string
+    description: string
+    nuances: string
+    strategy: string
+  }[]
+  wrConcepts: {
+    name: string
+    family: string
+    summary: string
+    coverageBeater: string[]
+    qbDrop: string
+    primaryPersonnel: string[]
+    primaryFormations: string[]
+    primaryBackfield: string[]
+    routes: {
+      X?: string
+      Z?: string
+      Y?: string
+      H?: string
+      RB?: string
+    }
+  }[]
 }
 
 const quarterOptions = [1, 2, 3, 4]
@@ -48,11 +92,6 @@ const hashOptions = [
   { value: 'MIDDLE', label: 'Middle' },
   { value: 'RIGHT', label: 'Right' },
 ]
-
-const personnelOptions = ['10', '11', '12', '20', '21', '22', 'Heavy', 'Empty']
-const coverageOptions = ['Cover 1', 'Cover 2', 'Cover 3', 'Quarters', 'Zero']
-const frontOptions = ['Even', 'Odd', 'Bear', 'Mint', 'Tite']
-const pressureOptions = ['None', 'Fire Zone', 'Single Edge', 'Double Edge']
 
 const clockPattern = /^([0-5]?[0-9]):([0-5][0-9])$/
 
@@ -113,9 +152,15 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
 export function ChartEventPanel({
   sessionId,
   unitLabel,
+  unit,
   initialEvents,
   nextSequence,
   recordAction,
+  offenseFormations,
+  offensePersonnel,
+  backfieldOptions,
+  defenseStructures,
+  wrConcepts,
 }: ChartEventPanelProps) {
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
@@ -123,6 +168,23 @@ export function ChartEventPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [events, setEvents] = useState<EventRow[]>(initialEvents)
+
+  const defenseNames = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
+  const coverageOptions = Array.from(
+    new Set(
+      defenseStructures
+        .flatMap((d) => [d.name, d.strategy, d.nuances])
+        .flatMap((s) => (s ? s.split(/[,/]/).map((t) => t.trim()) : []))
+        .filter(Boolean)
+    )
+  )
+  const frontOptions = defenseNames
+  const wrConceptNames = wrConcepts.map((c) => c.name)
+  const offenseFormationsUnique = Array.from(
+    new Map(
+      offenseFormations.map((f) => [`${f.personnel}|${f.formation}`, f])
+    ).values()
+  )
 
   const upsertEvent = useCallback((newEvent: EventRow) => {
     setEvents((prev) => {
@@ -265,45 +327,133 @@ export function ChartEventPanel({
             </label>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-xs text-slate-400">
-              <span className="uppercase tracking-[0.2em]">Offensive personnel</span>
-              <input
-                list="personnelOptions"
-                name="offensivePersonnel"
-                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-xs text-slate-400">
-              <span className="uppercase tracking-[0.2em]">Defensive personnel</span>
-              <input
-                name="defensivePersonnel"
-                placeholder="Nickel"
-                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-          </div>
+          {unit === 'OFFENSE' ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Offensive personnel</span>
+                  <select
+                    name="offensivePersonnel"
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Select personnel
+                    </option>
+                    {offensePersonnel.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Formation</span>
+                  <select
+                    name="formation"
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Select formation
+                    </option>
+                    {offenseFormationsUnique.map((f, idx) => (
+                      <option key={`${f.personnel}-${f.formation}-${idx}`} value={f.formation}>
+                        {f.formation} ({f.personnel}p{f.family ? ` • ${f.family}` : ''})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-xs text-slate-400">
-              <span className="uppercase tracking-[0.2em]">Formation / Front</span>
-              <input
-                list="frontOptions"
-                name="formation"
-                placeholder="Trips Right / Even"
-                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-xs text-slate-400">
-              <span className="uppercase tracking-[0.2em]">Coverage / Pressure</span>
-              <input
-                list="coverageOptions"
-                name="coverage"
-                placeholder="Cover 6 / Fire Zone"
-                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-          </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Backfield</span>
+                  <select
+                    name="backfield"
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Select backfield
+                    </option>
+                    {backfieldOptions.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.code} ({b.backs} backs)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">WR concept</span>
+                  <select
+                    name="wrConcept"
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Select concept
+                    </option>
+                    {wrConcepts.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name} ({c.family || 'concept'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Defensive structure</span>
+                  <select
+                    name="formation"
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Select structure
+                    </option>
+                    {defenseStructures.map((d) => (
+                      <option key={d.name} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Coverage</span>
+                  <input
+                    list="coverageOptions"
+                    name="coverage"
+                    placeholder="Cover 3, Quarters, etc."
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Pressure / Front</span>
+                  <input
+                    list="frontOptions"
+                    name="front"
+                    placeholder="Even, Odd, Bear, Mint, etc."
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">Defensive personnel</span>
+                  <input
+                    name="defensivePersonnel"
+                    placeholder="Nickel, Dime, etc."
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+              </div>
+            </>
+          )}
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-xs text-slate-400">
@@ -375,11 +525,6 @@ export function ChartEventPanel({
           </div>
         </form>
 
-        <datalist id="personnelOptions">
-          {personnelOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
         <datalist id="coverageOptions">
           {coverageOptions.map((option) => (
             <option key={option} value={option} />
@@ -390,8 +535,8 @@ export function ChartEventPanel({
             <option key={option} value={option} />
           ))}
         </datalist>
-        <datalist id="pressureOptions">
-          {pressureOptions.map((option) => (
+        <datalist id="wrConceptOptions">
+          {wrConceptNames.map((option) => (
             <option key={option} value={option} />
           ))}
         </datalist>

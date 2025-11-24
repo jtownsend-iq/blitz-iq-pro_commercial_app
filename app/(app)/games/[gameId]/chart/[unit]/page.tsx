@@ -3,6 +3,14 @@ import { redirect, notFound } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { closeGameSession, recordChartEvent } from '../../../chart-actions'
 import { ChartEventPanel } from './ChartEventPanel'
+import {
+  getOffenseFormations,
+  getOffensePersonnelCodes,
+  getBackfieldOptions,
+  getBackfieldFamiliesAsync,
+} from '@/lib/dictionaries/offense'
+import { getDefenseStructuresAsync } from '@/lib/dictionaries/defense'
+import { getWRConcepts } from '@/lib/dictionaries/wrConcepts'
 
 type GameRow = {
   id: string
@@ -178,9 +186,16 @@ export default async function ChartUnitPage({
         <ChartEventPanel
           sessionId={session.id}
           unitLabel={unitLabel}
+          unit={unitParam as 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'}
           initialEvents={events}
           nextSequence={nextSequence}
           recordAction={recordChartEvent}
+          offenseFormations={getOffenseFormations()}
+          offensePersonnel={getOffensePersonnelCodes()}
+          backfieldOptions={getBackfieldOptions()}
+          backfieldFamilies={await getBackfieldFamiliesAsync()}
+          defenseStructures={await getDefenseStructuresAsync()}
+          wrConcepts={getWRConcepts()}
         />
       )}
     </section>
