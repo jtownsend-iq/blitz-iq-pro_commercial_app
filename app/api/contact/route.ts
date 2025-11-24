@@ -6,60 +6,80 @@ type Plan = 'Elite' | 'Standard'
 
 const allowedIntents: Intent[] = ['elite_availability', 'demo_deck', 'call_request']
 const allowedPlans: Plan[] = ['Elite', 'Standard']
+const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+type ContactPayload = {
+  name: string
+  role: string
+  school: string
+  state: string
+  classification: string
+  region: string
+  email: string
+  plan: Plan
+  intent: Intent
+}
+
+function badRequest(message: string) {
+  return NextResponse.json({ error: message }, { status: 400 })
+}
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>
-    const {
-      name,
-      role,
-      school,
-      state,
-      classification,
-      region,
-      email,
-      plan,
-      intent,
-    } = body
 
-    const requiredFields: Array<[string, unknown]> = [
-      ['name', name],
-      ['role', role],
-      ['school', school],
-      ['state', state],
-      ['classification', classification],
-      ['region', region],
-      ['email', email],
-    ]
+    const fields: Record<keyof ContactPayload, unknown> = {
+      name: body.name,
+      role: body.role,
+      school: body.school,
+      state: body.state,
+      classification: body.classification,
+      region: body.region,
+      email: body.email,
+      plan: body.plan,
+      intent: body.intent,
+    }
 
-    for (const [key, value] of requiredFields) {
+    for (const [key, value] of Object.entries(fields)) {
       if (typeof value !== 'string' || !value.trim()) {
-        return NextResponse.json({ error: `${key} is required` }, { status: 400 })
+        return badRequest(`${key} is required`)
       }
     }
 
-    const normalizedPlan =
-      typeof plan === 'string' && allowedPlans.includes(plan as Plan) ? (plan as Plan) : 'Standard'
-    const normalizedIntent =
-      typeof intent === 'string' && allowedIntents.includes(intent as Intent)
-        ? (intent as Intent)
-        : 'demo_deck'
+    const trimmed = Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, (value as string).trim()])
+    ) as Record<keyof ContactPayload, string>
+
+    if (!emailPattern.test(trimmed.email)) {
+      return badRequest('Enter a valid email address.')
+    }
+
+    const normalizedPlan = trimmed.plan as Plan
+    const normalizedIntent = trimmed.intent as Intent
+
+    if (!allowedPlans.includes(normalizedPlan)) {
+      return badRequest('Invalid plan.')
+    }
+
+    if (!allowedIntents.includes(normalizedIntent)) {
+      return badRequest('Invalid intent.')
+    }
 
     const service = createSupabaseServiceRoleClient()
     const { error } = await service.from('marketing_leads').insert({
-      name: (name as string).trim(),
-      role: (role as string).trim(),
-      school: (school as string).trim(),
-      state: (state as string).trim(),
-      classification: (classification as string).trim(),
-      region: (region as string).trim(),
-      email: (email as string).trim(),
+      name: trimmed.name,
+      role: trimmed.role,
+      school: trimmed.school,
+      state: trimmed.state,
+      classification: trimmed.classification,
+      region: trimmed.region,
+      email: trimmed.email,
       plan: normalizedPlan,
       intent: normalizedIntent,
     })
 
     if (error) {
-      console.error('Contact submission error:', error.message)
+      console.error('Contact submission error:', { message: error.message, code: error.code })
       return NextResponse.json({ error: 'Failed to record your request.' }, { status: 500 })
     }
 

@@ -131,11 +131,14 @@ export function TopNav({ navItems }: TopNavProps) {
 }
 
 export function Footer() {
+  const currentYear = new Date().getFullYear()
+  const copyrightSymbol = '\u00A9'
+
   return (
-    <footer className="border-t border-slate-800 bg-black/70">
+    <footer className="border-t border-slate-800 bg-black/70" aria-label="BlitzIQ Pro footer">
       <div className="max-w-6xl mx-auto px-4 py-3 text-[0.7rem] text-slate-500 flex justify-between items-center">
         <span>
-          © {new Date().getFullYear()} Trips Right, LLC. All rights reserved.
+          {copyrightSymbol} {currentYear} Trips Right, LLC. All rights reserved.
         </span>
         <span className="text-slate-400">BlitzIQ Pro™</span>
       </div>
