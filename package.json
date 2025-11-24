@@ -9,14 +9,15 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:integration": "node --test tests/integration/*.test.mjs"
+    "test:integration": "node --test tests/integration/*.test.mjs",
+    "test:smoke": "playwright test"
   },
   "dependencies": {
-    "openai": "^4.68.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.83.0",
     "csv-parse": "^5.6.0",
     "next": "16.0.3",
+    "openai": "^4.68.0",
     "pdfkit": "^0.15.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -29,16 +30,18 @@
     }
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
-    "rimraf": "^5.0.10",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdfkit": "^0.17.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/pdfkit": "^0.17.3",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
+    "rimraf": "^5.0.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@playwright/test": "^1.50.1"
   }
 }

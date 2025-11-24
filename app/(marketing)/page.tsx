@@ -50,9 +50,7 @@ const contactFields: ContactField[] = [
       { label: 'Analyst', value: 'Analyst' },
       { label: 'Quality Control', value: 'Quality Control' },
       { label: 'Assistant Coach', value: 'Assistant Coach' },
-      { label: 'Athletic Director', value: 'Athletic Director' },
-      { label: 'Operations', value: 'Operations' },
-      { label: 'Other Staff', value: 'Other Staff' },
+      { label: 'Other Coach', value: 'Other Coach' },
     ],
   },
   {
@@ -319,13 +317,21 @@ export default function Home() {
               </button>
             ))}
           </nav>
-          <button
-            type="button"
-            onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
-            className="rounded-full bg-brand px-4 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60"
-          >
-            Check Elite availability
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="hidden sm:inline-flex items-center justify-center rounded-full border border-slate-700 px-3 py-2 text-[0.8rem] font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/50"
+            >
+              Login
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
+              className="rounded-full bg-brand px-4 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60"
+            >
+              Check Elite availability
+            </button>
+          </div>
         </div>
         <div className="md:hidden border-t border-slate-900/60 bg-black/80">
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto text-[0.7rem] uppercase tracking-[0.18em] text-slate-300">
@@ -346,6 +352,12 @@ export default function Home() {
                 {item.label}
               </button>
             ))}
+            <Link
+              href="/login"
+              className="rounded-full px-3 py-2 bg-slate-900/60 text-slate-200 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-[40px]"
+            >
+              Login
+            </Link>
           </div>
         </div>
       </header>
@@ -365,10 +377,9 @@ export default function Home() {
                 Make the call everyone else wishes they had.
               </h1>
               <p className="text-base md:text-lg text-slate-300 leading-relaxed">
-                Analyst in the box tags each snap in about 10 seconds and feeds the sideline before money
-                downs. See next-call odds before they break the huddle, and keep the staff aligned from
-                Friday through Tuesday install. Elite Sideline is one per region; Standard covers everyone
-                else.
+                Analyst in the box tags each snap in ~10 seconds and feeds the sideline before money downs.
+                See next-call odds before they break the huddle, and keep the staff aligned from Friday
+                through Tuesday install. Elite Sideline is one per region; Standard covers everyone else.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -654,11 +665,9 @@ export default function Home() {
             <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-500">
               Security, trust, and multi-tenant control
             </p>
-            <h2 className="text-2xl font-semibold text-slate-50">
-              Built for ADs, district leads, and serious staffs
-            </h2>
+            <h2 className="text-2xl font-semibold text-slate-50">Built for HC/OC/DC/ST/Analyst</h2>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Tenant isolation with RLS, role-based access for HC/OC/DC/ST/Analyst/AD, audited actions,
+              Tenant isolation with RLS, role-based access for HC/OC/DC/ST/Analyst, audited actions,
               backup/export paths, and SSO/SAML on deck. Uptime SLAs and support match your season calendar.
             </p>
             <div className="grid gap-2">
