@@ -8,7 +8,7 @@ type GameRow = {
   id: string
   opponent_name: string | null
   start_time: string | null
-  home_or_away: string | null
+  home_away: string | null
   location: string | null
   season_label: string | null
   team_id: string
@@ -37,8 +37,10 @@ const unitLabels: Record<string, string> = {
 export default async function ChartUnitPage({
   params,
 }: {
-  params: { gameId: string; unit: string }
+  params: Promise<{ gameId: string; unit: string }>
 }) {
+  const resolvedParams = await params
+  const { gameId, unit } = resolvedParams
   const supabase = await createSupabaseServerClient()
 
   const {
@@ -66,17 +68,15 @@ export default async function ChartUnitPage({
     redirect('/onboarding/team')
   }
 
-  const unitParam = params.unit.toUpperCase()
-  if (!['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS'].includes(unitParam)) {
+  const unitParam = unit?.toUpperCase()
+  if (!unitParam || !['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS'].includes(unitParam)) {
     notFound()
   }
 
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .select(
-      'id, opponent_name, start_time, home_or_away, location, season_label, team_id'
-    )
-    .eq('id', params.gameId)
+    .select('id, opponent_name, start_time, home_away, location, season_label, team_id')
+    .eq('id', gameId)
     .maybeSingle()
 
   if (gameError || !game) {
@@ -105,7 +105,7 @@ export default async function ChartUnitPage({
     return (
       <section className="space-y-4">
         <p className="text-sm text-slate-400">
-          No {unitLabels[params.unit.toLowerCase()] || unitParam} session exists for this game. Start
+          No {unitLabels[unit.toLowerCase()] || unitParam} session exists for this game. Start
           one from{' '}
           <Link href="/games" className="text-brand underline">
             the games page
@@ -131,10 +131,10 @@ export default async function ChartUnitPage({
 
   const events: EventRow[] = (eventData as EventRow[] | null) ?? []
   const nextSequence = (events[0]?.sequence ?? 0) + 1
-  const unitLabel =
-    unitLabels[params.unit.toLowerCase()] || unitParam.replace('_', ' ')
+  const unitLabel = unitLabels[unit.toLowerCase()] || unitParam.replace('_', ' ')
 
-  const closeGameSessionAction = async (formData: FormData) => {
+  const closeSession = async (formData: FormData) => {
+    'use server'
     await closeGameSession(formData)
   }
 
@@ -160,7 +160,7 @@ export default async function ChartUnitPage({
             Back to games
           </Link>
           {session.status === 'active' && (
-            <form action={closeGameSessionAction}>
+            <form action={closeSession}>
               <input type="hidden" name="sessionId" value={session.id} />
               <button className="rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-300 hover:border-slate-400">
                 Close session
@@ -189,7 +189,7 @@ export default async function ChartUnitPage({
 
 function formatKickoffLabel(game: GameRow) {
   const kickoff = formatDate(game.start_time)
-  const status = game.home_or_away ? game.home_or_away.toUpperCase() : 'TBD'
+  const status = game.home_away ? game.home_away.toUpperCase() : 'TBD'
   return `${kickoff} | ${status} | ${game.location || 'Venue TBD'}`
 }
 

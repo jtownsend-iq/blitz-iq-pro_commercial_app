@@ -8,7 +8,7 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/u
 const createGameSchema = z.object({
   opponent_name: z.string().min(1, 'Opponent is required').max(200),
   start_time: z.string().min(1, 'Start time is required'),
-  home_or_away: z.string().max(20).optional(),
+  home_away: z.enum(['HOME', 'AWAY']),
   location: z.string().max(200).optional(),
   season_label: z.string().max(150).optional(),
 })
@@ -51,7 +51,7 @@ export async function createGame(formData: FormData) {
   const parsed = createGameSchema.safeParse({
     opponent_name: formData.get('opponent_name'),
     start_time: formData.get('start_time'),
-    home_or_away: formData.get('home_or_away'),
+    home_away: formData.get('home_away'),
     location: formData.get('location'),
     season_label: formData.get('season_label'),
   })
@@ -61,6 +61,7 @@ export async function createGame(formData: FormData) {
   }
 
   const gameData = parsed.data
+  const normalizedHomeAway = gameData.home_away.toUpperCase() as 'HOME' | 'AWAY'
   const startTimeDate = new Date(gameData.start_time)
   if (Number.isNaN(startTimeDate.getTime())) {
     redirect('/games?error=invalid_game')
@@ -72,7 +73,8 @@ export async function createGame(formData: FormData) {
     opponent_name: gameData.opponent_name,
     start_time: startTimeDate.toISOString(),
     date: startDateIso,
-    home_or_away: gameData.home_or_away || null,
+    home_away: normalizedHomeAway,
+    home_or_away: normalizedHomeAway, // keep both columns in sync
     location: gameData.location || null,
     season_label: gameData.season_label || null,
     status: 'scheduled',
@@ -80,8 +82,12 @@ export async function createGame(formData: FormData) {
 
   if (insertError) {
     console.error('createGame insert error:', insertError.message)
-    const reason = encodeURIComponent(insertError.message ?? 'unknown')
-    redirect(`/games?error=create_failed&reason=${reason}`)
+    const isHomeAwayConstraint =
+      insertError.code === '23514' && insertError.message.toLowerCase().includes('home_away')
+    const reason = isHomeAwayConstraint
+      ? 'Select Home or Away to create the game.'
+      : insertError.message ?? 'unknown'
+    redirect(`/games?error=create_failed&reason=${encodeURIComponent(reason)}`)
   }
 
   revalidatePath('/games')

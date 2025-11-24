@@ -30,7 +30,7 @@ type GameRow = {
   id: string
   opponent_name: string | null
   start_time: string | null
-  home_or_away: string | null
+  home_away: string | null
   location: string | null
   season_label: string | null
   status: string | null
@@ -79,7 +79,7 @@ export default async function GamesPage({
 
   const { data: gamesData, error: gamesError } = await supabase
     .from('games')
-    .select('id, opponent_name, start_time, home_or_away, location, season_label, status')
+    .select('id, opponent_name, start_time, home_away, location, season_label, status')
     .eq('team_id', activeTeamId)
     .order('start_time', { ascending: false })
 
@@ -198,12 +198,18 @@ export default async function GamesPage({
           </label>
           <label className="space-y-1 text-xs text-slate-400">
             <span className="uppercase tracking-[0.2em]">Home / Away</span>
-            <input
-              type="text"
-              name="home_or_away"
-              placeholder="Home or Away"
+            <select
+              name="home_away"
+              required
               className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Select home/away
+              </option>
+              <option value="HOME">Home</option>
+              <option value="AWAY">Away</option>
+            </select>
           </label>
           <label className="space-y-1 text-xs text-slate-400">
             <span className="uppercase tracking-[0.2em]">Location</span>
@@ -266,7 +272,7 @@ export default async function GamesPage({
                   <p className="text-sm text-slate-400">
                     {[
                       formatKickoff(game.start_time),
-                      game.home_or_away ? game.home_or_away.toUpperCase() : null,
+                      game.home_away ? game.home_away.toUpperCase() : null,
                       game.location || 'Venue TBD',
                     ]
                       .filter(Boolean)
