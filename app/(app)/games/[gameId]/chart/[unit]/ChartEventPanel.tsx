@@ -230,12 +230,15 @@ export function ChartEventPanel({
     if (!checked) setMotionType('NONE')
   }
 
-  const upsertEvent = useCallback((newEvent: EventRow) => {
-    setEvents((prev) => {
-      const filtered = prev.filter((event) => event.id !== newEvent.id)
-      return [newEvent, ...filtered].slice(0, 50)
-    })
-  }, [])
+  const upsertEvent = useCallback(
+    (newEvent: EventRow) => {
+      setEvents((prev) => {
+        const filtered = prev.filter((event) => event.id !== newEvent.id)
+        return [newEvent, ...filtered].slice(0, 50)
+      })
+    },
+    [setEvents]
+  )
 
   useChartRealtime({
     sessionId,

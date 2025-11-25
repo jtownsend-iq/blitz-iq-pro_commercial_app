@@ -27,8 +27,8 @@ export function getOffenseFormations(): OffenseFormation[] {
   }) as Record<string, string>[]
 
   const mapped = records.map((row) => {
+    const personnel = row['Personnel'] ?? row['﻿Personnel'] ?? ''
     const formation = row['Formation'] ?? ''
-    const personnel = row['Personnel'] ?? ''
     const aliases = (row['Other_Used_Names'] ?? '')
       .split(';')
       .flatMap((s) => s.split(','))
