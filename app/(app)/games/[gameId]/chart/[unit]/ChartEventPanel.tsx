@@ -1,13 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import {
-  FormEvent,
-  useCallback,
-  useRef,
-  useState,
-  useTransition,
-} from 'react'
+import { FormEvent, useCallback, useRef, useState, useTransition } from 'react'
 import type { recordChartEvent } from '../../../chart-actions'
 import { useChartRealtime } from './hooks/useChartRealtime'
 
@@ -159,6 +153,7 @@ export function ChartEventPanel({
   offenseFormations,
   offensePersonnel,
   backfieldOptions,
+  backfieldFamilies = [],
   defenseStructures,
   wrConcepts,
 }: ChartEventPanelProps) {
@@ -168,6 +163,13 @@ export function ChartEventPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [events, setEvents] = useState<EventRow[]>(initialEvents)
+  const [selectedPersonnel, setSelectedPersonnel] = useState<string>('')
+  const [selectedFormation, setSelectedFormation] = useState<string>('')
+  const [selectedBackfield, setSelectedBackfield] = useState<string>('')
+  const [selectedWRConcept, setSelectedWRConcept] = useState<string>('')
+  const [qbAlignment, setQbAlignment] = useState<string>('UNDER_CENTER')
+  const [motionType, setMotionType] = useState<string>('NONE')
+  const [hasMotion, setHasMotion] = useState<boolean>(false)
 
   const defenseNames = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
   const coverageOptions = Array.from(
@@ -185,6 +187,47 @@ export function ChartEventPanel({
       offenseFormations.map((f) => [`${f.personnel}|${f.formation}`, f])
     ).values()
   )
+  const filteredFormations =
+    selectedPersonnel && selectedPersonnel.length > 0
+      ? offenseFormationsUnique.filter((f) => f.personnel === selectedPersonnel)
+      : offenseFormationsUnique
+
+  const selectedBackfieldMeta = selectedBackfield
+    ? backfieldOptions.find((b) => b.code === selectedBackfield)
+    : null
+  const selectedBackfieldFamily =
+    selectedBackfieldMeta && backfieldFamilies.length > 0
+      ? (backfieldFamilies.find((f: { backsLabel: string }) =>
+          f.backsLabel.startsWith(`${selectedBackfieldMeta.backs}`)
+        )?.classification ??
+          selectedBackfieldMeta.description)
+      : selectedBackfieldMeta?.description || ''
+  const selectedQBAlignment =
+    selectedBackfieldMeta && backfieldFamilies.length > 0
+      ? (backfieldFamilies
+          .find((f: { backsLabel: string }) => f.backsLabel.startsWith(`${selectedBackfieldMeta.backs}`))
+          ?.defaultQBAlignment.toUpperCase()
+          .replace(/\s+\/\s+/g, '_') || 'UNDER_CENTER')
+      : selectedBackfieldMeta?.description.toUpperCase().includes('SHOTGUN')
+      ? 'SHOTGUN'
+      : selectedBackfieldMeta?.description.toUpperCase().includes('PISTOL')
+      ? 'PISTOL'
+      : 'UNDER_CENTER'
+  const qbAlignmentValue = qbAlignment || selectedQBAlignment
+  const selectedWRConceptMeta = selectedWRConcept
+    ? wrConcepts.find((c) => c.name === selectedWRConcept)
+    : null
+
+  const handleMotionToggle = (checked: boolean) => {
+    setHasMotion(checked)
+    if (checked) {
+      if (motionType === 'NONE') {
+        setMotionType('JET')
+      }
+    } else {
+      setMotionType('NONE')
+    }
+  }
 
   const upsertEvent = useCallback((newEvent: EventRow) => {
     setEvents((prev) => {
@@ -216,6 +259,16 @@ export function ChartEventPanel({
     if (clock && !clockPattern.test(clock)) {
       setErrorMessage('Clock must be formatted MM:SS (e.g., 12:34).')
       return
+    }
+    if (unit === 'OFFENSE') {
+      if (!formData.get('offensive_personnel_code')) {
+        setErrorMessage('Offensive personnel is required.')
+        return
+      }
+      if (!formData.get('offensive_formation_code')) {
+        setErrorMessage('Offensive formation is required.')
+        return
+      }
     }
 
     const optimisticEvent = buildOptimisticEvent(formData, sequenceCounter)
@@ -333,9 +386,10 @@ export function ChartEventPanel({
                 <label className="space-y-1 text-xs text-slate-400">
                   <span className="uppercase tracking-[0.2em]">Offensive personnel</span>
                   <select
-                    name="offensivePersonnel"
+                    name="offensive_personnel_code"
                     className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                     defaultValue=""
+                    onChange={(e) => setSelectedPersonnel(e.target.value)}
                   >
                     <option value="" disabled>
                       Select personnel
@@ -347,49 +401,85 @@ export function ChartEventPanel({
                     ))}
                   </select>
                 </label>
+                <input type="hidden" name="offensivePersonnel" value={selectedPersonnel} />
+                {selectedPersonnel && (
+                  <p className="text-[0.7rem] text-slate-500">
+                    Personnel code: {selectedPersonnel}
+                  </p>
+                )}
                 <label className="space-y-1 text-xs text-slate-400">
                   <span className="uppercase tracking-[0.2em]">Formation</span>
                   <select
-                    name="formation"
+                    name="offensive_formation_code"
                     className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select formation
-                    </option>
-                    {offenseFormationsUnique.map((f, idx) => (
-                      <option key={`${f.personnel}-${f.formation}-${idx}`} value={f.formation}>
-                        {f.formation} ({f.personnel}p{f.family ? ` • ${f.family}` : ''})
-                      </option>
-                    ))}
+                defaultValue=""
+                onChange={(e) => setSelectedFormation(e.target.value)}
+              >
+                <option value="" disabled>
+                  Select formation
+                </option>
+                {(filteredFormations.length > 0 ? filteredFormations : offenseFormationsUnique).map((f, idx) => (
+                  <option key={`${f.personnel}-${f.formation}-${idx}`} value={f.formation}>
+                    {f.formation} ({f.personnel}p{f.family ? ` • ${f.family}` : ''})
+                  </option>
+                ))}
                   </select>
                 </label>
+                <input type="hidden" name="formation" value={selectedFormation} />
+                {selectedFormation && (
+                  <p className="text-[0.7rem] text-slate-500">
+                    {offenseFormations.find((f) => f.formation === selectedFormation)?.notes || ''}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-1 text-xs text-slate-400">
                   <span className="uppercase tracking-[0.2em]">Backfield</span>
                   <select
-                    name="backfield"
+                    name="backfield_code"
                     className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                     defaultValue=""
+                    onChange={(e) => setSelectedBackfield(e.target.value)}
                   >
                     <option value="" disabled>
                       Select backfield
                     </option>
-                    {backfieldOptions.map((b) => (
-                      <option key={b.code} value={b.code}>
-                        {b.code} ({b.backs} backs)
-                      </option>
-                    ))}
+                {backfieldOptions.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.code} ({b.backs} backs)
+                  </option>
+                ))}
                   </select>
                 </label>
+                <input type="hidden" name="backs_count" value={selectedBackfieldMeta?.backs ?? ''} />
+                <input type="hidden" name="backfield_family" value={selectedBackfieldFamily} />
+                <input type="hidden" name="backfield_variant" value={selectedBackfield || ''} />
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">QB alignment</span>
+                  <select
+                    name="qb_alignment"
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                value={qbAlignmentValue}
+                onChange={(e) => setQbAlignment(e.target.value)}
+              >
+                <option value="UNDER_CENTER">Under center</option>
+                <option value="SHOTGUN">Shotgun</option>
+                <option value="PISTOL">Pistol</option>
+                    <option value="DIRECT_SNAP">Direct snap</option>
+                  </select>
+                </label>
+                <input type="hidden" name="hback_role" value={selectedBackfieldMeta ? 'NONE' : ''} />
+                {selectedBackfieldMeta && (
+                  <p className="text-[0.7rem] text-slate-500">{selectedBackfieldMeta.description}</p>
+                )}
                 <label className="space-y-1 text-xs text-slate-400">
                   <span className="uppercase tracking-[0.2em]">WR concept</span>
                   <select
-                    name="wrConcept"
+                    name="wr_concept_code"
                     className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                     defaultValue=""
+                    onChange={(e) => setSelectedWRConcept(e.target.value)}
                   >
                     <option value="" disabled>
                       Select concept
@@ -400,6 +490,79 @@ export function ChartEventPanel({
                       </option>
                     ))}
                   </select>
+                </label>
+                <input type="hidden" name="wr_concept_family" value={selectedWRConceptMeta?.family || ''} />
+                <input type="hidden" name="route_tag_x" value={selectedWRConceptMeta?.routes.X || ''} />
+                <input type="hidden" name="route_tag_z" value={selectedWRConceptMeta?.routes.Z || ''} />
+                <input type="hidden" name="route_tag_y" value={selectedWRConceptMeta?.routes.Y || ''} />
+                <input type="hidden" name="route_tag_h" value={selectedWRConceptMeta?.routes.H || ''} />
+                <input type="hidden" name="route_tag_rb" value={selectedWRConceptMeta?.routes.RB || ''} />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.2em]">QB drop</span>
+                  <input
+                    name="qb_drop"
+                    value={selectedWRConceptMeta?.qbDrop || ''}
+                    readOnly
+                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em]">Coverage beater</span>
+              <input
+                name="primary_coverage_beater"
+                value={(selectedWRConceptMeta?.coverageBeater || []).join(', ')}
+                readOnly
+                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+              />
+            </label>
+            <div className="flex items-center gap-4 pt-7 text-xs text-slate-400">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="has_shift" className="accent-brand" />
+                Shift
+              </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="has_motion"
+                    className="accent-brand"
+                    checked={hasMotion}
+                    onChange={(e) => handleMotionToggle(e.target.checked)}
+                  />
+                Motion
+              </label>
+              <select
+                name="motion_type"
+                className="rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
+                value={motionType}
+                onChange={(e) => setMotionType(e.target.value)}
+                disabled={!hasMotion}
+              >
+                <option value="NONE">None</option>
+                <option value="JET">Jet</option>
+                <option value="FLY">Fly</option>
+                <option value="ORBIT">Orbit</option>
+                <option value="GHOST">Ghost</option>
+                <option value="SHORT">Short</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+          </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" name="is_rpo" className="accent-brand" />
+                  RPO
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" name="is_play_action" className="accent-brand" />
+                  Play action
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" name="is_shot_play" className="accent-brand" />
+                  Shot play
                 </label>
               </div>
             </>
@@ -475,7 +638,7 @@ export function ChartEventPanel({
             </label>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
             <label className="space-y-1 text-xs text-slate-400">
               <span className="uppercase tracking-[0.2em]">Yards gained</span>
               <input
@@ -486,7 +649,25 @@ export function ChartEventPanel({
                 className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
               />
             </label>
-            <div className="flex items-center gap-6 pt-6 text-xs text-slate-400">
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em]">Play result</span>
+              <select
+                name="play_result_type"
+                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                defaultValue=""
+              >
+                <option value="">--</option>
+                <option value="NORMAL">Normal</option>
+                <option value="TD">Touchdown</option>
+                <option value="SAFETY">Safety</option>
+                <option value="INT">Interception</option>
+                <option value="FUMBLE_LOST">Fumble lost</option>
+                <option value="ON_DOWNS">On downs</option>
+                <option value="PENALTY_ONLY">Penalty only</option>
+                <option value="NO_PLAY">No play</option>
+              </select>
+            </label>
+            <div className="flex items-center gap-4 pt-6 text-xs text-slate-400">
               <label className="flex items-center gap-2">
                 <input type="checkbox" name="explosive" value="true" className="accent-brand" />
                 Explosive
@@ -496,6 +677,33 @@ export function ChartEventPanel({
                 Turnover
               </label>
             </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="flex items-center gap-4 text-xs text-slate-400">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="first_down" value="true" className="accent-brand" />
+                First down
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="scoring_play" value="true" className="accent-brand" />
+                Scoring
+              </label>
+            </div>
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em]">Penalty yards</span>
+              <input
+                name="penalty_yards"
+                type="number"
+                min={-99}
+                max={99}
+                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-400 pt-6">
+              <input type="checkbox" name="penalty_on_offense" value="true" className="accent-brand" />
+              Penalty on offense
+            </label>
           </div>
 
           <label className="space-y-1 text-xs text-slate-400 block">
