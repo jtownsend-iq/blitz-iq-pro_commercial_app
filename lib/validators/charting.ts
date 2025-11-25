@@ -25,6 +25,49 @@ export type ChartValidationInput = {
   st_return_yards?: number | null
 }
 
+const coverageShellCodes = new Set([
+  'ZERO_SHELL',
+  'ONE_HIGH',
+  'ONE_HIGH_WEAK_ROT',
+  'ONE_HIGH_STRONG_ROT',
+  'TWO_HIGH',
+  'TWO_HIGH_QUARTERS_SHELL',
+  'TWO_HIGH_2READ_SHELL',
+  'THREE_HIGH_DROP8',
+  'ROBBER_LOOK',
+  'PRESSURE_ZERO_LOOK',
+  'DISGUISED_UNKNOWN',
+])
+
+const coveragePostCodes = new Set([
+  'C0',
+  'C0_PRESSURE',
+  'C1',
+  'C1_ROBBER',
+  'C1_RAT',
+  'C1_DOUBLE',
+  'C2',
+  'C2_MAN',
+  'C2_TAMPA',
+  'C2_READ',
+  'C2_TRAP_CLOUD',
+  'C3',
+  'C3_MATCH',
+  'C3_BUZZ',
+  'C3_CLOUD',
+  'C3_SKY',
+  'C3_FIRE_ZONE',
+  'C4_QUARTERS',
+  'C4_MATCH',
+  'C4_PALMS',
+  'C4_MEG',
+  'C4_BRACKET',
+  'C6',
+  'C7',
+  'DROP8_ZONE',
+  'EXOTIC_OTHER',
+])
+
 export function validateChartEventInput(
   input: ChartValidationInput,
   dictionaries: DictionaryBundle
@@ -80,8 +123,12 @@ export function validateChartEventInput(
     }
   }
 
-  if (input.coverage_shell_post && !input.coverage_shell_pre) {
-    errors.push('Post-snap coverage provided without pre-snap shell.')
+  if (input.coverage_shell_pre && !coverageShellCodes.has(input.coverage_shell_pre)) {
+    errors.push('Pre-snap coverage shell is not recognized.')
+  }
+
+  if (input.coverage_shell_post && !coveragePostCodes.has(input.coverage_shell_post)) {
+    errors.push('Post-snap coverage is not recognized.')
   }
 
   if (input.play_family === 'SPECIAL_TEAMS') {

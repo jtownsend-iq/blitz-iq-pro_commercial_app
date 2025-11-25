@@ -137,25 +137,6 @@ function parseClockToSeconds(value?: string): number | null {
   return minutes * 60 + seconds
 }
 
-function parseBallSpot(raw?: string): {
-  ball_on_side: 'OWN' | 'OPP' | null
-  ball_on_yardline: number | null
-} {
-  if (!raw) return { ball_on_side: null, ball_on_yardline: null }
-  const upper = raw.toUpperCase().trim()
-  const match = upper.match(/^(O|O(WN)?|H|H(OME)?|OWN|OPP|V|V(IS)?|GUEST)?\s*([0-9]{1,2})$/)
-  if (match) {
-    const prefix = match[1] || ''
-    const yard = Number(match[3])
-    const side =
-      prefix.startsWith('O') || prefix.startsWith('H') || prefix === ''
-        ? 'OWN'
-        : 'OPP'
-    return { ball_on_side: side, ball_on_yardline: Number.isNaN(yard) ? null : yard }
-  }
-  return { ball_on_side: null, ball_on_yardline: null }
-}
-
 export async function startGameSession(formData: FormData) {
   const parsed = startSessionSchema.safeParse({
     gameId: formData.get('gameId')?.toString(),
@@ -394,7 +375,6 @@ export async function recordChartEvent(formData: FormData) {
 
   const nextSequence = (lastSeqData?.[0]?.sequence ?? 0) + 1
   const clockSeconds = parseClockToSeconds(parsed.data.clock ?? undefined)
-  const ballSpot = parseBallSpot(parsed.data.ballOn ?? undefined)
 
   const payload = {
     team_id: sessionRow.team_id,

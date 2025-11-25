@@ -75,6 +75,49 @@ const stPlayTypes = ['KICKOFF', 'KICKOFF_RETURN', 'PUNT', 'PUNT_RETURN', 'FG', '
 const stVariants = ['NORMAL', 'FAKE', 'ONSIDE', 'DIRECTIONAL', 'RUGBY', 'SKY']
 const clockPattern = /^([0-5]?[0-9]):([0-5][0-9])$/
 
+const coverageShellOptions = [
+  { value: 'ZERO_SHELL', label: '0 (No Deep)' },
+  { value: 'ONE_HIGH', label: '1-High (Middle Closed)' },
+  { value: 'ONE_HIGH_WEAK_ROT', label: '1-High - Weak Rotation Look' },
+  { value: 'ONE_HIGH_STRONG_ROT', label: '1-High - Strong Rotation Look' },
+  { value: 'TWO_HIGH', label: '2-High (Split Safety)' },
+  { value: 'TWO_HIGH_QUARTERS_SHELL', label: '2-High Quarters Shell' },
+  { value: 'TWO_HIGH_2READ_SHELL', label: '2-High 2-Read / Trap Shell' },
+  { value: 'THREE_HIGH_DROP8', label: '3-High / Drop 8 Shell' },
+  { value: 'ROBBER_LOOK', label: 'Robber Look (Safety Down in Box)' },
+  { value: 'PRESSURE_ZERO_LOOK', label: 'Zero Pressure Look (All-Out Blitz Look)' },
+  { value: 'DISGUISED_UNKNOWN', label: 'Disguised / Unknown Shell' },
+]
+
+const coveragePostOptions = [
+  { value: 'C0', label: 'Cover 0' },
+  { value: 'C0_PRESSURE', label: 'Cover 0 Pressure' },
+  { value: 'C1', label: 'Cover 1' },
+  { value: 'C1_ROBBER', label: 'Cover 1 Robber' },
+  { value: 'C1_RAT', label: 'Cover 1 Rat' },
+  { value: 'C1_DOUBLE', label: 'Cover 1 Double (Bracket X)' },
+  { value: 'C2', label: 'Cover 2' },
+  { value: 'C2_MAN', label: 'Cover 2 Man' },
+  { value: 'C2_TAMPA', label: 'Tampa 2' },
+  { value: 'C2_READ', label: '2-Read' },
+  { value: 'C2_TRAP_CLOUD', label: '2-Trap / Cloud' },
+  { value: 'C3', label: 'Cover 3' },
+  { value: 'C3_MATCH', label: 'Cover 3 Match' },
+  { value: 'C3_BUZZ', label: 'Cover 3 Buzz' },
+  { value: 'C3_CLOUD', label: 'Cover 3 Cloud' },
+  { value: 'C3_SKY', label: 'Cover 3 Sky' },
+  { value: 'C3_FIRE_ZONE', label: 'Cover 3 Fire Zone' },
+  { value: 'C4_QUARTERS', label: 'Cover 4 (Quarters)' },
+  { value: 'C4_MATCH', label: 'Cover 4 Match' },
+  { value: 'C4_PALMS', label: 'Quarters Palms' },
+  { value: 'C4_MEG', label: 'Quarters MEG' },
+  { value: 'C4_BRACKET', label: 'Quarters Bracket' },
+  { value: 'C6', label: 'Cover 6 (Quarter-Quarter-Half)' },
+  { value: 'C7', label: 'Cover 7 (Bracket Family)' },
+  { value: 'DROP8_ZONE', label: 'Drop 8 Zone' },
+  { value: 'EXOTIC_OTHER', label: 'Exotic / Other (Specify in Notes)' },
+]
+
 function formatClock(seconds: number | null) {
   if (seconds == null) return '--'
   const mins = Math.floor(seconds / 60)
@@ -166,18 +209,6 @@ export function ChartEventPanel({
   const [stReturnYards, setStReturnYards] = useState<string>('')
 
   const defenseNames = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
-  const coverageOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          defenseStructures
-            .flatMap((d) => [d.strategy, d.nuances])
-            .flatMap((s) => (s ? s.split(/[,/]/).map((t) => t.trim()) : []))
-            .filter(Boolean)
-        )
-      ),
-    [defenseStructures]
-  )
   const frontOptions = defenseNames
   const offenseFormationsUnique = Array.from(
     new Map(offenseFormations.map((f) => [`${f.personnel}|${f.formation}`, f])).values()
@@ -785,9 +816,9 @@ export function ChartEventPanel({
                     defaultValue=""
                   >
                     <option value="">--</option>
-                    {coverageOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                    {coverageShellOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
@@ -802,9 +833,9 @@ export function ChartEventPanel({
                     defaultValue=""
                   >
                     <option value="">--</option>
-                    {coverageOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                    {coveragePostOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
