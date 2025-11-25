@@ -2,28 +2,12 @@ import fs from 'fs'
 import path from 'path'
 import { parse } from 'csv-parse/sync'
 import ExcelJS from 'exceljs'
-
-export type OffenseFormation = {
-  personnel: string
-  formation: string
-  family: string
-  aliases: string[]
-  notes: string
-}
-
-export type BackfieldOption = {
-  code: string
-  backs: number
-  personnelGroups: string[]
-  description: string
-}
-
-export type BackfieldFamily = {
-  backsLabel: string
-  classification: string
-  families: string
-  defaultQBAlignment: string
-}
+import type {
+  BackfieldFamily,
+  BackfieldOption,
+  OffenseFormation,
+} from './types'
+export type { BackfieldFamily, BackfieldOption, OffenseFormation } from './types'
 
 let cachedFormations: OffenseFormation[] | null = null
 let cachedBackfields: BackfieldOption[] | null = null
@@ -42,17 +26,40 @@ export function getOffenseFormations(): OffenseFormation[] {
     trim: true,
   }) as Record<string, string>[]
 
-  cachedFormations = records.map((row) => ({
-    personnel: row['Personnel'] ?? '',
-    formation: row['Formation'] ?? '',
-    family: row['Family_or_System'] ?? '',
-    aliases: (row['Other_Used_Names'] ?? '')
+  const mapped = records.map((row) => {
+    const formation = row['Formation'] ?? ''
+    const personnel = row['Personnel'] ?? ''
+    const aliases = (row['Other_Used_Names'] ?? '')
       .split(';')
       .flatMap((s) => s.split(','))
       .map((s) => s.trim())
-      .filter(Boolean),
-    notes: row['Notes'] ?? '',
-  }))
+      .filter(Boolean)
+    const tripsContainsTE = /^(true|1|yes)$/i.test((row['Trips_Contains_TE'] ?? '').toString().trim())
+    return {
+      id: `${personnel}-${formation}`.toUpperCase().replace(/\s+/g, '_'),
+      personnel,
+      formation,
+      family: row['Family_or_System'] ?? '',
+      source: row['Source'] ?? '',
+      notes: row['Notes'] ?? '',
+      analystNotes: row['Analyst_Notes'] ?? '',
+      tripsFamily: row['Trips_Family'] ?? '',
+      tripsContainsTE,
+      aliases,
+      personnelDifferences: row['Personnel_Differences'] ?? '',
+    }
+  })
+
+  const deduped = new Map<string, OffenseFormation>()
+  mapped.forEach((item) => {
+    deduped.set(item.id, item)
+  })
+
+  cachedFormations = Array.from(deduped.values()).sort((a, b) => {
+    const personnelCompare = a.personnel.localeCompare(b.personnel, 'en', { numeric: true })
+    if (personnelCompare !== 0) return personnelCompare
+    return a.formation.localeCompare(b.formation, 'en', { numeric: true })
+  })
 
   return cachedFormations
 }
@@ -74,15 +81,24 @@ export function getBackfieldOptions(): BackfieldOption[] {
     trim: true,
   }) as Record<string, string>[]
 
-  cachedBackfields = records.map((row) => ({
-    code: row['BACKFIELD CODE'] ?? '',
-    backs: Number(row['BACKS'] ?? 0),
-    personnelGroups: (row['PERSONNEL GROUPS'] ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
-    description: row['DESCRIPTION'] ?? '',
-  }))
+  cachedBackfields = records.map((row) => {
+    const code = row['BACKFIELD CODE'] ?? ''
+    return {
+      id: code,
+      code,
+      backs: Number(row['BACKS'] ?? 0),
+      personnelGroups: (row['PERSONNEL GROUPS'] ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      description: row['DESCRIPTION'] ?? '',
+    }
+  })
+
+  cachedBackfields = cachedBackfields.sort((a, b) => {
+    if (a.backs !== b.backs) return a.backs - b.backs
+    return a.code.localeCompare(b.code, 'en', { numeric: true })
+  })
 
   return cachedBackfields
 }
@@ -109,6 +125,8 @@ export async function getBackfieldFamiliesAsync(): Promise<BackfieldFamily[]> {
     })
   })
 
-  cachedBackfieldFamilies = rows
+  cachedBackfieldFamilies = rows.sort((a, b) =>
+    a.backsLabel.localeCompare(b.backsLabel, 'en', { numeric: true })
+  )
   return cachedBackfieldFamilies
 }

@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { generateDriveSummary } from '@/utils/ai/generateDriveSummary'
+import { loadDictionaryBundle } from '@/lib/dictionaries'
+import { validateChartEventInput } from '@/lib/validators/charting'
 
 const chartUnitSchema = z.enum(['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS'])
 
@@ -19,8 +21,11 @@ const closeSessionSchema = z.object({
 
 const clockRegex = /^([0-5]?[0-9]):([0-5][0-9])$/
 
+const playFamilyEnum = z.enum(['RUN', 'PASS', 'RPO', 'SPECIAL_TEAMS'])
+
 const chartEventSchema = z.object({
   sessionId: z.string().uuid(),
+  play_family: playFamilyEnum,
   quarter: z.coerce.number().int().min(1).max(4).optional(),
   clock: z
     .string()
@@ -33,22 +38,18 @@ const chartEventSchema = z.object({
   driveNumber: z.coerce.number().int().min(1).optional(),
   possession: z.string().max(16).optional(),
   opponent: z.string().max(120).optional(),
-  // Offensive structure (codes + raw)
   offensive_personnel_code: z.string().max(10).optional(),
-  offensivePersonnel: z.string().max(60).optional(),
-  offensive_formation_code: z.string().max(120).optional(),
-  formation: z.string().max(120).optional(),
+  offensive_formation_id: z.string().max(140).optional(),
+  offensive_formation_label: z.string().max(140).optional(),
   backfield_code: z.string().max(120).optional(),
   backs_count: z.coerce.number().int().min(0).max(4).optional(),
   backfield_family: z.string().max(120).optional(),
-  backfield_variant: z.string().max(120).optional(),
   qb_alignment: z.string().max(60).optional(),
-  hback_role: z.string().max(60).optional(),
   has_shift: z.coerce.boolean().optional(),
   has_motion: z.coerce.boolean().optional(),
   motion_type: z.string().max(60).optional(),
-  // WR concepts / routes
-  wr_concept_code: z.string().max(120).optional(),
+  wr_concept_id: z.string().max(140).optional(),
+  wr_concept_label: z.string().max(140).optional(),
   wr_concept_family: z.string().max(120).optional(),
   qb_drop: z.string().max(60).optional(),
   primary_coverage_beater: z.string().max(120).optional(),
@@ -57,30 +58,30 @@ const chartEventSchema = z.object({
   route_tag_y: z.string().max(120).optional(),
   route_tag_h: z.string().max(120).optional(),
   route_tag_rb: z.string().max(120).optional(),
-  // Offensive flags
+  run_concept: z.string().max(80).optional(),
+  pass_result: z.string().max(40).optional(),
   is_rpo: z.coerce.boolean().optional(),
   is_play_action: z.coerce.boolean().optional(),
   is_shot_play: z.coerce.boolean().optional(),
-  // Defensive (raw + codes)
-  defensivePersonnel: z.string().max(60).optional(),
   defensive_personnel_code: z.string().max(120).optional(),
-  front: z.string().max(120).optional(),
+  defensive_structure_id: z.string().max(140).optional(),
   front_code: z.string().max(120).optional(),
-  coverage: z.string().max(120).optional(),
-  coverage_code: z.string().max(120).optional(),
-  pressure: z.string().max(120).optional(),
+  coverage_shell_pre: z.string().max(120).optional(),
+  coverage_shell_post: z.string().max(120).optional(),
   pressure_code: z.string().max(120).optional(),
-  // Results
   playCall: z.string().max(160).optional(),
   result: z.string().max(160).optional(),
   play_result_type: z.string().max(60).optional(),
-  gainedYards: z.coerce.number().int().min(-99).max(99).optional(),
+  gainedYards: z.coerce.number().int().min(-99).max(150).optional(),
   explosive: z.coerce.boolean().optional(),
   turnover: z.coerce.boolean().optional(),
   first_down: z.coerce.boolean().optional(),
   scoring_play: z.coerce.boolean().optional(),
   penalty_yards: z.coerce.number().int().min(-99).max(99).optional(),
   penalty_on_offense: z.coerce.boolean().optional(),
+  st_play_type: z.string().max(80).optional(),
+  st_variant: z.string().max(80).optional(),
+  st_return_yards: z.coerce.number().int().min(-99).max(150).optional(),
   notes: z.string().max(1000).optional(),
   supersedesId: z.string().uuid().optional(),
   tags: z.array(z.string().uuid()).optional(),
@@ -268,6 +269,7 @@ export async function closeGameSession(formData: FormData) {
 export async function recordChartEvent(formData: FormData) {
   const parsed = chartEventSchema.safeParse({
     sessionId: formData.get('sessionId')?.toString(),
+    play_family: formData.get('play_family')?.toString() as 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | undefined,
     quarter: formData.get('quarter'),
     clock: formData.get('clock')?.toString(),
     ballOn: formData.get('ballOn')?.toString(),
@@ -278,19 +280,17 @@ export async function recordChartEvent(formData: FormData) {
     possession: formData.get('possession')?.toString(),
     opponent: formData.get('opponent')?.toString(),
     offensive_personnel_code: formData.get('offensive_personnel_code')?.toString(),
-    offensivePersonnel: formData.get('offensivePersonnel')?.toString(),
-    offensive_formation_code: formData.get('offensive_formation_code')?.toString(),
-    formation: formData.get('formation')?.toString(),
+    offensive_formation_id: formData.get('offensive_formation_id')?.toString(),
+    offensive_formation_label: formData.get('offensive_formation_label')?.toString(),
     backfield_code: formData.get('backfield_code')?.toString(),
     backs_count: formData.get('backs_count'),
     backfield_family: formData.get('backfield_family')?.toString(),
-    backfield_variant: formData.get('backfield_variant')?.toString(),
     qb_alignment: formData.get('qb_alignment')?.toString(),
-    hback_role: formData.get('hback_role')?.toString(),
     has_shift: formData.get('has_shift'),
     has_motion: formData.get('has_motion'),
     motion_type: formData.get('motion_type')?.toString(),
-    wr_concept_code: formData.get('wr_concept_code')?.toString(),
+    wr_concept_id: formData.get('wr_concept_id')?.toString(),
+    wr_concept_label: formData.get('wr_concept_label')?.toString(),
     wr_concept_family: formData.get('wr_concept_family')?.toString(),
     qb_drop: formData.get('qb_drop')?.toString(),
     primary_coverage_beater: formData.get('primary_coverage_beater')?.toString(),
@@ -299,16 +299,16 @@ export async function recordChartEvent(formData: FormData) {
     route_tag_y: formData.get('route_tag_y')?.toString(),
     route_tag_h: formData.get('route_tag_h')?.toString(),
     route_tag_rb: formData.get('route_tag_rb')?.toString(),
+    run_concept: formData.get('run_concept')?.toString(),
+    pass_result: formData.get('pass_result')?.toString(),
     is_rpo: formData.get('is_rpo'),
     is_play_action: formData.get('is_play_action'),
     is_shot_play: formData.get('is_shot_play'),
-    defensivePersonnel: formData.get('defensivePersonnel')?.toString(),
     defensive_personnel_code: formData.get('defensive_personnel_code')?.toString(),
-    front: formData.get('front')?.toString(),
+    defensive_structure_id: formData.get('defensive_structure_id')?.toString(),
     front_code: formData.get('front_code')?.toString(),
-    coverage: formData.get('coverage')?.toString(),
-    coverage_code: formData.get('coverage_code')?.toString(),
-    pressure: formData.get('pressure')?.toString(),
+    coverage_shell_pre: formData.get('coverage_shell_pre')?.toString(),
+    coverage_shell_post: formData.get('coverage_shell_post')?.toString(),
     pressure_code: formData.get('pressure_code')?.toString(),
     playCall: formData.get('playCall')?.toString(),
     result: formData.get('result')?.toString(),
@@ -320,6 +320,9 @@ export async function recordChartEvent(formData: FormData) {
     scoring_play: formData.get('scoring_play'),
     penalty_yards: formData.get('penalty_yards'),
     penalty_on_offense: formData.get('penalty_on_offense'),
+    st_play_type: formData.get('st_play_type')?.toString(),
+    st_variant: formData.get('st_variant')?.toString(),
+    st_return_yards: formData.get('st_return_yards'),
     notes: formData.get('notes')?.toString(),
     supersedesId: formData.get('supersedesId')?.toString(),
     tags: formData.getAll('tags').map((value) => value.toString()),
@@ -350,6 +353,33 @@ export async function recordChartEvent(formData: FormData) {
     return { success: false, error: 'session_closed' }
   }
 
+  const dictionaries = await loadDictionaryBundle()
+  const validation = validateChartEventInput(
+    {
+      unit: sessionRow.unit as 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS',
+      play_family: parsed.data.play_family,
+      offensive_personnel_code: parsed.data.offensive_personnel_code ?? null,
+      offensive_formation_id: parsed.data.offensive_formation_id ?? null,
+      backfield_code: parsed.data.backfield_code ?? null,
+      backs_count: parsed.data.backs_count ? Number(parsed.data.backs_count) : null,
+      wr_concept_id: parsed.data.wr_concept_id ?? null,
+      run_concept: parsed.data.run_concept ?? null,
+      is_rpo: parsed.data.is_rpo ?? false,
+      coverage_shell_pre: parsed.data.coverage_shell_pre ?? null,
+      coverage_shell_post: parsed.data.coverage_shell_post ?? null,
+      st_play_type: parsed.data.st_play_type ?? null,
+      st_variant: parsed.data.st_variant ?? null,
+      gained_yards: parsed.data.gainedYards ? Number(parsed.data.gainedYards) : null,
+      pass_result: parsed.data.pass_result ?? null,
+      st_return_yards: parsed.data.st_return_yards ? Number(parsed.data.st_return_yards) : null,
+    },
+    dictionaries
+  )
+
+  if (!validation.ok) {
+    return { success: false, error: 'invalid_input', details: validation.errors }
+  }
+
   const { data: lastSeqData, error: seqError } = await supabase
     .from('chart_events')
     .select('sequence')
@@ -371,6 +401,7 @@ export async function recordChartEvent(formData: FormData) {
     game_id: sessionRow.game_id,
     game_session_id: sessionRow.id,
     sequence: nextSequence,
+    play_family: parsed.data.play_family,
     quarter: parsed.data.quarter ?? null,
     clock_seconds: clockSeconds,
     ball_on: parsed.data.ballOn ?? null,
@@ -383,20 +414,17 @@ export async function recordChartEvent(formData: FormData) {
     ball_on_side: ballSpot.ball_on_side,
     ball_on_yardline: ballSpot.ball_on_yardline,
     ball_on_raw: parsed.data.ballOn ?? null,
-    offensive_personnel: parsed.data.offensivePersonnel ?? null,
     offensive_personnel_code: parsed.data.offensive_personnel_code ?? null,
-    offensive_formation: parsed.data.formation ?? null,
-    offensive_formation_code: parsed.data.offensive_formation_code ?? null,
+    offensive_formation: parsed.data.offensive_formation_label ?? null,
+    offensive_formation_code: parsed.data.offensive_formation_id ?? null,
     backfield_code: parsed.data.backfield_code ?? null,
     backs_count: parsed.data.backs_count ? Number(parsed.data.backs_count) : null,
     backfield_family: parsed.data.backfield_family ?? null,
-    backfield_variant: parsed.data.backfield_variant ?? null,
     qb_alignment: parsed.data.qb_alignment ?? null,
-    hback_role: parsed.data.hback_role ?? null,
     has_shift: parsed.data.has_shift ?? false,
     has_motion: parsed.data.has_motion ?? false,
     motion_type: parsed.data.motion_type ?? null,
-    wr_concept_code: parsed.data.wr_concept_code ?? null,
+    wr_concept_code: parsed.data.wr_concept_id ?? null,
     wr_concept_family: parsed.data.wr_concept_family ?? null,
     qb_drop: parsed.data.qb_drop ?? null,
     primary_coverage_beater: parsed.data.primary_coverage_beater ?? null,
@@ -405,16 +433,16 @@ export async function recordChartEvent(formData: FormData) {
     route_tag_y: parsed.data.route_tag_y ?? null,
     route_tag_h: parsed.data.route_tag_h ?? null,
     route_tag_rb: parsed.data.route_tag_rb ?? null,
+    run_concept: parsed.data.run_concept ?? null,
+    pass_result: parsed.data.pass_result ?? null,
     is_rpo: parsed.data.is_rpo ?? false,
     is_play_action: parsed.data.is_play_action ?? false,
     is_shot_play: parsed.data.is_shot_play ?? false,
-    defensive_personnel: parsed.data.defensivePersonnel ?? null,
     defensive_personnel_code: parsed.data.defensive_personnel_code ?? null,
-    front: parsed.data.front ?? null,
+    defensive_structure_code: parsed.data.defensive_structure_id ?? null,
     front_code: parsed.data.front_code ?? null,
-    coverage: parsed.data.coverage ?? null,
-    coverage_code: parsed.data.coverage_code ?? null,
-    pressure: parsed.data.pressure ?? null,
+    coverage_shell_pre: parsed.data.coverage_shell_pre ?? null,
+    coverage_shell_post: parsed.data.coverage_shell_post ?? null,
     pressure_code: parsed.data.pressure_code ?? null,
     play_call: parsed.data.playCall ?? null,
     result: parsed.data.result ?? null,
@@ -426,6 +454,9 @@ export async function recordChartEvent(formData: FormData) {
     scoring_play: parsed.data.scoring_play ?? null,
     penalty_yards: parsed.data.penalty_yards ? Number(parsed.data.penalty_yards) : null,
     penalty_on_offense: parsed.data.penalty_on_offense ?? null,
+    st_play_type: parsed.data.st_play_type ?? null,
+    st_variant: parsed.data.st_variant ?? null,
+    st_return_yards: parsed.data.st_return_yards ? Number(parsed.data.st_return_yards) : null,
     notes: parsed.data.notes ?? null,
     supersedes_event_id: parsed.data.supersedesId ?? null,
     created_by: userId,

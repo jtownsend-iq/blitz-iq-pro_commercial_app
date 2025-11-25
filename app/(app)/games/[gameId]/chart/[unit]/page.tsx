@@ -3,14 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { closeGameSession, recordChartEvent } from '../../../chart-actions'
 import { ChartEventPanel } from './ChartEventPanel'
-import {
-  getOffenseFormations,
-  getOffensePersonnelCodes,
-  getBackfieldOptions,
-  getBackfieldFamiliesAsync,
-} from '@/lib/dictionaries/offense'
-import { getDefenseStructuresAsync } from '@/lib/dictionaries/defense'
-import { getWRConcepts } from '@/lib/dictionaries/wrConcepts'
+import { loadDictionaryBundle } from '@/lib/dictionaries'
 
 type GameRow = {
   id: string
@@ -146,6 +139,8 @@ export default async function ChartUnitPage({
     await closeGameSession(formData)
   }
 
+  const dictionaries = await loadDictionaryBundle()
+
   return (
     <section className="space-y-8">
       <header className="flex flex-col gap-3 rounded-3xl border border-slate-900/60 bg-surface-raised/70 p-6">
@@ -190,12 +185,12 @@ export default async function ChartUnitPage({
           initialEvents={events}
           nextSequence={nextSequence}
           recordAction={recordChartEvent}
-          offenseFormations={getOffenseFormations()}
-          offensePersonnel={getOffensePersonnelCodes()}
-          backfieldOptions={getBackfieldOptions()}
-          backfieldFamilies={await getBackfieldFamiliesAsync()}
-          defenseStructures={await getDefenseStructuresAsync()}
-          wrConcepts={getWRConcepts()}
+          offenseFormations={dictionaries.offenseFormations}
+          offensePersonnel={dictionaries.offensePersonnel}
+          backfieldOptions={dictionaries.backfieldOptions}
+          backfieldFamilies={dictionaries.backfieldFamilies}
+          defenseStructures={dictionaries.defenseStructures}
+          wrConcepts={dictionaries.wrConcepts}
         />
       )}
     </section>

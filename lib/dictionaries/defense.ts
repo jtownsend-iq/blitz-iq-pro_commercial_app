@@ -1,12 +1,7 @@
 import path from 'path'
 import ExcelJS from 'exceljs'
-
-export type DefenseStructure = {
-  name: string
-  description: string
-  nuances: string
-  strategy: string
-}
+import type { DefenseStructure } from './types'
+export type { DefenseStructure } from './types'
 
 let cachedDefense: DefenseStructure[] | null = null
 
@@ -24,14 +19,20 @@ export async function getDefenseStructuresAsync(): Promise<DefenseStructure[]> {
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return
     const get = (col: number) => row.getCell(col).text ?? ''
+    const name = get(1)
     rows.push({
-      name: get(1),
+      id: name.toUpperCase().replace(/\s+/g, '_'),
+      name,
+      analystNotes: get(2),
+      source: get(3),
       description: get(4),
+      notes: get(5),
       nuances: get(6),
       strategy: get(7),
+      history: get(8),
     })
   })
 
-  cachedDefense = rows
+  cachedDefense = rows.sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }))
   return cachedDefense
 }
