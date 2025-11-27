@@ -136,7 +136,6 @@ export const FIELD_CONFIG: Record<EventType, FieldConfig[]> = {
     { name: 'backfield_code', label: 'Backfield', type: 'select' },
     { name: 'wr_concept_id', label: 'WR Concept', type: 'select' },
     { name: 'run_concept', label: 'Run Concept', type: 'select', options: runConceptOptions },
-    { name: 'pass_result', label: 'Pass Result', type: 'select', options: passResultOptions },
   ],
   Defense: [
     { name: 'front_code', label: 'Front', type: 'select' },
@@ -632,7 +631,6 @@ export function ChartEventPanel({
                   if (field.name === 'backfield_code') setSelectedBackfield(String(value))
                   if (field.name === 'wr_concept_id') setSelectedWRConcept(String(value))
                   if (field.name === 'run_concept') setRunConcept(String(value))
-                  if (field.name === 'pass_result') setPassResult(String(value))
                   if (field.name === 'front_code') setFrontCode(String(value))
                   if (field.name === 'defensive_structure_id') setDefStructure(String(value))
                   if (field.name === 'coverage_shell_pre') setCoveragePre(String(value))
