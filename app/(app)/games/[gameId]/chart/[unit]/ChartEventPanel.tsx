@@ -29,6 +29,7 @@ type EventRow = {
 
 type ChartEventPanelProps = {
   sessionId: string
+  gameId: string
   unitLabel: string
   unit: 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'
   initialEvents: EventRow[]
@@ -40,6 +41,16 @@ type ChartEventPanelProps = {
   backfieldFamilies?: BackfieldFamily[]
   defenseStructures: DefenseStructure[]
   wrConcepts: WRConcept[]
+}
+
+export const EVENT_TYPES = ['Offense', 'Defense', 'Special Teams'] as const
+export type EventType = (typeof EVENT_TYPES)[number]
+
+type FieldConfig = {
+  name: string
+  label: string
+  type: 'text' | 'select' | 'checkbox' | 'number' | 'textarea'
+  options?: string[]
 }
 
 const quarterOptions = [1, 2, 3, 4]
@@ -159,18 +170,20 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     id: (payload.id as string) ?? crypto.randomUUID(),
     sequence: Number(payload.sequence ?? 0),
     quarter: (payload.quarter as number) ?? null,
-    clock_seconds: (payload.clock_seconds as number) ?? null,
-    down: (payload.down as number) ?? null,
-    distance: (payload.distance as number) ?? null,
-    ball_on: (payload.ball_on as string) ?? null,
-    play_call: (payload.play_call as string) ?? null,
-    result: (payload.result as string) ?? null,
+  clock_seconds: (payload.clock_seconds as number) ?? null,
+  down: (payload.down as number) ?? null,
+  distance: (payload.distance as number) ?? null,
+  ball_on: (payload.ball_on as string) ?? null,
+  play_call: (payload.play_call as string) ?? null,
+  result: (payload.result as string) ?? null,
     gained_yards: (payload.gained_yards as number) ?? null,
     created_at: (payload.created_at as string) ?? null,
   }
 }
+
 export function ChartEventPanel({
   sessionId,
+  gameId,
   unitLabel,
   unit,
   initialEvents,
@@ -183,6 +196,7 @@ export function ChartEventPanel({
   defenseStructures,
   wrConcepts,
 }: ChartEventPanelProps) {
+  const latestEvent = initialEvents[0]
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const [sequenceCounter, setSequenceCounter] = useState(nextSequence)
@@ -196,7 +210,6 @@ export function ChartEventPanel({
   const [selectedFormation, setSelectedFormation] = useState<string>('')
   const [selectedBackfield, setSelectedBackfield] = useState<string>('')
   const [selectedWRConcept, setSelectedWRConcept] = useState<string>('')
-  const [qbAlignment, setQbAlignment] = useState<string>('UNDER_CENTER')
   const [motionType, setMotionType] = useState<string>('NONE')
   const [hasMotion, setHasMotion] = useState<boolean>(false)
   const [playFamily, setPlayFamily] = useState<'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS'>(
@@ -207,9 +220,21 @@ export function ChartEventPanel({
   const [stPlayType, setStPlayType] = useState<string>('')
   const [stVariant, setStVariant] = useState<string>('NORMAL')
   const [stReturnYards, setStReturnYards] = useState<string>('')
+  const [quarterValue, setQuarterValue] = useState<string>(latestEvent?.quarter ? String(latestEvent.quarter) : '')
+  const [ballOnValue, setBallOnValue] = useState<string>(latestEvent?.ball_on || '')
+  const [hashValue, setHashValue] = useState<string>('')
+  const [frontCode, setFrontCode] = useState<string>('')
+  const [coveragePre, setCoveragePre] = useState<string>('')
+  const [coveragePost, setCoveragePost] = useState<string>('')
+  const [defStructure, setDefStructure] = useState<string>('')
+  const [formationSearch, setFormationSearch] = useState<string>('')
+  const [wrConceptSearch, setWrConceptSearch] = useState<string>('')
+  const [coveragePostSearch, setCoveragePostSearch] = useState<string>('')
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(true)
+  const [eventType, setEventType] = useState<EventType>('Offense')
+  const [formDataState, setFormDataState] = useState<Record<string, string | number | boolean>>({})
 
-  const defenseNames = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
-  const frontOptions = defenseNames
+  const frontOptions = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
   const offenseFormationsUnique = Array.from(
     new Map(offenseFormations.map((f) => [`${f.personnel}|${f.formation}`, f])).values()
   )
@@ -217,15 +242,13 @@ export function ChartEventPanel({
     selectedPersonnel && selectedPersonnel.length > 0
       ? offenseFormationsUnique.filter((f) => f.personnel === selectedPersonnel)
       : offenseFormationsUnique
+  const searchedFormations = filteredFormations.filter((f) =>
+    `${f.formation} ${f.personnel} ${f.family}`.toLowerCase().includes(formationSearch.toLowerCase())
+  )
 
   const selectedBackfieldMeta = selectedBackfield
     ? backfieldOptions.find((b) => b.code === selectedBackfield)
     : null
-  const selectedBackfieldFamily =
-    selectedBackfieldMeta && backfieldFamilies.length > 0
-      ? backfieldFamilies.find((f) => f.backsLabel.startsWith(`${selectedBackfieldMeta.backs}`))
-          ?.classification ?? selectedBackfieldMeta.description
-      : selectedBackfieldMeta?.description || ''
   const selectedQBAlignment =
     selectedBackfieldMeta && backfieldFamilies.length > 0
       ? backfieldFamilies
@@ -237,10 +260,13 @@ export function ChartEventPanel({
       : selectedBackfieldMeta?.description.toUpperCase().includes('PISTOL')
       ? 'PISTOL'
       : 'UNDER_CENTER'
-  const qbAlignmentValue = qbAlignment || selectedQBAlignment
-  const selectedWRConceptMeta = selectedWRConcept
-    ? wrConcepts.find((c) => c.id === selectedWRConcept)
-    : null
+  const qbAlignmentValue = selectedQBAlignment
+  const wrConceptFiltered = wrConcepts.filter((c) =>
+    `${c.name} ${c.family}`.toLowerCase().includes(wrConceptSearch.toLowerCase())
+  )
+  const coveragePostFiltered = coveragePostOptions.filter((c) =>
+    `${c.label} ${c.value}`.toLowerCase().includes(coveragePostSearch.toLowerCase())
+  )
   const dictionaryBundle = useMemo(
     () => ({
       offenseFormations,
@@ -252,12 +278,15 @@ export function ChartEventPanel({
     }),
     [offenseFormations, offensePersonnel, backfieldOptions, backfieldFamilies, defenseStructures, wrConcepts]
   )
+  const situationLabel = latestEvent
+    ? `Q${latestEvent.quarter ?? '--'} · ${formatClock(latestEvent.clock_seconds)} · ${
+        latestEvent.down ? `${latestEvent.down} & ${latestEvent.distance ?? '--'}` : '--'
+      } · ${latestEvent.ball_on ?? '--'}`
+    : 'No previous play logged'
 
   const handleMotionToggle = (checked: boolean) => {
     setHasMotion(checked)
-    if (checked && motionType === 'NONE') {
-      setMotionType('JET')
-    }
+    if (checked && motionType === 'NONE') setMotionType('JET')
     if (!checked) setMotionType('NONE')
   }
 
@@ -279,6 +308,9 @@ export function ChartEventPanel({
   })
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setAdvancedOpen(window.innerWidth >= 1024)
+    }
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault()
@@ -286,76 +318,61 @@ export function ChartEventPanel({
       }
       if (e.altKey && e.key.toLowerCase() === 'o') {
         e.preventDefault()
-        setPlayFamily('PASS')
+        router.push(`/games/${gameId}/chart/offense`)
       }
       if (e.altKey && e.key.toLowerCase() === 'd') {
         e.preventDefault()
-        setPlayFamily('RUN')
+        router.push(`/games/${gameId}/chart/defense`)
       }
       if (e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault()
-        setPlayFamily('SPECIAL_TEAMS')
+        router.push(`/games/${gameId}/chart/special_teams`)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [router, gameId])
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = event.currentTarget
     const formData = new FormData(form)
     formData.set('sessionId', sessionId)
     formData.set('play_family', playFamily)
-
-    if (!formData.get('playCall')?.toString().trim()) {
-      setErrorMessage('Play call is required.')
-      return
+    formData.set('qb_alignment', qbAlignmentValue)
+    const validationInput = {
+      unit,
+      play_family: playFamily,
+      offensive_personnel_code: formData.get('offensive_personnel_code')?.toString() || undefined,
+      offensive_formation_id: formData.get('offensive_formation_id')?.toString() || undefined,
+      backfield_code: formData.get('backfield_code')?.toString() || undefined,
+      backs_count: selectedBackfieldMeta?.backs ?? null,
+      wr_concept_id: formData.get('wr_concept_id')?.toString() || undefined,
+      run_concept: formData.get('run_concept')?.toString() || undefined,
+      is_rpo: playFamily === 'RPO',
+      coverage_shell_pre: formData.get('coverage_shell_pre')?.toString() || undefined,
+      coverage_shell_post: formData.get('coverage_shell_post')?.toString() || undefined,
+      st_play_type: formData.get('st_play_type')?.toString() || undefined,
+      st_variant: formData.get('st_variant')?.toString() || undefined,
+      gained_yards: formData.get('gainedYards')
+        ? Number(formData.get('gainedYards'))
+        : undefined,
+      pass_result: formData.get('pass_result')?.toString() || undefined,
+      st_return_yards: formData.get('st_return_yards')
+        ? Number(formData.get('st_return_yards'))
+        : undefined,
     }
-    const clock = formData.get('clock')?.toString()
-    if (clock && !clockPattern.test(clock)) {
-      setErrorMessage('Clock must be formatted MM:SS.')
-      return
-    }
-    if (unit === 'OFFENSE' && (!formData.get('offensive_personnel_code') || !formData.get('offensive_formation_id'))) {
-      setErrorMessage('Offensive personnel and formation are required.')
-      return
-    }
-
-    const validation = validateChartEventInput(
-      {
-        unit,
-        play_family: playFamily,
-        offensive_personnel_code: formData.get('offensive_personnel_code')?.toString() || null,
-        offensive_formation_id: formData.get('offensive_formation_id')?.toString() || null,
-        backfield_code: formData.get('backfield_code')?.toString() || null,
-        backs_count: formData.get('backs_count') ? Number(formData.get('backs_count')?.toString()) : null,
-        wr_concept_id: formData.get('wr_concept_id')?.toString() || null,
-        run_concept: formData.get('run_concept')?.toString() || null,
-        is_rpo: formData.get('is_rpo') ? true : false,
-        coverage_shell_pre: formData.get('coverage_shell_pre')?.toString() || null,
-        coverage_shell_post: formData.get('coverage_shell_post')?.toString() || null,
-        st_play_type: formData.get('st_play_type')?.toString() || null,
-        st_variant: formData.get('st_variant')?.toString() || null,
-        gained_yards: formData.get('gainedYards')
-          ? Number(formData.get('gainedYards')?.toString())
-          : null,
-        pass_result: formData.get('pass_result')?.toString() || null,
-        st_return_yards: formData.get('st_return_yards')
-          ? Number(formData.get('st_return_yards')?.toString())
-          : null,
-      },
-      dictionaryBundle
-    )
-
+    const validation = validateChartEventInput(validationInput, dictionaryBundle)
     if (!validation.ok) {
-      setErrorMessage(validation.errors.join('; '))
+      setErrorMessage('Please check required fields.')
       const fieldErrors: Record<string, string> = {}
       validation.errors.forEach((msg) => {
         if (msg.toLowerCase().includes('personnel')) fieldErrors.offensive_personnel_code = msg
         if (msg.toLowerCase().includes('formation')) fieldErrors.offensive_formation_id = msg
         if (msg.toLowerCase().includes('backfield')) fieldErrors.backfield_code = msg
-        if (msg.toLowerCase().includes('rpo')) fieldErrors.run_concept = msg
-        if (msg.toLowerCase().includes('special teams')) fieldErrors.st_play_type = msg
+        if (msg.toLowerCase().includes('yardage')) fieldErrors.gainedYards = msg
+        if (msg.toLowerCase().includes('coverage')) fieldErrors.coverage_shell_post = msg
+        if (msg.toLowerCase().includes('st play type')) fieldErrors.st_play_type = msg
       })
       setInlineErrors(fieldErrors)
       return
@@ -383,41 +400,48 @@ export function ChartEventPanel({
       }
       setErrorMessage(null)
       setWarningMessage(null)
-      form.reset()
-      setSelectedPersonnel('')
-      setSelectedFormation('')
-      setSelectedBackfield('')
-      setSelectedWRConcept('')
+      formRef.current?.reset()
       setRunConcept('')
       setPassResult('')
-      setStPlayType('')
-      setStVariant('NORMAL')
       setStReturnYards('')
       router.refresh()
     })
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-5 rounded-3xl border border-slate-900/70 bg-black/30 p-6">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-100">Log a play</h2>
-          <p className="text-sm text-slate-500">
-            {unitLabel} analysts capture each snap. Required fields are minimal to keep pace.
-          </p>
-        </div>
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2 rounded-2xl border border-slate-900/70 bg-black/20 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">Context & Situation</h3>
-              <span className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Game</span>
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-slate-900/70 bg-black/30 p-6 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-slate-100">Rapid chart - {unitLabel}</h2>
+            <div className="text-sm text-slate-500">
+              Ten-second workflow: tab through primaries, Ctrl/Cmd+Enter to save, Alt+O/D/S switches unit routes.
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1 text-xs text-slate-300">
+              {situationLabel}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100">
+              {unit}
+            </span>
+            <span className="text-[0.75rem] text-slate-400">Alt+O/D/S = unit · Ctrl/Cmd+Enter = save</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-900/70 bg-black/30 p-6 space-y-5">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Primary inputs</h3>
+            <div className="flex flex-wrap gap-3">
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Quarter</span>
+                <span className="uppercase tracking-[0.18em]">Quarter</span>
                 <select
                   name="quarter"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  value={quarterValue}
+                  onChange={(e) => setQuarterValue(e.target.value)}
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 >
                   <option value="">--</option>
                   {quarterOptions.map((q) => (
@@ -427,31 +451,22 @@ export function ChartEventPanel({
                   ))}
                 </select>
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Clock (MM:SS)</span>
+                <span className="uppercase tracking-[0.18em]">Clock (MM:SS)</span>
                 <input
                   name="clock"
                   placeholder="12:34"
                   pattern="[0-5]?[0-9]:[0-5][0-9]"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 />
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Drive #</span>
-                <input
-                  name="driveNumber"
-                  type="number"
-                  min={1}
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                />
-              </label>
-            </div>
-            <div className="grid gap-3 md:grid-cols-4">
-              <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Down</span>
+                <span className="uppercase tracking-[0.18em]">Down</span>
                 <select
                   name="down"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 >
                   {downOptions.map((option) => (
                     <option key={option.label} value={option.value}>
@@ -460,28 +475,35 @@ export function ChartEventPanel({
                   ))}
                 </select>
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Distance</span>
+                <span className="uppercase tracking-[0.18em]">Distance</span>
                 <input
                   name="distance"
                   type="number"
                   min={1}
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 />
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Ball on</span>
+                <span className="uppercase tracking-[0.18em]">Ball on</span>
                 <input
                   name="ballOn"
+                  value={ballOnValue}
+                  onChange={(e) => setBallOnValue(e.target.value)}
                   placeholder="O35"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 />
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Hash</span>
+                <span className="uppercase tracking-[0.18em]">Hash</span>
                 <select
                   name="hashMark"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  value={hashValue}
+                  onChange={(e) => setHashValue(e.target.value)}
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 >
                   {hashOptions.map((option) => (
                     <option key={option.label} value={option.value}>
@@ -491,316 +513,305 @@ export function ChartEventPanel({
                 </select>
               </label>
             </div>
-          </div>
+          </section>
 
-          <div className="space-y-2 rounded-2xl border border-slate-900/70 bg-black/20 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">Play Type</h3>
-              <span className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Flow</span>
-            </div>
-            <div className="grid gap-3 md:grid-cols-5">
-              <label className="flex items-center gap-2 text-xs text-slate-200">
-                <input
-                  type="radio"
-                  name="play_family"
-                  value="RUN"
-                  checked={playFamily === 'RUN'}
-                  onChange={() => setPlayFamily('RUN')}
-                  className="accent-brand"
-                />
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Play family</h3>
+            <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-slate-950/70 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RUN')}
+                className={`rounded-full px-3 py-1 ${
+                  playFamily === 'RUN' ? 'bg-brand text-black' : 'text-slate-300'
+                }`}
+              >
                 Run
-              </label>
-              <label className="flex items-center gap-2 text-xs text-slate-200">
-                <input
-                  type="radio"
-                  name="play_family"
-                  value="PASS"
-                  checked={playFamily === 'PASS' && passResult !== 'SCREEN'}
-                  onChange={() => {
-                    setPlayFamily('PASS')
-                    setPassResult('')
-                  }}
-                  className="accent-brand"
-                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS')}
+                className={`rounded-full px-3 py-1 ${
+                  playFamily === 'PASS' ? 'bg-brand text-black' : 'text-slate-300'
+                }`}
+              >
                 Pass
-              </label>
-              <label className="flex items-center gap-2 text-xs text-slate-200">
-                <input
-                  type="radio"
-                  name="play_family"
-                  value="RPO"
-                  checked={playFamily === 'RPO'}
-                  onChange={() => setPlayFamily('RPO')}
-                  className="accent-brand"
-                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RPO')}
+                className={`rounded-full px-3 py-1 ${
+                  playFamily === 'RPO' ? 'bg-brand text-black' : 'text-slate-300'
+                }`}
+              >
                 RPO
-              </label>
-              <label className="flex items-center gap-2 text-xs text-slate-200">
-                <input
-                  type="radio"
-                  name="play_family"
-                  value="PASS"
-                  checked={playFamily === 'PASS' && passResult === 'SCREEN'}
-                  onChange={() => {
-                    setPlayFamily('PASS')
-                    setPassResult('SCREEN')
-                  }}
-                  className="accent-brand"
-                />
-                Trick / Screen
-              </label>
-              <label className="flex items-center gap-2 text-xs text-slate-200">
-                <input
-                  type="radio"
-                  name="play_family"
-                  value="SPECIAL_TEAMS"
-                  checked={playFamily === 'SPECIAL_TEAMS'}
-                  onChange={() => setPlayFamily('SPECIAL_TEAMS')}
-                  className="accent-brand"
-                />
-                Special Teams
-              </label>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlayFamily('SPECIAL_TEAMS')}
+                className={`rounded-full px-3 py-1 ${
+                  playFamily === 'SPECIAL_TEAMS' ? 'bg-brand text-black' : 'text-slate-300'
+                }`}
+              >
+                ST
+              </button>
             </div>
-          </div>
+            <input type="hidden" name="play_family" value={playFamily} />
+          </section>
 
-          <div className="space-y-3 rounded-2xl border border-slate-900/70 bg-black/20 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">Pre-snap Structure</h3>
-              <span className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Alignments</span>
-            </div>
-
-            {unit !== 'SPECIAL_TEAMS' && (
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Offensive personnel</span>
-                    <select
-                      name="offensive_personnel_code"
-                      className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${
-                        inlineErrors.offensive_personnel_code ? 'border-red-500' : ''
-                      }`}
-                      defaultValue=""
-                      onChange={(e) => setSelectedPersonnel(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Select personnel
-                      </option>
-                      {offensePersonnel.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Formation</span>
-                    <select
-                      name="offensive_formation_id"
-                      className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${
-                        inlineErrors.offensive_formation_id ? 'border-red-500' : ''
-                      }`}
-                      defaultValue=""
-                      onChange={(e) => setSelectedFormation(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Select formation
-                      </option>
-                      {(filteredFormations.length > 0 ? filteredFormations : offenseFormationsUnique).map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.formation} ({f.personnel}p{f.family ? ` • ${f.family}` : ''})
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="hidden"
-                      name="offensive_formation_label"
-                      value={offenseFormations.find((f) => f.id === selectedFormation)?.formation || ''}
-                    />
-                    {inlineErrors.offensive_formation_id && (
-                      <p className="text-[0.7rem] text-red-400">{inlineErrors.offensive_formation_id}</p>
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dynamic fields</h3>
+            <div className="flex flex-wrap gap-3">
+              {FIELD_CONFIG[eventType].map((field) => {
+                const baseOptions =
+                  field.name === 'offensive_personnel_code'
+                    ? offensePersonnel
+                    : field.name === 'offensive_formation_id'
+                    ? searchedFormations.map((f) => f.id)
+                    : field.name === 'backfield_code'
+                    ? backfieldOptions.map((b) => b.code)
+                    : field.name === 'wr_concept_id'
+                    ? wrConcepts.map((w) => w.id)
+                    : field.name === 'front_code'
+                    ? frontOptions
+                    : field.name === 'defensive_structure_id'
+                    ? defenseStructures.map((d) => d.id)
+                    : field.options || []
+                return (
+                  <label key={field.name} className="space-y-1 text-xs text-slate-400 min-w-[160px]">
+                    <span className="uppercase tracking-[0.18em]">{field.label}</span>
+                    {field.type === 'select' && (
+                      <select
+                        name={field.name}
+                        value={(formDataState[field.name] as string) ?? ''}
+                        onChange={(e) =>
+                          setFormDataState((prev) => ({
+                            ...prev,
+                            [field.name]: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                      >
+                        <option value="">Select</option>
+                        {baseOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {field.type === 'text' && (
+                      <input
+                        type="text"
+                        name={field.name}
+                        value={(formDataState[field.name] as string) ?? ''}
+                        onChange={(e) =>
+                          setFormDataState((prev) => ({
+                            ...prev,
+                            [field.name]: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                      />
+                    )}
+                    {field.type === 'checkbox' && (
+                      <input
+                        type="checkbox"
+                        name={field.name}
+                        checked={Boolean(formDataState[field.name])}
+                        onChange={(e) =>
+                          setFormDataState((prev) => ({
+                            ...prev,
+                            [field.name]: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4"
+                      />
+                    )}
+                    {field.type === 'number' && (
+                      <input
+                        type="number"
+                        name={field.name}
+                        value={(formDataState[field.name] as string) ?? ''}
+                        onChange={(e) =>
+                          setFormDataState((prev) => ({
+                            ...prev,
+                            [field.name]: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                      />
                     )}
                   </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Backfield</span>
-                    <select
-                      name="backfield_code"
-                      className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${
-                        inlineErrors.backfield_code ? 'border-red-500' : ''
-                      }`}
-                      defaultValue=""
-                      onChange={(e) => setSelectedBackfield(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Select backfield
+                )
+              })}
+            </div>
+          </section>
+
+          {unit === 'OFFENSE' && (
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Offense - Personnel & structure
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.18em]">Offensive personnel</span>
+                  <select
+                    name="offensive_personnel_code"
+                    value={selectedPersonnel}
+                    onChange={(e) => setSelectedPersonnel(e.target.value)}
+                    className={`w-36 rounded-lg border px-3 py-2 text-sm ${
+                      inlineErrors.offensive_personnel_code
+                        ? 'border-red-500 bg-red-950/40 text-red-100'
+                        : 'border-slate-800 bg-black/40 text-slate-100'
+                    }`}
+                  >
+                    <option value="">Select</option>
+                    {offensePersonnel.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
                       </option>
-                      {backfieldOptions.map((b) => (
-                        <option key={b.code} value={b.code}>
-                          {b.code} ({b.backs} backs)
+                    ))}
+                  </select>
+                  {inlineErrors.offensive_personnel_code && (
+                    <p className="text-[0.7rem] text-red-400">{inlineErrors.offensive_personnel_code}</p>
+                  )}
+                </label>
+
+                <div className="space-y-1 text-xs text-slate-400 flex-1 min-w-[240px]">
+                  <span className="uppercase tracking-[0.18em]">Formation</span>
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Search..."
+                      value={formationSearch}
+                      onChange={(e) => setFormationSearch(e.target.value)}
+                      className="w-32 rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
+                    />
+                    <select
+                      name="offensive_formation_id"
+                      value={selectedFormation}
+                      onChange={(e) => setSelectedFormation(e.target.value)}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+                        inlineErrors.offensive_formation_id
+                          ? 'border-red-500 bg-red-950/40 text-red-100'
+                          : 'border-slate-800 bg-black/40 text-slate-100'
+                      }`}
+                    >
+                      <option value="">Select formation</option>
+                      {searchedFormations.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.formation} ({f.personnel}p{f.family ? ` - ${f.family}` : ''})
                         </option>
                       ))}
                     </select>
-                    <input type="hidden" name="backs_count" value={selectedBackfieldMeta?.backs ?? ''} />
-                    <input type="hidden" name="backfield_family" value={selectedBackfieldFamily} />
-                  </label>
+                  </div>
+                  {inlineErrors.offensive_formation_id && (
+                    <p className="text-[0.7rem] text-red-400">{inlineErrors.offensive_formation_id}</p>
+                  )}
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-3">
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">QB alignment</span>
-                    <select
-                      name="qb_alignment"
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                      value={qbAlignmentValue}
-                      onChange={(e) => setQbAlignment(e.target.value)}
-                    >
-                      <option value="UNDER_CENTER">Under center</option>
-                      <option value="SHOTGUN">Shotgun</option>
-                      <option value="PISTOL">Pistol</option>
-                      <option value="DIRECT_SNAP">Direct snap</option>
-                    </select>
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">WR concept</span>
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.18em]">Backfield</span>
+                  <select
+                    name="backfield_code"
+                    value={selectedBackfield}
+                    onChange={(e) => setSelectedBackfield(e.target.value)}
+                    className={`w-36 rounded-lg border px-3 py-2 text-sm ${
+                      inlineErrors.backfield_code
+                        ? 'border-red-500 bg-red-950/40 text-red-100'
+                        : 'border-slate-800 bg-black/40 text-slate-100'
+                    }`}
+                  >
+                    <option value="">Select</option>
+                    {backfieldOptions.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.code} ({b.backs} backs)
+                      </option>
+                    ))}
+                  </select>
+                  <input type="hidden" name="backs_count" value={selectedBackfieldMeta?.backs ?? ''} />
+                  {inlineErrors.backfield_code && (
+                    <p className="text-[0.7rem] text-red-400">{inlineErrors.backfield_code}</p>
+                  )}
+                </label>
+
+                <div className="space-y-1 text-xs text-slate-400 flex-1 min-w-[220px]">
+                  <span className="uppercase tracking-[0.18em]">WR concept</span>
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Search..."
+                      value={wrConceptSearch}
+                      onChange={(e) => setWrConceptSearch(e.target.value)}
+                      className="w-28 rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
+                    />
                     <select
                       name="wr_concept_id"
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                      defaultValue=""
+                      value={selectedWRConcept}
                       onChange={(e) => setSelectedWRConcept(e.target.value)}
+                      className="flex-1 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                     >
-                      <option value="" disabled>
-                        Select concept
-                      </option>
-                      {wrConcepts.map((c) => (
+                      <option value="">Select concept</option>
+                      {wrConceptFiltered.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name} ({c.family || 'concept'})
                         </option>
                       ))}
                     </select>
-                    <input type="hidden" name="wr_concept_label" value={selectedWRConceptMeta?.name || ''} />
-                    <input type="hidden" name="wr_concept_family" value={selectedWRConceptMeta?.family || ''} />
-                    <input type="hidden" name="route_tag_x" value={selectedWRConceptMeta?.routes.X || ''} />
-                    <input type="hidden" name="route_tag_z" value={selectedWRConceptMeta?.routes.Z || ''} />
-                    <input type="hidden" name="route_tag_y" value={selectedWRConceptMeta?.routes.Y || ''} />
-                    <input type="hidden" name="route_tag_h" value={selectedWRConceptMeta?.routes.H || ''} />
-                    <input type="hidden" name="route_tag_rb" value={selectedWRConceptMeta?.routes.RB || ''} />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">QB drop</span>
-                    <input
-                      name="qb_drop"
-                      value={selectedWRConceptMeta?.qbDrop || ''}
-                      readOnly
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                    />
-                  </label>
+                  </div>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-3">
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Coverage beater</span>
-                    <input
-                      name="primary_coverage_beater"
-                      value={(selectedWRConceptMeta?.coverageBeater || []).join(', ')}
-                      readOnly
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Run concept</span>
-                    <select
-                      name="run_concept"
-                      className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${
-                        inlineErrors.run_concept ? 'border-red-500' : ''
-                      }`}
-                      value={runConcept}
-                      onChange={(e) => setRunConcept(e.target.value)}
-                      disabled={playFamily === 'PASS'}
-                    >
-                      <option value="">--</option>
-                      {runConceptOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt.replace(/_/g, ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Pass result</span>
-                    <select
-                      name="pass_result"
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                      value={passResult}
-                      onChange={(e) => setPassResult(e.target.value)}
-                      disabled={playFamily === 'RUN'}
-                    >
-                      <option value="">--</option>
-                      {passResultOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt.replace(/_/g, ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="has_shift" className="accent-brand" />
-                    Shift
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="has_motion"
-                      className="accent-brand"
-                      checked={hasMotion}
-                      onChange={(e) => handleMotionToggle(e.target.checked)}
-                    />
-                    Motion
-                  </label>
-                  <select
-                    name="motion_type"
-                    className="rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                    value={motionType}
-                    onChange={(e) => setMotionType(e.target.value)}
-                    disabled={!hasMotion}
-                  >
-                    <option value="NONE">None</option>
-                    <option value="JET">Jet</option>
-                    <option value="FLY">Fly</option>
-                    <option value="ORBIT">Orbit</option>
-                    <option value="GHOST">Ghost</option>
-                    <option value="SHORT">Short</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="is_rpo" className="accent-brand" />
-                    RPO
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="is_play_action" className="accent-brand" />
-                    Play action
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="is_shot_play" className="accent-brand" />
-                    Shot play
-                  </label>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-3">
                 <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Defensive structure</span>
+                  <span className="uppercase tracking-[0.18em]">Run concept</span>
+                  <select
+                    name="run_concept"
+                    value={runConcept}
+                    onChange={(e) => setRunConcept(e.target.value)}
+                    disabled={playFamily === 'PASS' || playFamily === 'SPECIAL_TEAMS'}
+                    className="w-36 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
+                  >
+                    <option value="">--</option>
+                    {runConceptOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt.replace('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+          )}
+
+          {unit === 'DEFENSE' && (
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Defense - Structure & shell
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.18em]">Front</span>
+                  <select
+                    name="front_code"
+                    value={frontCode}
+                    onChange={(e) => setFrontCode(e.target.value)}
+                    className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">Select front</option>
+                    {frontOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.18em]">Structure</span>
                   <select
                     name="defensive_structure_id"
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                    defaultValue=""
+                    value={defStructure}
+                    onChange={(e) => setDefStructure(e.target.value)}
+                    className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                   >
-                    <option value="" disabled>
-                      Select structure
-                    </option>
+                    <option value="">Select structure</option>
                     {defenseStructures.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
@@ -808,283 +819,273 @@ export function ChartEventPanel({
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Coverage (Pre)</span>
+
+                <label className="space-y-1 text-xs text-slate-400 flex-1 min-w-[220px]">
+                  <span className="uppercase tracking-[0.18em]">Coverage (pre)</span>
                   <select
                     name="coverage_shell_pre"
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                    defaultValue=""
-                  >
-                    <option value="">--</option>
-                    {coverageShellOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Coverage (Post)</span>
-                  <select
-                    name="coverage_shell_post"
-                    className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${
-                      inlineWarnings.coverage_shell_post ? 'border-amber-500' : ''
+                    value={coveragePre}
+                    onChange={(e) => setCoveragePre(e.target.value)}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                      inlineWarnings.coverage_shell_pre
+                        ? 'border-amber-500 bg-amber-950/30 text-amber-50'
+                        : 'border-slate-800 bg-black/40 text-slate-100'
                     }`}
-                    defaultValue=""
                   >
                     <option value="">--</option>
-                    {coveragePostOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
+                    {coverageShellOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
+                  {inlineWarnings.coverage_shell_pre && (
+                    <p className="text-[0.7rem] text-amber-300">{inlineWarnings.coverage_shell_pre}</p>
+                  )}
                 </label>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Front / Pressure</span>
-                  <select
-                    name="front_code"
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                    defaultValue=""
-                  >
-                    <option value="">--</option>
-                    {frontOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Pressure tag</span>
-                  <input
-                    name="pressure_code"
-                    placeholder="Blitz / Sim / Creeper"
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                  />
-                </label>
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Defensive personnel</span>
-                  <input
-                    name="defensive_personnel_code"
-                    placeholder="Nickel, Dime, etc."
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
 
-          {playFamily === 'SPECIAL_TEAMS' && (
-            <div className="space-y-3 rounded-2xl border border-slate-900/70 bg-black/20 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-200">Special Teams</h3>
-                <span className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Kick / Punt</span>
+                <div className="space-y-1 text-xs text-slate-400 flex-1 min-w-[240px]">
+                  <span className="uppercase tracking-[0.18em]">Coverage (post)</span>
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Search..."
+                      value={coveragePostSearch}
+                      onChange={(e) => setCoveragePostSearch(e.target.value)}
+                      className="w-28 rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
+                    />
+                    <select
+                      name="coverage_shell_post"
+                      value={coveragePost}
+                      onChange={(e) => setCoveragePost(e.target.value)}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+                        inlineWarnings.coverage_shell_post
+                          ? 'border-amber-500 bg-amber-950/30 text-amber-50'
+                          : 'border-slate-800 bg-black/40 text-slate-100'
+                      }`}
+                    >
+                      <option value="">--</option>
+                      {coveragePostFiltered.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {inlineWarnings.coverage_shell_post && (
+                    <p className="text-[0.7rem] text-amber-300">{inlineWarnings.coverage_shell_post}</p>
+                  )}
+                </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-3">
+            </section>
+          )}
+
+          {unit === 'SPECIAL_TEAMS' && (
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Special teams - Type & variant
+              </h3>
+              <div className="flex flex-wrap gap-3">
                 <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">ST Type</span>
+                  <span className="uppercase tracking-[0.18em]">ST play type</span>
                   <select
                     name="st_play_type"
-                    className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${
-                      inlineErrors.st_play_type ? 'border-red-500' : ''
-                    }`}
                     value={stPlayType}
                     onChange={(e) => setStPlayType(e.target.value)}
+                    className={`w-40 rounded-lg border px-3 py-2 text-sm ${
+                      inlineErrors.st_play_type
+                        ? 'border-red-500 bg-red-950/40 text-red-100'
+                        : 'border-slate-800 bg-black/40 text-slate-100'
+                    }`}
                   >
-                    <option value="">--</option>
-                    {stPlayTypes.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace(/_/g, ' ')}
+                    <option value="">Select type</option>
+                    {stPlayTypes.map((t) => (
+                      <option key={t} value={t}>
+                        {t.replace('_', ' ')}
                       </option>
                     ))}
                   </select>
+                  {inlineErrors.st_play_type && (
+                    <p className="text-[0.7rem] text-red-400">{inlineErrors.st_play_type}</p>
+                  )}
                 </label>
+
                 <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Variant</span>
+                  <span className="uppercase tracking-[0.18em]">Variant</span>
                   <select
                     name="st_variant"
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
                     value={stVariant}
                     onChange={(e) => setStVariant(e.target.value)}
+                    className="w-32 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                   >
-                    {stVariants.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace(/_/g, ' ')}
+                    {stVariants.map((t) => (
+                      <option key={t} value={t}>
+                        {t.replace('_', ' ')}
                       </option>
                     ))}
                   </select>
                 </label>
+
                 <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">Return yards</span>
+                  <span className="uppercase tracking-[0.18em]">Return yards</span>
                   <input
                     name="st_return_yards"
                     type="number"
-                    min={-99}
-                    max={150}
                     value={stReturnYards}
                     onChange={(e) => setStReturnYards(e.target.value)}
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                    className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                   />
                 </label>
               </div>
-              {stVariant === 'FAKE' && (
-                <div className="space-y-2 rounded-xl border border-slate-800/70 bg-black/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fake details (offensive)</p>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="space-y-1 text-xs text-slate-400">
-                      <span className="uppercase tracking-[0.2em]">Run concept</span>
-                      <select
-                        name="run_concept"
-                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                        value={runConcept}
-                        onChange={(e) => setRunConcept(e.target.value)}
-                      >
-                        <option value="">--</option>
-                        {runConceptOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt.replace(/_/g, ' ')}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-1 text-xs text-slate-400">
-                      <span className="uppercase tracking-[0.2em]">Pass concept</span>
-                      <select
-                        name="wr_concept_id"
-                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                        value={selectedWRConcept}
-                        onChange={(e) => setSelectedWRConcept(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          Select concept
-                        </option>
-                        {wrConcepts.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} ({c.family || 'concept'})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
+            </section>
           )}
 
-
-          <div className="space-y-3 rounded-2xl border border-slate-900/70 bg-black/20 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">Outcome & Penalties</h3>
-              <span className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Result</span>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Play call</span>
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quick outcome</h3>
+            <div className="flex flex-wrap gap-3">
+              <label className="space-y-1 text-xs text-slate-400 flex-1 min-w-[220px]">
+                <span className="uppercase tracking-[0.18em]">Play call</span>
                 <input
                   name="playCall"
                   placeholder="Trips Right 92 Mesh"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                   required
                 />
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Result</span>
+                <span className="uppercase tracking-[0.18em]">Result (quick)</span>
                 <input
                   name="result"
                   placeholder="Complete, +8"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
+                  className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                 />
               </label>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Yards gained</span>
+                <span className="uppercase tracking-[0.18em]">Yards gained</span>
                 <input
                   name="gainedYards"
                   type="number"
                   min={-99}
-                  max={150}
-                  className={`w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand ${inlineWarnings.gainedYards ? 'border-amber-500' : ''}`}
+                  max={99}
+                  className={`w-28 rounded-lg border px-3 py-2 text-sm ${
+                    inlineWarnings.gainedYards
+                      ? 'border-amber-500 bg-amber-950/30 text-amber-50'
+                      : 'border-slate-800 bg-black/40 text-slate-100'
+                  }`}
                 />
+                {inlineWarnings.gainedYards && (
+                  <p className="text-[0.7rem] text-amber-300">{inlineWarnings.gainedYards}</p>
+                )}
               </label>
+
               <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Play result</span>
+                <span className="uppercase tracking-[0.18em]">Pass result</span>
                 <select
-                  name="play_result_type"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                  defaultValue=""
+                  name="pass_result"
+                  value={passResult}
+                  onChange={(e) => setPassResult(e.target.value)}
+                  disabled={playFamily === 'RUN' || playFamily === 'SPECIAL_TEAMS'}
+                  className="w-36 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
                 >
                   <option value="">--</option>
-                  <option value="NORMAL">Normal</option>
-                  <option value="TD">Touchdown</option>
-                  <option value="SAFETY">Safety</option>
-                  <option value="INT">Interception</option>
-                  <option value="FUMBLE_LOST">Fumble lost</option>
-                  <option value="ON_DOWNS">On downs</option>
-                  <option value="PENALTY_ONLY">Penalty only</option>
-                  <option value="NO_PLAY">No play</option>
-                  <option value="RPO_RUN">RPO Run</option>
-                  <option value="RPO_PASS">RPO Pass</option>
+                  {passResultOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
                 </select>
               </label>
-              <div className="flex flex-wrap items-center gap-4 pt-6 text-xs text-slate-400">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" name="explosive" value="true" className="accent-brand" />
-                  Explosive
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" name="turnover" value="true" className="accent-brand" />
-                  Turnover
-                </label>
-              </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" name="first_down" value="true" className="accent-brand" />
-                  First down
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" name="scoring_play" value="true" className="accent-brand" />
-                  Scoring
-                </label>
-              </div>
-              <label className="space-y-1 text-xs text-slate-400">
-                <span className="uppercase tracking-[0.2em]">Penalty yards</span>
-                <input
-                  name="penalty_yards"
-                  type="number"
-                  min={-99}
-                  max={99}
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-xs text-slate-400">
-                <input type="checkbox" name="penalty_on_offense" value="true" className="accent-brand" />
-                Penalty on offense
-              </label>
-            </div>
+          </section>
 
-            <label className="space-y-1 text-xs text-slate-400 block">
-              <span className="uppercase tracking-[0.2em]">Notes</span>
-              <textarea
-                name="notes"
-                rows={3}
-                className="w-full rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus-visible:ring-2 focus-visible:ring-brand"
-                placeholder="Coverage bust, pressure from boundary..."
-              />
-            </label>
-          </div>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Advanced tags</h3>
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen((prev) => !prev)}
+                className="text-xs text-slate-300 underline"
+              >
+                {advancedOpen ? 'Collapse' : 'Expand'}
+              </button>
+            </div>
+            {advancedOpen && (
+              <div className="space-y-3">
+                {unit === 'OFFENSE' && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.18em]">Motion</span>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={hasMotion}
+                            onChange={(e) => handleMotionToggle(e.target.checked)}
+                            className="accent-brand"
+                          />
+                          <span>Has motion</span>
+                        </label>
+                        {hasMotion && (
+                          <select
+                            name="motion_type"
+                            value={motionType}
+                            onChange={(e) => setMotionType(e.target.value)}
+                            className="rounded-lg border border-slate-800 bg-black/40 px-2 py-1 text-xs text-slate-100"
+                          >
+                            <option value="JET">Jet</option>
+                            <option value="ORBIT">Orbit</option>
+                            <option value="YOYO">Yo-Yo</option>
+                            <option value="ACROSS">Across</option>
+                            <option value="RETURN">Return</option>
+                            <option value="RESET">Reset</option>
+                          </select>
+                        )}
+                        {!hasMotion && <input type="hidden" name="motion_type" value="NONE" />}
+                      </div>
+                    </label>
+
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.18em]">QB alignment</span>
+                      <input
+                        name="qb_alignment"
+                        value={qbAlignmentValue}
+                        readOnly
+                        className="w-36 rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                <label className="space-y-1 text-xs text-slate-400">
+                  <span className="uppercase tracking-[0.18em]">Drive #</span>
+                  <input
+                    name="driveNumber"
+                    type="number"
+                    min={1}
+                    className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+
+                <label className="space-y-1 text-xs text-slate-400 block">
+                  <span className="uppercase tracking-[0.18em]">Notes</span>
+                  <textarea
+                    name="notes"
+                    rows={2}
+                    className="w-full rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    placeholder="Coverage bust, pressure from boundary..."
+                  />
+                </label>
+              </div>
+            )}
+          </section>
 
           {errorMessage && (
             <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
               {errorMessage}
             </div>
           )}
-          {warningMessage && (
+          {warningMessage && !errorMessage && (
             <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
               {warningMessage}
             </div>
@@ -1096,11 +1097,12 @@ export function ChartEventPanel({
               disabled={isPending}
               className="rounded-full bg-brand px-6 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-black disabled:opacity-40"
             >
-              {isPending ? 'Saving...' : 'Save & Next (Ctrl/Cmd+Enter)'}
+              {isPending ? 'Saving...' : 'Log play'}
             </button>
           </div>
         </form>
       </div>
+
       <div className="rounded-3xl border border-slate-900/70 bg-black/20 p-6 space-y-4">
         <div>
           <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
@@ -1108,7 +1110,7 @@ export function ChartEventPanel({
             Shows the latest entries, including optimistic ones while the network request finishes.
           </p>
         </div>
-        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
           {events.length === 0 ? (
             <p className="text-sm text-slate-500">No plays logged yet. Start charting to populate this list.</p>
           ) : (
@@ -1121,15 +1123,12 @@ export function ChartEventPanel({
                   <span>
                     Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)}
                   </span>
-                  <span>
-                    Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
-                  </span>
+                  <span>Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}</span>
                 </div>
-                <div className="mt-1 font-semibold text-slate-100">
-                  {event.play_call || 'Play call TBD'}
-                </div>
+                <div className="mt-1 font-semibold text-slate-100">{event.play_call || 'Play call TBD'}</div>
                 <div className="text-xs text-slate-400">
-                  {event.result || 'Result TBD'} | Yardage: {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
+                  {event.result || 'Result TBD'} | Yardage:{' '}
+                  {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
                 </div>
                 <div className="text-[0.7rem] text-slate-500">
                   Logged{' '}
