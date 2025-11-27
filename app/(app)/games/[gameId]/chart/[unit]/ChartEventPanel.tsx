@@ -238,26 +238,16 @@ export function ChartEventPanel({
   const [isPending, startTransition] = useTransition()
   const [events, setEvents] = useState<EventRow[]>(initialEvents)
   const [selectedPersonnel, setSelectedPersonnel] = useState<string>('')
-  const [selectedFormation, setSelectedFormation] = useState<string>('')
   const [selectedBackfield, setSelectedBackfield] = useState<string>('')
-  const [selectedWRConcept, setSelectedWRConcept] = useState<string>('')
   const [motionType, setMotionType] = useState<string>('NONE')
   const [hasMotion, setHasMotion] = useState<boolean>(false)
   const [playFamily, setPlayFamily] = useState<'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS'>(
     unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS'
   )
-  const [runConcept, setRunConcept] = useState<string>('')
   const [passResult, setPassResult] = useState<string>('')
-  const [stPlayType, setStPlayType] = useState<string>('')
-  const [stVariant, setStVariant] = useState<string>('NORMAL')
-  const [stReturnYards, setStReturnYards] = useState<string>('')
   const [quarterValue, setQuarterValue] = useState<string>(latestEvent?.quarter ? String(latestEvent.quarter) : '')
   const [ballOnValue, setBallOnValue] = useState<string>(latestEvent?.ball_on || '')
   const [hashValue, setHashValue] = useState<string>('')
-  const [frontCode, setFrontCode] = useState<string>('')
-  const [coveragePre, setCoveragePre] = useState<string>('')
-  const [coveragePost, setCoveragePost] = useState<string>('')
-  const [defStructure, setDefStructure] = useState<string>('')
   const [formationSearch, setFormationSearch] = useState<string>('')
   const [wrConceptSearch, setWrConceptSearch] = useState<string>('')
   const [coveragePostSearch, setCoveragePostSearch] = useState<string>('')
@@ -321,6 +311,14 @@ export function ChartEventPanel({
     if (!checked) setMotionType('NONE')
   }
 
+  const resetDynamicFieldsForEventType = () => {
+    const defaults: Record<string, string | number | boolean> = {}
+    FIELD_CONFIG[eventType].forEach((field) => {
+      defaults[field.name] = field.type === 'checkbox' ? false : ''
+    })
+    setFormData(defaults)
+  }
+
   const upsertEvent = useCallback(
     (newEvent: EventRow) => {
       setEvents((prev) => {
@@ -351,11 +349,7 @@ export function ChartEventPanel({
   }, [])
 
   useEffect(() => {
-    const defaults: Record<string, string | number | boolean> = {}
-    FIELD_CONFIG[eventType].forEach((field) => {
-      defaults[field.name] = field.type === 'checkbox' ? false : ''
-    })
-    setFormData(defaults)
+    resetDynamicFieldsForEventType()
   }, [eventType])
 
   useEffect(() => {
@@ -449,9 +443,7 @@ export function ChartEventPanel({
       setErrorMessage(null)
       setWarningMessage(null)
       formRef.current?.reset()
-      setRunConcept('')
-      setPassResult('')
-      setStReturnYards('')
+      resetDynamicFieldsForEventType()
       router.refresh()
     })
   }
@@ -627,17 +619,7 @@ export function ChartEventPanel({
                 const handleChange = (value: string | boolean) => {
                   setFormData((prev) => ({ ...prev, [field.name]: value }))
                   if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
-                  if (field.name === 'offensive_formation_id') setSelectedFormation(String(value))
                   if (field.name === 'backfield_code') setSelectedBackfield(String(value))
-                  if (field.name === 'wr_concept_id') setSelectedWRConcept(String(value))
-                  if (field.name === 'run_concept') setRunConcept(String(value))
-                  if (field.name === 'front_code') setFrontCode(String(value))
-                  if (field.name === 'defensive_structure_id') setDefStructure(String(value))
-                  if (field.name === 'coverage_shell_pre') setCoveragePre(String(value))
-                  if (field.name === 'coverage_shell_post') setCoveragePost(String(value))
-                  if (field.name === 'st_play_type') setStPlayType(String(value))
-                  if (field.name === 'st_variant') setStVariant(String(value))
-                  if (field.name === 'st_return_yards') setStReturnYards(String(value))
                 }
                 return (
                   <label key={field.name} className="space-y-1 text-xs text-slate-400 min-w-[160px]">
