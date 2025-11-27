@@ -129,6 +129,38 @@ const coveragePostOptions = [
   { value: 'EXOTIC_OTHER', label: 'Exotic / Other (Specify in Notes)' },
 ]
 
+export const FIELD_CONFIG: Record<EventType, FieldConfig[]> = {
+  Offense: [
+    { name: 'offensive_personnel_code', label: 'Offensive Personnel', type: 'select' },
+    { name: 'offensive_formation_id', label: 'Formation', type: 'select' },
+    { name: 'backfield_code', label: 'Backfield', type: 'select' },
+    { name: 'wr_concept_id', label: 'WR Concept', type: 'select' },
+    { name: 'run_concept', label: 'Run Concept', type: 'select', options: runConceptOptions },
+    { name: 'pass_result', label: 'Pass Result', type: 'select', options: passResultOptions },
+  ],
+  Defense: [
+    { name: 'front_code', label: 'Front', type: 'select' },
+    { name: 'defensive_structure_id', label: 'Structure', type: 'select' },
+    {
+      name: 'coverage_shell_pre',
+      label: 'Coverage (Pre)',
+      type: 'select',
+      options: coverageShellOptions.map((c) => c.value),
+    },
+    {
+      name: 'coverage_shell_post',
+      label: 'Coverage (Post)',
+      type: 'select',
+      options: coveragePostOptions.map((c) => c.value),
+    },
+  ],
+  'Special Teams': [
+    { name: 'st_play_type', label: 'ST Play Type', type: 'select', options: stPlayTypes },
+    { name: 'st_variant', label: 'Variant', type: 'select', options: stVariants },
+    { name: 'st_return_yards', label: 'Return Yards', type: 'number' },
+  ],
+}
+
 function formatClock(seconds: number | null) {
   if (seconds == null) return '--'
   const mins = Math.floor(seconds / 60)
@@ -232,7 +264,7 @@ export function ChartEventPanel({
   const [coveragePostSearch, setCoveragePostSearch] = useState<string>('')
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(true)
   const [eventType, setEventType] = useState<EventType>('Offense')
-  const [formDataState, setFormDataState] = useState<Record<string, string | number | boolean>>({})
+  const [formData, setFormData] = useState<Record<string, string | number | boolean>>({})
 
   const frontOptions = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
   const offenseFormationsUnique = Array.from(
@@ -306,6 +338,12 @@ export function ChartEventPanel({
       upsertEvent(normalizeRealtimeEvent(payload))
     },
   })
+
+  useEffect(() => {
+    if (unit === 'OFFENSE') setEventType('Offense')
+    if (unit === 'DEFENSE') setEventType('Defense')
+    if (unit === 'SPECIAL_TEAMS') setEventType('Special Teams')
+  }, [unit])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -561,8 +599,8 @@ export function ChartEventPanel({
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dynamic fields</h3>
             <div className="flex flex-wrap gap-3">
-              {FIELD_CONFIG[eventType].map((field) => {
-                const baseOptions =
+              {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
+                const baseOptions: string[] =
                   field.name === 'offensive_personnel_code'
                     ? offensePersonnel
                     : field.name === 'offensive_formation_id'
@@ -582,9 +620,9 @@ export function ChartEventPanel({
                     {field.type === 'select' && (
                       <select
                         name={field.name}
-                        value={(formDataState[field.name] as string) ?? ''}
+                        value={(formData[field.name] as string) ?? ''}
                         onChange={(e) =>
-                          setFormDataState((prev) => ({
+                          setFormData((prev) => ({
                             ...prev,
                             [field.name]: e.target.value,
                           }))
@@ -592,7 +630,7 @@ export function ChartEventPanel({
                         className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                       >
                         <option value="">Select</option>
-                        {baseOptions.map((opt) => (
+                        {baseOptions.map((opt: string) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>
@@ -603,9 +641,9 @@ export function ChartEventPanel({
                       <input
                         type="text"
                         name={field.name}
-                        value={(formDataState[field.name] as string) ?? ''}
+                        value={(formData[field.name] as string) ?? ''}
                         onChange={(e) =>
-                          setFormDataState((prev) => ({
+                          setFormData((prev) => ({
                             ...prev,
                             [field.name]: e.target.value,
                           }))
@@ -617,9 +655,9 @@ export function ChartEventPanel({
                       <input
                         type="checkbox"
                         name={field.name}
-                        checked={Boolean(formDataState[field.name])}
+                        checked={Boolean(formData[field.name])}
                         onChange={(e) =>
-                          setFormDataState((prev) => ({
+                          setFormData((prev) => ({
                             ...prev,
                             [field.name]: e.target.checked,
                           }))
@@ -631,9 +669,9 @@ export function ChartEventPanel({
                       <input
                         type="number"
                         name={field.name}
-                        value={(formDataState[field.name] as string) ?? ''}
+                        value={(formData[field.name] as string) ?? ''}
                         onChange={(e) =>
-                          setFormDataState((prev) => ({
+                          setFormData((prev) => ({
                             ...prev,
                             [field.name]: e.target.value,
                           }))
