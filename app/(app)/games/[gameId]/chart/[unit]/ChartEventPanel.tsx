@@ -595,23 +595,32 @@ export function ChartEventPanel({
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dynamic fields</h3>
-            <div className="flex flex-wrap gap-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dynamic fields</h3>
+              <div className="flex flex-wrap gap-3">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
-                const baseOptions: string[] =
+                const prettify = (opt: string) =>
+                  opt
+                    .split('_')
+                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                    .join(' ')
+                const baseOptions =
                   field.name === 'offensive_personnel_code'
-                    ? offensePersonnel
+                    ? offensePersonnel.map((code) => ({ value: code, label: code }))
                     : field.name === 'offensive_formation_id'
-                    ? searchedFormations.map((f) => f.id)
+                    ? searchedFormations.map((f) => ({ value: f.id, label: `${f.personnel} · ${f.formation}` }))
                     : field.name === 'backfield_code'
-                    ? backfieldOptions.map((b) => b.code)
+                    ? backfieldOptions.map((b) => ({ value: b.code, label: `${b.code} · ${b.description}` }))
                     : field.name === 'wr_concept_id'
-                    ? wrConcepts.map((w) => w.id)
+                    ? wrConcepts.map((w) => ({ value: w.id, label: `${w.family ? `${w.family} · ` : ''}${w.name}` }))
                     : field.name === 'front_code'
-                    ? frontOptions
+                    ? frontOptions.map((name) => ({ value: name, label: name }))
                     : field.name === 'defensive_structure_id'
-                    ? defenseStructures.map((d) => d.id)
-                    : field.options || []
+                    ? defenseStructures.map((d) => ({ value: d.id, label: d.name || d.family || d.id }))
+                    : field.name === 'coverage_shell_pre'
+                    ? coverageShellOptions.map((c) => ({ value: c.value, label: c.label }))
+                    : field.name === 'coverage_shell_post'
+                    ? coveragePostOptions.map((c) => ({ value: c.value, label: c.label }))
+                    : (field.options || []).map((opt) => ({ value: opt, label: prettify(opt) }))
                 const handleChange = (value: string | boolean) => {
                   setFormData((prev) => ({ ...prev, [field.name]: value }))
                   if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
@@ -628,9 +637,9 @@ export function ChartEventPanel({
                         className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                       >
                         <option value="">Select</option>
-                        {baseOptions.map((opt: string) => (
-                          <option key={opt} value={opt}>
-                            {opt}
+                        {baseOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
                           </option>
                         ))}
                       </select>
@@ -876,3 +885,5 @@ export function ChartEventPanel({
     </div>
   )
 }
+
+
