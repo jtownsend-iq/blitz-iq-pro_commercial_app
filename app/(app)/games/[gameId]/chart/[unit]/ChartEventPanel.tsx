@@ -369,6 +369,9 @@ export function ChartEventPanel({
     const formData = new FormData(form)
     formData.set('sessionId', sessionId)
     formData.set('play_family', playFamily)
+    // Ensure advanced tags are always present in the payload, even if the Advanced section is collapsed.
+    formData.set('qb_alignment', qbAlignmentValue)
+    formData.set('motion_type', hasMotion ? motionType : 'NONE')
     const validationInput = {
       unit,
       play_family: playFamily,
