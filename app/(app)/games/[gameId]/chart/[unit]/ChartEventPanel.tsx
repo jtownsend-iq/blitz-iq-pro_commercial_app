@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import type { recordChartEvent } from '../../../chart-actions'
 import type {
   BackfieldFamily,
@@ -49,7 +49,7 @@ export type EventType = (typeof EVENT_TYPES)[number]
 type FieldConfig = {
   name: string
   label: string
-  type: 'text' | 'select' | 'checkbox' | 'number' | 'textarea'
+  type: 'text' | 'select' | 'checkbox' | 'number'
   options?: string[]
 }
 
@@ -196,9 +196,14 @@ function buildOptimisticEvent(formData: FormData, sequence: number): EventRow {
   }
 }
 
+const fallbackId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
 function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
   return {
-    id: (payload.id as string) ?? crypto.randomUUID(),
+    id:
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? (payload.id as string) ?? crypto.randomUUID()
+        : (payload.id as string) ?? fallbackId(),
     sequence: Number(payload.sequence ?? 0),
     quarter: (payload.quarter as number) ?? null,
     clock_seconds: (payload.clock_seconds as number) ?? null,
@@ -278,17 +283,14 @@ export function ChartEventPanel({
       ? 'PISTOL'
       : 'UNDER_CENTER'
   const qbAlignmentValue = selectedQBAlignment
-  const dictionaryBundle = useMemo(
-    () => ({
-      offenseFormations,
-      offensePersonnel,
-      backfieldOptions,
-      backfieldFamilies,
-      defenseStructures,
-      wrConcepts,
-    }),
-    [offenseFormations, offensePersonnel, backfieldOptions, backfieldFamilies, defenseStructures, wrConcepts]
-  )
+  const dictionaryBundle = {
+    offenseFormations,
+    offensePersonnel,
+    backfieldOptions,
+    backfieldFamilies,
+    defenseStructures,
+    wrConcepts,
+  }
   const gainedError = inlineErrors.gainedYards
   const gainedWarning = inlineWarnings.gainedYards
   const situationLabel = latestEvent
@@ -367,7 +369,6 @@ export function ChartEventPanel({
     const formData = new FormData(form)
     formData.set('sessionId', sessionId)
     formData.set('play_family', playFamily)
-    formData.set('qb_alignment', qbAlignmentValue)
     const validationInput = {
       unit,
       play_family: playFamily,
@@ -431,6 +432,7 @@ export function ChartEventPanel({
       formRef.current?.reset()
       resetDynamicFieldsForEventType()
       setPassResult('')
+      setInlineWarnings({})
       router.refresh()
     })
   }
@@ -578,11 +580,10 @@ export function ChartEventPanel({
                 className={`rounded-full px-3 py-1 ${
                   playFamily === 'SPECIAL_TEAMS' ? 'bg-brand text-black' : 'text-slate-300'
                 }`}
-              >
-                ST
-              </button>
+            >
+              ST
+            </button>
             </div>
-            <input type="hidden" name="play_family" value={playFamily} />
           </section>
 
           <section className="space-y-2">
