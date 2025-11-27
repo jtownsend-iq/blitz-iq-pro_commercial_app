@@ -252,8 +252,9 @@ export function ChartEventPanel({
   const [wrConceptSearch, setWrConceptSearch] = useState<string>('')
   const [coveragePostSearch, setCoveragePostSearch] = useState<string>('')
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(true)
-  const [eventType, setEventType] = useState<EventType>('Offense')
   const [formData, setFormData] = useState<Record<string, string | number | boolean>>({})
+  const eventType: EventType =
+    unit === 'OFFENSE' ? 'Offense' : unit === 'DEFENSE' ? 'Defense' : 'Special Teams'
 
   const frontOptions = Array.from(new Set(defenseStructures.map((d) => d.name).filter(Boolean)))
   const offenseFormationsUnique = Array.from(
@@ -337,12 +338,6 @@ export function ChartEventPanel({
   })
 
   useEffect(() => {
-    if (unit === 'OFFENSE') setEventType('Offense')
-    if (unit === 'DEFENSE') setEventType('Defense')
-    if (unit === 'SPECIAL_TEAMS') setEventType('Special Teams')
-  }, [unit])
-
-  useEffect(() => {
     if (typeof window !== 'undefined') {
       setAdvancedOpen(window.innerWidth >= 1024)
     }
@@ -350,7 +345,7 @@ export function ChartEventPanel({
 
   useEffect(() => {
     resetDynamicFieldsForEventType()
-  }, [eventType])
+  }, [unit])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -444,6 +439,7 @@ export function ChartEventPanel({
       setWarningMessage(null)
       formRef.current?.reset()
       resetDynamicFieldsForEventType()
+      setPassResult('')
       router.refresh()
     })
   }
