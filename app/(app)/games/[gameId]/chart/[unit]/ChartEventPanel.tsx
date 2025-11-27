@@ -349,6 +349,17 @@ export function ChartEventPanel({
     if (typeof window !== 'undefined') {
       setAdvancedOpen(window.innerWidth >= 1024)
     }
+  }, [])
+
+  useEffect(() => {
+    const defaults: Record<string, string | number | boolean> = {}
+    FIELD_CONFIG[eventType].forEach((field) => {
+      defaults[field.name] = field.type === 'checkbox' ? false : ''
+    })
+    setFormData(defaults)
+  }, [eventType])
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault()
