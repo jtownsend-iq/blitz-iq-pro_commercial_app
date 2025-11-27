@@ -248,9 +248,6 @@ export function ChartEventPanel({
   const [quarterValue, setQuarterValue] = useState<string>(latestEvent?.quarter ? String(latestEvent.quarter) : '')
   const [ballOnValue, setBallOnValue] = useState<string>(latestEvent?.ball_on || '')
   const [hashValue, setHashValue] = useState<string>('')
-  const [formationSearch, setFormationSearch] = useState<string>('')
-  const [wrConceptSearch, setWrConceptSearch] = useState<string>('')
-  const [coveragePostSearch, setCoveragePostSearch] = useState<string>('')
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(true)
   const [formData, setFormData] = useState<Record<string, string | number | boolean>>({})
   const eventType: EventType =
@@ -264,9 +261,7 @@ export function ChartEventPanel({
     selectedPersonnel && selectedPersonnel.length > 0
       ? offenseFormationsUnique.filter((f) => f.personnel === selectedPersonnel)
       : offenseFormationsUnique
-  const searchedFormations = filteredFormations.filter((f) =>
-    `${f.formation} ${f.personnel} ${f.family}`.toLowerCase().includes(formationSearch.toLowerCase())
-  )
+  const searchedFormations = filteredFormations
 
   const selectedBackfieldMeta = selectedBackfield
     ? backfieldOptions.find((b) => b.code === selectedBackfield)
@@ -283,12 +278,6 @@ export function ChartEventPanel({
       ? 'PISTOL'
       : 'UNDER_CENTER'
   const qbAlignmentValue = selectedQBAlignment
-  const wrConceptFiltered = wrConcepts.filter((c) =>
-    `${c.name} ${c.family}`.toLowerCase().includes(wrConceptSearch.toLowerCase())
-  )
-  const coveragePostFiltered = coveragePostOptions.filter((c) =>
-    `${c.label} ${c.value}`.toLowerCase().includes(coveragePostSearch.toLowerCase())
-  )
   const dictionaryBundle = useMemo(
     () => ({
       offenseFormations,
