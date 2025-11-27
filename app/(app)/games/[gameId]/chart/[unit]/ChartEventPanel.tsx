@@ -625,6 +625,22 @@ export function ChartEventPanel({
                     : field.name === 'defensive_structure_id'
                     ? defenseStructures.map((d) => d.id)
                     : field.options || []
+                const handleChange = (value: string | boolean) => {
+                  setFormData((prev) => ({ ...prev, [field.name]: value }))
+                  if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
+                  if (field.name === 'offensive_formation_id') setSelectedFormation(String(value))
+                  if (field.name === 'backfield_code') setSelectedBackfield(String(value))
+                  if (field.name === 'wr_concept_id') setSelectedWRConcept(String(value))
+                  if (field.name === 'run_concept') setRunConcept(String(value))
+                  if (field.name === 'pass_result') setPassResult(String(value))
+                  if (field.name === 'front_code') setFrontCode(String(value))
+                  if (field.name === 'defensive_structure_id') setDefStructure(String(value))
+                  if (field.name === 'coverage_shell_pre') setCoveragePre(String(value))
+                  if (field.name === 'coverage_shell_post') setCoveragePost(String(value))
+                  if (field.name === 'st_play_type') setStPlayType(String(value))
+                  if (field.name === 'st_variant') setStVariant(String(value))
+                  if (field.name === 'st_return_yards') setStReturnYards(String(value))
+                }
                 return (
                   <label key={field.name} className="space-y-1 text-xs text-slate-400 min-w-[160px]">
                     <span className="uppercase tracking-[0.18em]">{field.label}</span>
@@ -632,12 +648,7 @@ export function ChartEventPanel({
                       <select
                         name={field.name}
                         value={(formData[field.name] as string) ?? ''}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            [field.name]: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => handleChange(e.target.value)}
                         className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                       >
                         <option value="">Select</option>
@@ -653,12 +664,7 @@ export function ChartEventPanel({
                         type="text"
                         name={field.name}
                         value={(formData[field.name] as string) ?? ''}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            [field.name]: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => handleChange(e.target.value)}
                         className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                       />
                     )}
@@ -667,12 +673,7 @@ export function ChartEventPanel({
                         type="checkbox"
                         name={field.name}
                         checked={Boolean(formData[field.name])}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            [field.name]: e.target.checked,
-                          }))
-                        }
+                        onChange={(e) => handleChange(e.target.checked)}
                         className="h-4 w-4"
                       />
                     )}
@@ -681,12 +682,7 @@ export function ChartEventPanel({
                         type="number"
                         name={field.name}
                         value={(formData[field.name] as string) ?? ''}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            [field.name]: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => handleChange(e.target.value)}
                         className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
                       />
                     )}
@@ -695,298 +691,6 @@ export function ChartEventPanel({
               })}
             </div>
           </section>
-
-          {unit === 'OFFENSE' && (
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Offense - Personnel & structure
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Offensive personnel</span>
-                  <select
-                    name="offensive_personnel_code"
-                    value={selectedPersonnel}
-                    onChange={(e) => setSelectedPersonnel(e.target.value)}
-                    className={`w-36 rounded-lg border px-3 py-2 text-sm ${
-                      inlineErrors.offensive_personnel_code
-                        ? 'border-red-500 bg-red-950/40 text-red-100'
-                        : 'border-slate-800 bg-black/40 text-slate-100'
-                    }`}
-                  >
-                    <option value="">Select</option>
-                    {offensePersonnel.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
-                  {inlineErrors.offensive_personnel_code && (
-                    <p className="text-[0.7rem] text-red-400">{inlineErrors.offensive_personnel_code}</p>
-                  )}
-                </label>
-
-                <div className="space-y-1 text-xs text-slate-400 flex-1 min-w-[240px]">
-                  <span className="uppercase tracking-[0.18em]">Formation</span>
-                  <div className="flex gap-2">
-                    <input
-                      placeholder="Search..."
-                      value={formationSearch}
-                      onChange={(e) => setFormationSearch(e.target.value)}
-                      className="w-32 rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
-                    />
-                    <select
-                      name="offensive_formation_id"
-                      value={selectedFormation}
-                      onChange={(e) => setSelectedFormation(e.target.value)}
-                      className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-                        inlineErrors.offensive_formation_id
-                          ? 'border-red-500 bg-red-950/40 text-red-100'
-                          : 'border-slate-800 bg-black/40 text-slate-100'
-                      }`}
-                    >
-                      <option value="">Select formation</option>
-                      {searchedFormations.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.formation} ({f.personnel}p{f.family ? ` - ${f.family}` : ''})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {inlineErrors.offensive_formation_id && (
-                    <p className="text-[0.7rem] text-red-400">{inlineErrors.offensive_formation_id}</p>
-                  )}
-                </div>
-
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Backfield</span>
-                  <select
-                    name="backfield_code"
-                    value={selectedBackfield}
-                    onChange={(e) => setSelectedBackfield(e.target.value)}
-                    className={`w-36 rounded-lg border px-3 py-2 text-sm ${
-                      inlineErrors.backfield_code
-                        ? 'border-red-500 bg-red-950/40 text-red-100'
-                        : 'border-slate-800 bg-black/40 text-slate-100'
-                    }`}
-                  >
-                    <option value="">Select</option>
-                    {backfieldOptions.map((b) => (
-                      <option key={b.code} value={b.code}>
-                        {b.code} ({b.backs} backs)
-                      </option>
-                    ))}
-                  </select>
-                  <input type="hidden" name="backs_count" value={selectedBackfieldMeta?.backs ?? ''} />
-                  {inlineErrors.backfield_code && (
-                    <p className="text-[0.7rem] text-red-400">{inlineErrors.backfield_code}</p>
-                  )}
-                </label>
-
-                <div className="space-y-1 text-xs text-slate-400 flex-1 min-w-[220px]">
-                  <span className="uppercase tracking-[0.18em]">WR concept</span>
-                  <div className="flex gap-2">
-                    <input
-                      placeholder="Search..."
-                      value={wrConceptSearch}
-                      onChange={(e) => setWrConceptSearch(e.target.value)}
-                      className="w-28 rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
-                    />
-                    <select
-                      name="wr_concept_id"
-                      value={selectedWRConcept}
-                      onChange={(e) => setSelectedWRConcept(e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                    >
-                      <option value="">Select concept</option>
-                      {wrConceptFiltered.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.family || 'concept'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Run concept</span>
-                  <select
-                    name="run_concept"
-                    value={runConcept}
-                    onChange={(e) => setRunConcept(e.target.value)}
-                    disabled={playFamily === 'PASS' || playFamily === 'SPECIAL_TEAMS'}
-                    className="w-36 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
-                  >
-                    <option value="">--</option>
-                    {runConceptOptions.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </section>
-          )}
-
-          {unit === 'DEFENSE' && (
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Defense - Structure & shell
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Front</span>
-                  <select
-                    name="front_code"
-                    value={frontCode}
-                    onChange={(e) => setFrontCode(e.target.value)}
-                    className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                  >
-                    <option value="">Select front</option>
-                    {frontOptions.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Structure</span>
-                  <select
-                    name="defensive_structure_id"
-                    value={defStructure}
-                    onChange={(e) => setDefStructure(e.target.value)}
-                    className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                  >
-                    <option value="">Select structure</option>
-                    {defenseStructures.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="space-y-1 text-xs text-slate-400 flex-1 min-w-[220px]">
-                  <span className="uppercase tracking-[0.18em]">Coverage (pre)</span>
-                  <select
-                    name="coverage_shell_pre"
-                    value={coveragePre}
-                    onChange={(e) => setCoveragePre(e.target.value)}
-                    className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                      inlineWarnings.coverage_shell_pre
-                        ? 'border-amber-500 bg-amber-950/30 text-amber-50'
-                        : 'border-slate-800 bg-black/40 text-slate-100'
-                    }`}
-                  >
-                    <option value="">--</option>
-                    {coverageShellOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  {inlineWarnings.coverage_shell_pre && (
-                    <p className="text-[0.7rem] text-amber-300">{inlineWarnings.coverage_shell_pre}</p>
-                  )}
-                </label>
-
-                <div className="space-y-1 text-xs text-slate-400 flex-1 min-w-[240px]">
-                  <span className="uppercase tracking-[0.18em]">Coverage (post)</span>
-                  <div className="flex gap-2">
-                    <input
-                      placeholder="Search..."
-                      value={coveragePostSearch}
-                      onChange={(e) => setCoveragePostSearch(e.target.value)}
-                      className="w-28 rounded-lg border border-slate-800 bg-black/40 px-2 py-2 text-xs text-slate-100"
-                    />
-                    <select
-                      name="coverage_shell_post"
-                      value={coveragePost}
-                      onChange={(e) => setCoveragePost(e.target.value)}
-                      className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-                        inlineWarnings.coverage_shell_post
-                          ? 'border-amber-500 bg-amber-950/30 text-amber-50'
-                          : 'border-slate-800 bg-black/40 text-slate-100'
-                      }`}
-                    >
-                      <option value="">--</option>
-                      {coveragePostFiltered.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {inlineWarnings.coverage_shell_post && (
-                    <p className="text-[0.7rem] text-amber-300">{inlineWarnings.coverage_shell_post}</p>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {unit === 'SPECIAL_TEAMS' && (
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Special teams - Type & variant
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">ST play type</span>
-                  <select
-                    name="st_play_type"
-                    value={stPlayType}
-                    onChange={(e) => setStPlayType(e.target.value)}
-                    className={`w-40 rounded-lg border px-3 py-2 text-sm ${
-                      inlineErrors.st_play_type
-                        ? 'border-red-500 bg-red-950/40 text-red-100'
-                        : 'border-slate-800 bg-black/40 text-slate-100'
-                    }`}
-                  >
-                    <option value="">Select type</option>
-                    {stPlayTypes.map((t) => (
-                      <option key={t} value={t}>
-                        {t.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                  {inlineErrors.st_play_type && (
-                    <p className="text-[0.7rem] text-red-400">{inlineErrors.st_play_type}</p>
-                  )}
-                </label>
-
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Variant</span>
-                  <select
-                    name="st_variant"
-                    value={stVariant}
-                    onChange={(e) => setStVariant(e.target.value)}
-                    className="w-32 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                  >
-                    {stVariants.map((t) => (
-                      <option key={t} value={t}>
-                        {t.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.18em]">Return yards</span>
-                  <input
-                    name="st_return_yards"
-                    type="number"
-                    value={stReturnYards}
-                    onChange={(e) => setStReturnYards(e.target.value)}
-                    className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
-                  />
-                </label>
-              </div>
-            </section>
-          )}
 
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quick outcome</h3>
