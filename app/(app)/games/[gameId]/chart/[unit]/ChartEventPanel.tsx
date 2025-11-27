@@ -201,12 +201,12 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     id: (payload.id as string) ?? crypto.randomUUID(),
     sequence: Number(payload.sequence ?? 0),
     quarter: (payload.quarter as number) ?? null,
-  clock_seconds: (payload.clock_seconds as number) ?? null,
-  down: (payload.down as number) ?? null,
-  distance: (payload.distance as number) ?? null,
-  ball_on: (payload.ball_on as string) ?? null,
-  play_call: (payload.play_call as string) ?? null,
-  result: (payload.result as string) ?? null,
+    clock_seconds: (payload.clock_seconds as number) ?? null,
+    down: (payload.down as number) ?? null,
+    distance: (payload.distance as number) ?? null,
+    ball_on: (payload.ball_on as string) ?? null,
+    play_call: (payload.play_call as string) ?? null,
+    result: (payload.result as string) ?? null,
     gained_yards: (payload.gained_yards as number) ?? null,
     created_at: (payload.created_at as string) ?? null,
   }
@@ -301,9 +301,9 @@ export function ChartEventPanel({
     [offenseFormations, offensePersonnel, backfieldOptions, backfieldFamilies, defenseStructures, wrConcepts]
   )
   const situationLabel = latestEvent
-    ? `Q${latestEvent.quarter ?? '--'} · ${formatClock(latestEvent.clock_seconds)} · ${
+    ? `Q${latestEvent.quarter ?? '--'} | ${formatClock(latestEvent.clock_seconds)} | ${
         latestEvent.down ? `${latestEvent.down} & ${latestEvent.distance ?? '--'}` : '--'
-      } · ${latestEvent.ball_on ?? '--'}`
+      } | ${latestEvent.ball_on ?? '--'}`
     : 'No previous play logged'
 
   const handleMotionToggle = (checked: boolean) => {
@@ -461,7 +461,7 @@ export function ChartEventPanel({
             <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100">
               {unit}
             </span>
-            <span className="text-[0.75rem] text-slate-400">Alt+O/D/S = unit · Ctrl/Cmd+Enter = save</span>
+            <span className="text-[0.75rem] text-slate-400">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
           </div>
         </div>
       </div>
@@ -607,11 +607,11 @@ export function ChartEventPanel({
                   field.name === 'offensive_personnel_code'
                     ? offensePersonnel.map((code) => ({ value: code, label: code }))
                     : field.name === 'offensive_formation_id'
-                    ? searchedFormations.map((f) => ({ value: f.id, label: `${f.personnel} · ${f.formation}` }))
+                    ? searchedFormations.map((f) => ({ value: f.id, label: `${f.personnel} | ${f.formation}` }))
                     : field.name === 'backfield_code'
-                    ? backfieldOptions.map((b) => ({ value: b.code, label: `${b.code} · ${b.description}` }))
+                    ? backfieldOptions.map((b) => ({ value: b.code, label: `${b.code} | ${b.description}` }))
                     : field.name === 'wr_concept_id'
-                    ? wrConcepts.map((w) => ({ value: w.id, label: `${w.family ? `${w.family} · ` : ''}${w.name}` }))
+                    ? wrConcepts.map((w) => ({ value: w.id, label: `${w.family ? `${w.family} | ` : ''}${w.name}` }))
                     : field.name === 'front_code'
                     ? frontOptions.map((name) => ({ value: name, label: name }))
                     : field.name === 'defensive_structure_id'
