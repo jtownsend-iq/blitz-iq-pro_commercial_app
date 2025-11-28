@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRouter } from 'next/navigation'
 import { FormEvent, useCallback, useEffect, useRef, useState, useTransition } from 'react'
@@ -438,11 +438,15 @@ export function ChartEventPanel({
       <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-slate-100">Live charting · {unitLabel}</h2>
-            <div className="text-sm text-slate-300"></div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-xs text-slate-300"></div>
+            <h2 className="text-xl font-semibold text-slate-100">Live charting | {unitLabel}</h2>
+            <div className="text-sm text-slate-300">
+              Shortcut-friendly charting: tab to move, Ctrl/Cmd+Enter saves, Alt+O/D/S switches units.
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-xs text-slate-300">
+              Keyboard shortcuts ready
+            </div>
             <div className="text-xs text-slate-300">
-              ALT+O = Offense · ALT+D = Defense · ALT+S = ST · CTRL/CMD+Enter = Save play
+              ALT+O = Offense | ALT+D = Defense | ALT+S = ST | CTRL/CMD+Enter = Save play
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -551,8 +555,9 @@ export function ChartEventPanel({
               </div>
             </section>
 
-            <section className="space-y-3 border-t border-slate-900/70 pt-4">
+          <section className="space-y-3 border-t border-slate-900/70 pt-4">
               <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Play type</h3>
+              <p className="text-xs text-slate-400">Pick run, pass, RPO, or special teams to tailor the fields.</p>
               <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-surface-muted p-1 text-xs">
                 <button
                   type="button"
@@ -593,11 +598,13 @@ export function ChartEventPanel({
               </div>
           </section>
 
-          <section className="space-y-2">
+          <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Formation & tags
               </h3>
-              <p className="text-xs text-slate-300"></p>
+              <p className="text-xs text-slate-400">
+                Tag formation, structure, and concepts for quick scouting across units.
+              </p>
               <div className="space-y-3">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
                 const prettify = (opt: string) =>
@@ -700,6 +707,7 @@ export function ChartEventPanel({
 
           <section className="space-y-3 border-t border-slate-900/70 pt-4">
             <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Result & gain</h3>
+            <p className="text-xs text-slate-400">Capture the call, a quick note, yardage, and pass result.</p>
             <div className="space-y-3">
               <label className="space-y-1 block">
                 <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Play call</span>
@@ -774,6 +782,7 @@ export function ChartEventPanel({
                 {advancedOpen ? 'Hide tags' : 'Show tags'}
               </button>
             </div>
+            <p className="text-xs text-slate-400">Add motion, alignment, series, and notes to enrich each play.</p>
             {advancedOpen && (
               <div className="space-y-3">
                 {unit === 'OFFENSE' && (
@@ -926,5 +935,6 @@ export function ChartEventPanel({
     </div>
   )
 }
+
 
 
