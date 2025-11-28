@@ -311,9 +311,9 @@ export default function MarketingPage() {
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
         <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-60" />
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="relative h-10 w-16 overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur">
-              <Image src="/blitziq-logo.png" alt="BlitzIQ Pro logo" fill className="object-contain" priority />
+          <div className="flex items-center gap-2">
+            <div className="relative h-[2.75rem] w-[4.5rem] overflow-hidden">
+              <Image src="/blitziq-logo.png" alt="BlitzIQ Pro logo" fill className="object-contain drop-shadow-[0_8px_24px_rgba(0,229,255,0.35)]" priority />
             </div>
             <div className="leading-tight">
               <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</div>
