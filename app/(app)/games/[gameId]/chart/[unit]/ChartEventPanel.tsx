@@ -438,13 +438,9 @@ export function ChartEventPanel({
       <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-slate-100">Rapid chart - {unitLabel}</h2>
-            <div className="text-sm text-slate-300">
-              Ten-second workflow: tab through primaries, Ctrl/Cmd+Enter to save, Alt+O/D/S switches unit routes.
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-xs text-slate-300">
-              {situationLabel}
-            </div>
+            <h2 className="text-xl font-semibold text-slate-100">Live charting · {unitLabel}</h2>
+            <div className="text-sm text-slate-300"></div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-xs text-slate-300"></div>
             <div className="text-xs text-slate-300">
               ALT+O = Offense · ALT+D = Defense · ALT+S = ST · CTRL/CMD+Enter = Save play
             </div>
@@ -463,7 +459,7 @@ export function ChartEventPanel({
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
             <section className="space-y-3">
               <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Situation</h3>
-              <p className="text-xs text-slate-400">Quarter, clock, down & distance, ball, hash, drive</p>
+              <p className="text-xs text-slate-400">Quarter, clock, down & distance, spot, hash</p>
               <div className="flex flex-wrap gap-3">
                 <label className="space-y-1">
                   <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Quarter</span>
@@ -556,7 +552,7 @@ export function ChartEventPanel({
             </section>
 
             <section className="space-y-3 border-t border-slate-900/70 pt-4">
-              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Call setup</h3>
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Play type</h3>
               <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-surface-muted p-1 text-xs">
                 <button
                   type="button"
@@ -599,15 +595,9 @@ export function ChartEventPanel({
 
           <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Formation & Structure (based on unit)
+                Formation & tags
               </h3>
-              <p className="text-xs text-slate-300">
-                {unit === 'OFFENSE'
-                  ? 'Tag personnel, formation, backfield and concepts so BlitzIQ can see your offensive DNA.'
-                  : unit === 'DEFENSE'
-                  ? 'Tag front, structure and coverage so BlitzIQ can see how you answered this look.'
-                  : 'Tag kick type, variant and return yardage for special teams analytics.'}
-              </p>
+              <p className="text-xs text-slate-300"></p>
               <div className="space-y-3">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
                 const prettify = (opt: string) =>
@@ -709,7 +699,7 @@ export function ChartEventPanel({
           </section>
 
           <section className="space-y-3 border-t border-slate-900/70 pt-4">
-            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Result</h3>
+            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Result & gain</h3>
             <div className="space-y-3">
               <label className="space-y-1 block">
                 <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Play call</span>
@@ -722,7 +712,7 @@ export function ChartEventPanel({
               </label>
 
               <label className="space-y-1 block">
-                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Result (quick)</span>
+                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Result (short note)</span>
                 <input
                   name="result"
                   placeholder="Complete, +8"
@@ -775,7 +765,7 @@ export function ChartEventPanel({
 
           <section className="space-y-3 border-t border-slate-900/70 pt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Tags (optional)</h3>
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Optional tags</h3>
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((prev) => !prev)}
@@ -789,7 +779,7 @@ export function ChartEventPanel({
                 {unit === 'OFFENSE' && (
                   <div className="flex flex-wrap items-center gap-3">
                     <label className="space-y-1 text-xs text-slate-200">
-                      <span className="uppercase tracking-[0.18em]">Motion</span>
+                  <span className="uppercase tracking-[0.18em]">Motion</span>
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-2">
                           <input
@@ -798,7 +788,7 @@ export function ChartEventPanel({
                             onChange={(e) => handleMotionToggle(e.target.checked)}
                             className="accent-brand"
                           />
-                          <span>Has motion</span>
+                          <span>Track motion</span>
                         </label>
                         {hasMotion && (
                             <select
@@ -832,7 +822,7 @@ export function ChartEventPanel({
                 )}
 
                 <label className="space-y-1 text-xs text-slate-200">
-                  <span className="uppercase tracking-[0.18em]">Drive #</span>
+                  <span className="uppercase tracking-[0.18em]">Series #</span>
                   <input
                     name="driveNumber"
                     type="number"
@@ -881,12 +871,12 @@ export function ChartEventPanel({
           <div>
             <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
             <p className="text-sm text-slate-300">
-              Shows the latest entries, including optimistic ones while the network request finishes.
+              Shows the latest plays, including ones still syncing.
             </p>
           </div>
           <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
             {events.length === 0 ? (
-              <p className="text-sm text-slate-300">No plays logged yet. Start charting to populate this list.</p>
+              <p className="text-sm text-slate-300">No plays logged yet for this game.</p>
             ) : (
               events.map((event) => (
                 <div
