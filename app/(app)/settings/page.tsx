@@ -1,8 +1,13 @@
 ﻿import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
+import { LayoutDashboard, ShieldCheck, Sparkles } from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { formatDate } from '@/utils/date'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { Pill } from '@/components/ui/Pill'
+import { StatBadge } from '@/components/ui/StatBadge'
 import {
   addRosterPlayer,
   cancelStaffInvite,
@@ -540,29 +545,44 @@ export default async function SettingsPage() {
 
   return (
     <section className="space-y-10">
-      <header className="space-y-3">
-        <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-          {activeTeamName} | {activeTeamRole}
-        </p>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-50">
-          Settings & Control Center
-        </h1>
-        <p className="text-sm text-slate-400 max-w-2xl">
-          Manage your personal profile, program configuration, billing, and
-          security from one surface. Changes apply to the current tenant unless
-          noted otherwise.
-          <span className="mt-2 block text-xs text-slate-500">
-            Signed in as {profileDisplayName}
-          </span>
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow={`${activeTeamName} | ${activeTeamRole}`}
+        title="Settings & Control Center"
+        description="Manage your profile, program configuration, billing, and security from one Command Center surface."
+        badge="Tenant"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Pill label="Secure" tone="emerald" icon={<ShieldCheck className="h-3 w-3" />} />
+            <Pill label="Live" tone="cyan" icon={<Sparkles className="h-3 w-3" />} />
+          </div>
+        }
+      />
+
+      <GlassCard>
+        <div className="flex flex-wrap items-center gap-3">
+          <LayoutDashboard className="h-5 w-5 text-cyan-300" />
+          <p className="text-sm text-slate-300">
+            Signed in as <span className="font-semibold text-slate-50">{profileDisplayName}</span>.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {usageStats.map((stat, idx) => (
+            <StatBadge
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              tone={idx === 0 ? 'cyan' : idx === 1 ? 'emerald' : 'amber'}
+            />
+          ))}
+        </div>
+      </GlassCard>
 
       <div className="flex gap-3 overflow-x-auto lg:hidden pb-2 -mx-1 px-1">
         {navItems.map((item) => (
           <a
             key={item.id}
             href={`#${item.id}`}
-            className="px-3 py-1.5 rounded-full border border-slate-800 text-xs text-slate-300 hover:text-slate-50 hover:border-slate-600 transition"
+            className="px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-slate-200 hover:border-brand hover:text-white transition"
           >
             {item.label}
           </a>
@@ -571,19 +591,19 @@ export default async function SettingsPage() {
 
       <div className="grid gap-8 lg:grid-cols-[240px,1fr]">
         <aside className="hidden lg:block">
-          <div className="sticky top-6 rounded-2xl border border-slate-800 bg-surface-raised">
+          <GlassCard padding="none" className="sticky top-6">
             <nav className="p-4 space-y-1">
               {navItems.map((item) => (
                 <a
                   key={item.id}
                   href={`#${item.id}`}
-                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-slate-900/70 hover:text-slate-50 transition"
+                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-slate-50 transition"
                 >
                   {item.label}
                 </a>
               ))}
             </nav>
-          </div>
+          </GlassCard>
         </aside>
 
         <div className="space-y-16">
@@ -1746,7 +1766,7 @@ function SettingsCard({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6 space-y-4 shadow-inner shadow-black/10">
+    <GlassCard className="space-y-4" padding="lg">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <h3 className="text-base font-semibold text-slate-100">{title}</h3>
@@ -1755,7 +1775,7 @@ function SettingsCard({
         {actions}
       </div>
       {children}
-    </div>
+    </GlassCard>
   )
 }
 

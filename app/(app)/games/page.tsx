@@ -1,9 +1,12 @@
-﻿import { redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
+import { CalendarClock, Gamepad2, MapPin, PauseCircle, Play, Radio, ShieldCheck } from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
-import {
-  closeGameSession,
-  startGameSession,
-} from './chart-actions'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Pill } from '@/components/ui/Pill'
+import { StatBadge } from '@/components/ui/StatBadge'
+import { MotionList } from '@/components/ui/MotionList'
+import { closeGameSession, startGameSession } from './chart-actions'
 import { createGame } from './actions'
 
 export const revalidate = 0
@@ -141,32 +144,38 @@ export default async function GamesPage({
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
-        <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-          Games & Charting
-        </p>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-50">
-          Manage your schedule
-        </h1>
-        <p className="text-sm text-slate-400 max-w-2xl">
-          Start live charting sessions for offense, defense, and special teams. Sessions remain
-          active until you close them, and only one session per unit can run at a time.
-        </p>
-        {errorCode && (
-          <p className="text-xs text-amber-400">
-            {renderErrorMessage(errorCode, errorReason)}
-          </p>
-        )}
-      </header>
+      <SectionHeader
+        eyebrow="Games & Charting"
+        title="Game-day control"
+        description="Schedule matchups, open live charting, and keep sessions synchronized across units."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Pill label="Live sessions" tone="emerald" icon={<Radio className="h-3 w-3" />} />
+            <Pill label="Schedule" tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
+          </div>
+        }
+        badge="Command Center"
+      />
 
-      <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+      {errorCode ? (
+        <GlassCard tone="amber" className="border-amber-500/40">
+          <p className="text-sm text-amber-100">{renderErrorMessage(errorCode, errorReason)}</p>
+        </GlassCard>
+      ) : null}
+
+      <GlassCard>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Add a game</p>
             <h2 className="text-lg font-semibold text-slate-50">Schedule a matchup</h2>
             <p className="text-sm text-slate-400">
               Create a game to enable charting sessions for offense, defense, and special teams.
             </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <StatBadge label="Games scheduled" value={games.length} tone="cyan" />
+            <StatBadge label="Active units" value={unitConfigs.length} tone="emerald" />
+            <StatBadge label="Live sessions" value={Object.keys(sessionsByGame).length} tone="amber" />
           </div>
         </div>
         <form
@@ -175,7 +184,7 @@ export default async function GamesPage({
             await createGame(formData)
             return
           }}
-          className="grid gap-3 md:grid-cols-2"
+          className="grid gap-3 md:grid-cols-2 mt-4"
         >
           <label className="space-y-1 text-xs text-slate-400">
             <span className="uppercase tracking-[0.2em]">Opponent</span>
@@ -183,7 +192,7 @@ export default async function GamesPage({
               type="text"
               name="opponent_name"
               required
-              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
               placeholder="Springfield Prep"
             />
           </label>
@@ -193,7 +202,7 @@ export default async function GamesPage({
               type="datetime-local"
               name="start_time"
               required
-              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </label>
           <label className="space-y-1 text-xs text-slate-400">
@@ -201,7 +210,7 @@ export default async function GamesPage({
             <select
               name="home_away"
               required
-              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
               defaultValue=""
             >
               <option value="" disabled>
@@ -213,12 +222,15 @@ export default async function GamesPage({
           </label>
           <label className="space-y-1 text-xs text-slate-400">
             <span className="uppercase tracking-[0.2em]">Location</span>
-            <input
-              type="text"
-              name="location"
-              placeholder="Stadium or Venue"
-              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
+              <MapPin className="h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                name="location"
+                placeholder="Stadium or Venue"
+                className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none"
+              />
+            </div>
           </label>
           <label className="space-y-1 text-xs text-slate-400 md:col-span-2">
             <span className="uppercase tracking-[0.2em]">Season label</span>
@@ -226,153 +238,151 @@ export default async function GamesPage({
               type="text"
               name="season_label"
               placeholder="2025 Season"
-              className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </label>
           <div className="md:col-span-2 flex justify-end">
             <button
               type="submit"
-              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
             >
               Create game
             </button>
           </div>
         </form>
-      </div>
+      </GlassCard>
 
       {games.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-800 bg-black/20 p-10 space-y-3 text-center">
+        <GlassCard className="text-center space-y-3" tone="neutral">
+          <Gamepad2 className="mx-auto h-10 w-10 text-slate-500" />
           <p className="text-sm text-slate-300 font-semibold">No games on the calendar yet</p>
           <p className="text-sm text-slate-400">
             Create your first matchup above to activate charting sessions for your units.
           </p>
           <a
             href="/onboarding/quickstart"
-            className="inline-flex justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200"
+            className="inline-flex justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-200"
           >
             Need help? Run Quickstart
           </a>
-        </div>
+        </GlassCard>
       ) : (
         <div className="space-y-6">
-          {games.map((game) => {
-            const sessions = sessionsByGame[game.id] ?? []
-            return (
-              <article
-                key={game.id}
-                className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6 space-y-6 shadow-inner shadow-black/5"
-              >
-                <div className="flex flex-col gap-1">
-                  <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                    {game.season_label || 'Season TBD'}
+          <MotionList
+            items={games}
+            getKey={(game) => game.id}
+            renderItem={(game) => {
+              const sessions = sessionsByGame[game.id] ?? []
+              return (
+                <GlassCard className="space-y-6">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
+                      <Pill label={game.season_label || 'Season TBD'} tone="slate" />
+                      <Pill label={formatKickoff(game.start_time)} tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
+                    </div>
+                    <h2 className="text-2xl font-semibold text-slate-50">
+                      {game.opponent_name || 'Opponent TBD'}
+                    </h2>
+                    <p className="text-sm text-slate-400">
+                      {[
+                        formatKickoff(game.start_time),
+                        game.home_away ? game.home_away.toUpperCase() : null,
+                        game.location || 'Venue TBD',
+                      ]
+                        .filter(Boolean)
+                        .join(' | ')}
+                    </p>
+                    <p className="text-xs text-slate-400 flex items-center gap-2">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                      Status: {game.status ? game.status.toUpperCase() : 'SCHEDULED'}
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-semibold text-slate-50">
-                    {game.opponent_name || 'Opponent TBD'}
-                  </h2>
-                  <p className="text-sm text-slate-400">
-                    {[
-                      formatKickoff(game.start_time),
-                      game.home_away ? game.home_away.toUpperCase() : null,
-                      game.location || 'Venue TBD',
-                    ]
-                      .filter(Boolean)
-                      .join(' | ')}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Status: {game.status ? game.status.toUpperCase() : 'SCHEDULED'}
-                  </p>
-                </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  {unitConfigs.map((unit) => {
-                    const activeSession = sessions.find(
-                      (session) =>
-                        session.unit === unit.key && session.status === 'active'
-                    )
-                    const pendingSession = sessions.find(
-                      (session) =>
-                        session.unit === unit.key && session.status === 'pending'
-                    )
-                    const disabled = Boolean(activeSession || pendingSession)
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {unitConfigs.map((unit) => {
+                      const activeSession = sessions.find(
+                        (session) =>
+                          session.unit === unit.key && session.status === 'active'
+                      )
+                      const pendingSession = sessions.find(
+                        (session) =>
+                          session.unit === unit.key && session.status === 'pending'
+                      )
+                      const disabled = Boolean(activeSession || pendingSession)
 
-                    return (
-                      <div
-                        key={unit.key}
-                        className="rounded-2xl border border-slate-900/60 bg-black/30 p-4 flex flex-col gap-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
-                          <p className="text-xs text-slate-500">{unit.description}</p>
-                        </div>
+                      return (
+                        <GlassCard key={unit.key} padding="md" className="flex flex-col gap-3" interactive>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
+                            <p className="text-xs text-slate-500">{unit.description}</p>
+                          </div>
 
-                        {activeSession ? (
-                          <div className="space-y-3">
-                            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/40 px-3 py-2 text-xs text-emerald-200">
-                              Active | Analyst{' '}
-                              {activeSession.analyst_user_id
-                                ? activeSession.analyst_user_id.slice(0, 6)
-                                : 'Assigned'}
-                            </div>
-                            <div className="flex gap-2">
-                              <a
-                                href={`/games/${game.id}/chart/${unit.key.toLowerCase()}`}
-                                className="flex-1 rounded-full bg-brand px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-black"
-                              >
-                                Open chart
-                              </a>
-                              <form
-                                action={async (formData) => {
-                                  'use server'
-                                  await closeGameSession(formData)
-                                  return
-                                }}
-                                className="flex-1"
-                              >
-                                <input
-                                  type="hidden"
-                                  name="sessionId"
-                                  value={activeSession.id}
-                                />
-                                <button
-                                  type="submit"
-                                  className="w-full rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:border-slate-500 hover:text-slate-200 transition"
+                          {activeSession ? (
+                            <div className="space-y-3">
+                              <Pill
+                                label={`Active | Analyst ${activeSession.analyst_user_id ? activeSession.analyst_user_id.slice(0, 6) : 'Assigned'}`}
+                                tone="emerald"
+                                icon={<Play className="h-3.5 w-3.5" />}
+                              />
+                              <div className="flex gap-2">
+                                <a
+                                  href={`/games/${game.id}/chart/${unit.key.toLowerCase()}`}
+                                  className="flex-1 rounded-full bg-brand px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-black"
                                 >
-                                  Close
-                                </button>
-                              </form>
+                                  Open chart
+                                </a>
+                                <form
+                                  action={async (formData) => {
+                                    'use server'
+                                    await closeGameSession(formData)
+                                    return
+                                  }}
+                                  className="flex-1"
+                                >
+                                  <input
+                                    type="hidden"
+                                    name="sessionId"
+                                    value={activeSession.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="w-full rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-white/30 hover:text-white transition"
+                                  >
+                                    Close
+                                  </button>
+                                </form>
+                              </div>
                             </div>
-                          </div>
-                        ) : pendingSession ? (
-                          <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
-                            Pending session exists | refresh or resume from chart view.
-                          </div>
-                        ) : (
-                          <form
-                            action={async (formData) => {
-                              'use server'
-                              await startGameSession(formData)
-                              return
-                            }}
-                            className="space-y-2"
-                          >
-                            <input type="hidden" name="gameId" value={game.id} />
-                            <input type="hidden" name="unit" value={unit.key} />
-                            <button
-                              type="submit"
-                              disabled={disabled}
-                              className="w-full rounded-full bg-brand px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-40"
+                          ) : pendingSession ? (
+                            <Pill label="Pending session exists | resume from chart" tone="amber" icon={<PauseCircle className="h-3.5 w-3.5" />} />
+                          ) : (
+                            <form
+                              action={async (formData) => {
+                                'use server'
+                                await startGameSession(formData)
+                                return
+                              }}
+                              className="space-y-2"
                             >
-                              Start session
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </article>
-            )
-          })}
+                              <input type="hidden" name="gameId" value={game.id} />
+                              <input type="hidden" name="unit" value={unit.key} />
+                              <button
+                                type="submit"
+                                disabled={disabled}
+                                className="w-full rounded-full bg-brand px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-40"
+                              >
+                                Start session
+                              </button>
+                            </form>
+                          )}
+                        </GlassCard>
+                      )
+                    })}
+                  </div>
+                </GlassCard>
+              )
+            }}
+          />
         </div>
       )}
     </section>

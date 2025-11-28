@@ -48,7 +48,7 @@ export function AppShell({
 
   const themeClasses =
     mergedTenantTheme === 'default'
-      ? 'bg-surface text-slate-50'
+      ? 'bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.08),transparent_30%),radial-gradient(circle_at_80%_0%,rgba(16,185,129,0.08),transparent_30%),#020617] text-slate-50'
       : mergedTenantTheme
 
   const isAuthVariant = mergedVariant === 'auth'
@@ -94,10 +94,10 @@ type TopNavProps = {
 
 export function TopNav({ navItems }: TopNavProps) {
   return (
-    <header className="border-b border-slate-800 bg-black/60 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-6">
         <div className="flex items-center gap-3">
-          <div className="relative h-10 w-16">
+          <div className="relative h-10 w-16 overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur">
             <Image
               src="/blitziq-logo.png"
               alt="BlitzIQ Pro™"
@@ -107,19 +107,19 @@ export function TopNav({ navItems }: TopNavProps) {
             />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-wide">BlitzIQ Pro™</div>
+            <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</div>
             <div className="text-[0.7rem] uppercase tracking-[0.16em] text-brand-soft">
-              Engineered to Destroy Egos.
+              Command every snap.
             </div>
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-4 text-xs font-medium">
+        <nav className="hidden md:flex items-center gap-2 text-xs font-semibold">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="px-3 py-1.5 rounded-full text-slate-300 hover:text-slate-50 hover:bg-slate-800/60 transition-colors"
+              className="px-3 py-2 rounded-full border border-white/10 bg-white/5 text-slate-200 hover:border-brand hover:text-white hover:bg-brand/10 transition"
             >
               {item.label}
             </Link>

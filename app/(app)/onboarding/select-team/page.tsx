@@ -1,6 +1,10 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { CheckCircle2, Fingerprint, Sparkles } from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Pill } from '@/components/ui/Pill'
 import { setActiveTeam } from '@/app/(app)/dashboard/actions'
 import { ActionButton } from '@/app/(app)/dashboard/ActionButton'
 
@@ -42,69 +46,79 @@ export default async function SelectTeamPage() {
     redirect('/onboarding/team')
   }
 
-  const { data: teamsData, error: teamsError } = await supabase
+  const { data: teams, error: teamError } = await supabase
     .from('teams')
     .select('id, name, school_name, level')
     .in('id', teamIds)
 
-  if (teamsError) {
-    console.error('SelectTeam: teams fetch error', teamsError.message)
+  if (teamError) {
+    console.error('SelectTeam: teams error', teamError.message)
   }
 
-  const teams: TeamRow[] = (teamsData as TeamRow[] | null) ?? []
-
-  if (teams.length === 1) {
-    // If only one team, set it and go.
-    const formData = new FormData()
-    formData.set('teamId', teams[0].id)
-    await setActiveTeam(formData)
-  }
+  const typedTeams: TeamRow[] = (teams as TeamRow[] | null) ?? []
 
   return (
-    <section className="max-w-3xl mx-auto space-y-6 px-4 py-10">
-      <div className="space-y-2">
-        <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-          Onboarding
-        </p>
-        <h1 className="text-3xl font-bold text-slate-50">Select your active team</h1>
-        <p className="text-sm text-slate-400">
-          Choose which team to work on. You can switch later from the dashboard header.
-        </p>
-      </div>
+    <section className="space-y-8">
+      <SectionHeader
+        eyebrow="Onboarding"
+        title="Pick your active team"
+        description="Switch your active workspace to the right program. You can always swap teams later in Settings."
+        badge="Secure"
+        actions={<Pill label="Multi-tenant" tone="cyan" icon={<Fingerprint className="h-3 w-3" />} />}
+      />
 
-      <form
-        action={async (formData) => {
-          'use server'
-          await setActiveTeam(formData)
-        }}
-        className="space-y-4"
-      >
-        <div className="space-y-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Team</label>
-          <select
-            name="teamId"
-            className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-            defaultValue={teams[0]?.id}
-          >
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name || 'Unnamed Team'}
-                {team.school_name ? ` | ${team.school_name}` : ''}
-                {team.level ? ` | ${team.level}` : ''}
-              </option>
+      <GlassCard>
+        <div className="flex flex-wrap items-center gap-3">
+          <Sparkles className="h-5 w-5 text-emerald-300" />
+          <p className="text-sm text-slate-300">Choose a team to sync dashboard, games, and scouting.</p>
+        </div>
+
+        <form
+          action={async (formData) => {
+            'use server'
+            await setActiveTeam(formData)
+          }}
+          className="mt-4 space-y-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {typedTeams.map((team) => (
+              <label
+                key={team.id}
+                className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:border-brand/60 transition"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-50">{team.name || 'Unnamed Team'}</p>
+                  <p className="text-xs text-slate-400">
+                    {team.school_name || 'School TBD'}
+                    {team.level ? ` | ${team.level}` : ''}
+                  </p>
+                </div>
+                <input
+                  type="radio"
+                  name="teamId"
+                  value={team.id}
+                  className="h-4 w-4 accent-brand"
+                  required
+                />
+              </label>
             ))}
-          </select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <ActionButton label="Activate team" pendingLabel="Activating..." />
+            <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-200 underline-offset-4">
+              Skip for now
+            </Link>
+          </div>
+        </form>
+      </GlassCard>
+
+      <GlassCard tone="emerald" padding="md">
+        <div className="flex items-center gap-3 text-sm text-emerald-100">
+          <CheckCircle2 className="h-5 w-5" />
+          Switching teams updates your dashboard, games, scouting, and player profiles immediately.
         </div>
-        <div className="flex flex-wrap gap-3">
-          <ActionButton label="Set active team" pendingLabel="Setting..." />
-          <Link
-            href="/onboarding/team"
-            className="text-xs font-semibold text-slate-300 underline underline-offset-4"
-          >
-            Create a new team
-          </Link>
-        </div>
-      </form>
+      </GlassCard>
     </section>
   )
 }

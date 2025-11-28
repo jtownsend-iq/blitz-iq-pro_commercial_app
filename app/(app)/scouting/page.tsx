@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation'
+import { Crosshair, ShieldAlert } from 'lucide-react'
 import ScoutingBoard from '@/components/scout/ScoutingBoard'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { Pill } from '@/components/ui/Pill'
 
 export default async function ScoutingPage() {
   const supabase = await createSupabaseServerClient()
@@ -20,10 +24,17 @@ export default async function ScoutingPage() {
 
   if (!activeTeamId) {
     return (
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
-          Select or activate a team in Settings before managing scouting.
-        </div>
+      <main className="max-w-6xl mx-auto px-4 py-10 space-y-4">
+        <SectionHeader
+          eyebrow="Scouting"
+          title="Activate a team"
+          description="Pick an active team in Settings before you manage scouting intel."
+          badge="Access needed"
+          actions={<Pill label="Secure" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />}
+        />
+        <GlassCard tone="amber">
+          <p className="text-sm text-amber-100">Select or activate a team in Settings before managing scouting.</p>
+        </GlassCard>
       </main>
     )
   }
@@ -37,10 +48,17 @@ export default async function ScoutingPage() {
 
   if (!membership) {
     return (
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-100">
-          You do not have access to this team. Please switch to a team you belong to.
-        </div>
+      <main className="max-w-6xl mx-auto px-4 py-10 space-y-4">
+        <SectionHeader
+          eyebrow="Scouting"
+          title="Access restricted"
+          description="You do not have access to this team."
+          badge="Permission"
+          actions={<Pill label="Switch team" tone="amber" />}
+        />
+        <GlassCard tone="amber">
+          <p className="text-sm text-amber-100">You do not have access to this team. Please switch to a team you belong to.</p>
+        </GlassCard>
       </main>
     )
   }
@@ -70,21 +88,22 @@ export default async function ScoutingPage() {
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-      <header className="space-y-2">
-        <p className="text-[0.65rem] uppercase tracking-[0.22em] text-slate-500">Scouting</p>
-        <h1 className="text-3xl font-bold text-slate-50">Opponent Intelligence</h1>
-        <p className="text-sm text-slate-400 max-w-3xl">
-          Upload and stage CSV scouting data, review errors, commit to the shared database, and pull live tendencies +
-          recent plays for game planning and in-game decisions.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow="Scouting"
+        title="Opponent Intelligence"
+        description="Upload CSV data, review errors, and pull live tendencies for game planning and in-game decisions."
+        badge="Command Center"
+        actions={<Pill label="Analysis" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />}
+      />
 
       {importsError ? (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-100">
-          Failed to load imports: {importsError.message}
-        </div>
+        <GlassCard tone="amber">
+          <p className="text-sm text-amber-100">Failed to load imports: {importsError.message}</p>
+        </GlassCard>
       ) : (
-        <ScoutingBoard teamId={activeTeamId} opponents={opponents} imports={imports} />
+        <GlassCard>
+          <ScoutingBoard teamId={activeTeamId} opponents={opponents} imports={imports} />
+        </GlassCard>
       )}
     </main>
   )

@@ -1,7 +1,11 @@
 import { redirect } from 'next/navigation'
+import { Users } from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DEFAULT_TIMEZONE } from '@/utils/timezone'
 import PlayerGrid from '@/components/players/PlayerGrid'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { Pill } from '@/components/ui/Pill'
 import type { FC } from 'react'
 
 type PlayerRow = {
@@ -136,19 +140,20 @@ const PlayersPage: FC = async () => {
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-      <header className="space-y-2">
-        <p className="text-[0.65rem] uppercase tracking-[0.22em] text-slate-500">Roster</p>
-        <h1 className="text-3xl font-bold text-slate-50">Players & Development</h1>
-        <p className="text-sm text-slate-400 max-w-3xl">
-          Track availability, pitch counts, assignments, and development signals to make faster,
-          better game-time decisions. Data stays in UTC; we render in your local staff timezone.
-        </p>
-      </header>
-
-      <PlayerGrid
-        players={safePlayers}
-        displayTimezone={displayTimezone || DEFAULT_TIMEZONE}
+      <SectionHeader
+        eyebrow="Roster"
+        title="Players & Development"
+        description="Track availability, pitch counts, assignments, and development signals to make faster, better game-time decisions."
+        badge="Command Center"
+        actions={<Pill label="Live roster" tone="emerald" icon={<Users className="h-3 w-3" />} />}
       />
+
+      <GlassCard>
+        <PlayerGrid
+          players={safePlayers}
+          displayTimezone={displayTimezone || DEFAULT_TIMEZONE}
+        />
+      </GlassCard>
     </main>
   )
 }
