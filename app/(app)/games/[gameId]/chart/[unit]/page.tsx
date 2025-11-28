@@ -1,9 +1,16 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
+import { Radio, ShieldAlert } from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { closeGameSession, recordChartEvent } from '../../../chart-actions'
 import { ChartEventPanel } from './ChartEventPanel'
 import { loadDictionaryBundle } from '@/lib/dictionaries'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { StatBadge } from '@/components/ui/StatBadge'
+import { Pill } from '@/components/ui/Pill'
+import { CTAButton } from '@/components/ui/CTAButton'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 type GameRow = {
   id: string
@@ -153,76 +160,47 @@ export default async function ChartUnitPage({
 
   return (
     <section className="container space-y-8 py-8">
-      <header className="flex flex-col gap-3 rounded-2xl border border-slate-900/60 bg-hero-radial bg-surface-raised/80 p-6 shadow-card">
-        <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
-          {game.season_label || 'Season'}
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <h1 className="font-display text-3xl font-bold text-slate-50">
-            {unitLabel} Chart | {game.opponent_name || 'Opponent'}
-          </h1>
-          <span className="rounded-full border border-slate-800 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400">
-            Session {session.status.toUpperCase()}
-          </span>
-        </div>
-        <p className="text-sm text-slate-400">
-          {formatKickoffLabel(game)} | Session started {formatDate(session.started_at)}
-        </p>
-        <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-          <Link
-            href="/games"
-            className="btn-secondary text-xs font-semibold uppercase tracking-[0.18em]"
-          >
-            Back to games
-          </Link>
-          {session.status === 'active' && (
-            <form action={closeSession}>
-              <input type="hidden" name="sessionId" value={session.id} />
-              <button className="btn-secondary text-xs font-semibold uppercase tracking-[0.18em]">
-                Close session
-              </button>
-            </form>
-          )}
-        </div>
-      </header>
-
-      <div className="md:sticky md:top-4 z-10">
-        <div className="rounded-2xl border border-slate-900/70 bg-slate-900/50 p-4 text-slate-50 shadow-card">
-          <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6 text-sm md:divide-x md:divide-slate-800">
-            <div className="px-1 md:px-3">
-              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Plays</div>
-              <div className="text-2xl font-semibold text-slate-50">{totalPlays}</div>
-            </div>
-            <div className="px-1 md:px-3">
-              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Yards / YPP</div>
-              <div className="text-2xl font-semibold text-slate-50">
-                {totalYards} / {ypp.toFixed(1)}
-              </div>
-            </div>
-            <div className="px-1 md:px-3">
-              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Explosives</div>
-              <div className="text-2xl font-semibold text-slate-50">{explosives}</div>
-            </div>
-            <div className="px-1 md:px-3">
-              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Turnovers</div>
-              <div className="text-2xl font-semibold text-slate-50">{turnovers}</div>
-            </div>
-            <div className="px-1 md:px-3">
-              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Drive</div>
-              <div className="text-2xl font-semibold text-slate-50">{currentDrive ?? '--'}</div>
-            </div>
-            <div className="px-1 md:px-3">
-              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Last result</div>
-              <div className="text-2xl font-semibold text-slate-50 truncate">{lastResult}</div>
-            </div>
+      <SectionHeader
+        eyebrow={game.season_label || 'Season'}
+        title={`${unitLabel} Chart | ${game.opponent_name || 'Opponent'}`}
+        description={`${formatKickoffLabel(game)} | Session started ${formatDate(session.started_at)}`}
+        badge="Command Center"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <CTAButton href="/games" variant="secondary" size="sm">
+              Back to games
+            </CTAButton>
+            {session.status === 'active' && (
+              <form action={closeSession}>
+                <input type="hidden" name="sessionId" value={session.id} />
+                <CTAButton type="submit" variant="secondary" size="sm">
+                  Close session
+                </CTAButton>
+              </form>
+            )}
+            <Pill label={`Status: ${session.status.toUpperCase()}`} tone="emerald" icon={<Radio className="h-3 w-3" />} />
           </div>
+        }
+      />
+
+      <GlassCard>
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <StatBadge label="Plays" value={totalPlays} tone="cyan" />
+          <StatBadge label="Yards / YPP" value={`${totalYards} / ${ypp.toFixed(1)}`} tone="emerald" />
+          <StatBadge label="Explosives" value={explosives} tone="amber" />
+          <StatBadge label="Turnovers" value={turnovers} tone="slate" />
+          <StatBadge label="Drive" value={currentDrive ?? '--'} tone="slate" />
+          <StatBadge label="Last result" value={lastResult || '--'} tone="slate" />
         </div>
-      </div>
+      </GlassCard>
 
       {session.status !== 'active' ? (
-        <p className="text-sm text-slate-400">
-          This session is closed. Restart it from the games page to log more plays.
-        </p>
+        <EmptyState
+          icon={<ShieldAlert className="h-10 w-10 text-amber-300" />}
+          title="This session is closed"
+          description="Restart from Games to continue logging plays."
+          action={<CTAButton href="/games" variant="primary" size="sm">Go to games</CTAButton>}
+        />
       ) : (
         <ChartEventPanel
           sessionId={session.id}
