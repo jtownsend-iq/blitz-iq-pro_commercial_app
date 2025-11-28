@@ -430,8 +430,9 @@ type ChartingDefaultsRow = {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const resolvedSearchParams = await searchParams
   const supabase = await createSupabaseServerClient()
 
   const {
@@ -712,17 +713,21 @@ export default async function SettingsPage({
   const primaryBillingContact = billingContacts[0] ?? null
 
   const playerSearchTerm =
-    typeof searchParams?.player_search === 'string'
-      ? searchParams.player_search.trim().toLowerCase()
+    typeof resolvedSearchParams?.player_search === 'string'
+      ? resolvedSearchParams.player_search.trim().toLowerCase()
       : ''
   const playerUnitFilter =
-    typeof searchParams?.player_unit === 'string' ? searchParams.player_unit.trim() : ''
+    typeof resolvedSearchParams?.player_unit === 'string'
+      ? resolvedSearchParams.player_unit.trim()
+      : ''
   const playerPositionFilter =
-    typeof searchParams?.player_position === 'string'
-      ? searchParams.player_position.trim()
+    typeof resolvedSearchParams?.player_position === 'string'
+      ? resolvedSearchParams.player_position.trim()
       : ''
   const playerClassFilter =
-    typeof searchParams?.player_class === 'string' ? searchParams.player_class.trim() : ''
+    typeof resolvedSearchParams?.player_class === 'string'
+      ? resolvedSearchParams.player_class.trim()
+      : ''
 
   const rosterUnitOptions = Array.from(
     new Set(
@@ -1815,8 +1820,8 @@ export default async function SettingsPage({
                       type="search"
                       name="player_search"
                       defaultValue={
-                        typeof searchParams?.player_search === 'string'
-                          ? searchParams.player_search
+                        typeof resolvedSearchParams?.player_search === 'string'
+                          ? resolvedSearchParams.player_search
                           : ''
                       }
                       placeholder="Name, jersey, or position"
