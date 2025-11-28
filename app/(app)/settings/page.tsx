@@ -5,7 +5,6 @@ import {
   BarChart3,
   CheckCircle2,
   Crown,
-  Gauge,
   LayoutDashboard,
   Lock,
   Rocket,
@@ -50,17 +49,15 @@ import {
 } from './constants'
 
 const navItems = [
-  { id: 'premium', label: 'Premium Strategy' },
-  { id: 'experience', label: 'Experience & IA' },
-  { id: 'value', label: 'Value & Upsell' },
-  { id: 'operations', label: 'Ops & Quality' },
   { id: 'profile', label: 'Profile' },
-  { id: 'team', label: 'Team & Tenant' },
-  { id: 'roster', label: 'Roster & Staff' },
-  { id: 'gameplay', label: 'Gameplay & Data' },
+  { id: 'team', label: 'Team' },
+  { id: 'roster', label: 'Roster' },
+  { id: 'gameplay', label: 'Gameplay' },
   { id: 'billing', label: 'Billing' },
   { id: 'security', label: 'Security' },
 ]
+
+const showInternal = false
 
 const personaGoals = [
   {
@@ -721,15 +718,14 @@ export default async function SettingsPage() {
   return (
     <section className="space-y-10">
       <SectionHeader
-        eyebrow={`${activeTeamName} | ${activeTeamRole}`}
-        title="Premium Settings Command Center"
-        description="Deliver a $299/mo premium experience with UI polish, advanced controls, and a perfect UX that earns upgrades."
-        badge="$299/mo Premium"
+        eyebrow="Program settings"
+        title="Program settings"
+        description="Manage profile, team, roster, gameplay defaults, billing, and security for your staff."
+        badge="Control room"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Pill label="UI polish" tone="cyan" icon={<Sparkles className="h-3 w-3" />} />
-            <Pill label="Advanced" tone="emerald" icon={<Gauge className="h-3 w-3" />} />
-            <Pill label="Trust" tone="amber" icon={<ShieldCheck className="h-3 w-3" />} />
+          <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+            <Pill label={activeTeamName} tone="cyan" icon={<LayoutDashboard className="h-3 w-3" />} />
+            <Pill label={formatRoleLabel(activeTeamRole)} tone="emerald" icon={<ShieldCheck className="h-3 w-3" />} />
           </div>
         }
       />
@@ -783,6 +779,8 @@ export default async function SettingsPage() {
         </aside>
 
         <div className="space-y-16">
+          {showInternal && (
+            <>
           <SettingsSection id="premium" title="Premium Strategy & Narrative">
             <SettingsCard
               title="$299/mo Premium Narrative"
@@ -1196,6 +1194,8 @@ export default async function SettingsPage() {
               </p>
             </SettingsCard>
           </SettingsSection>
+            </>
+          )}
 
           <SettingsSection id="profile" title="Personal Profile">
             <SettingsCard
