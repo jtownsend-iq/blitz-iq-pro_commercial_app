@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DashboardRealtimeClient } from './RealtimeClient'
-import { setActiveTeam, setActiveTeamAndGo } from './actions'
+import { setActiveTeam } from './actions'
 import { ActionButton } from './ActionButton'
 
 type TeamRow = {
@@ -70,13 +70,6 @@ type EventRow = {
   game_sessions: EventSummarySession | EventSummarySession[] | null
 }
 
-type QuickstartProgressRow = {
-  seeded_position_groups: boolean | null
-  seeded_tags: boolean | null
-  seeded_schedule: boolean | null
-  completed_at: string | null
-}
-
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
 
@@ -103,7 +96,6 @@ export default async function DashboardPage() {
     console.error('Error fetching user profile:', profileError.message)
   }
 
-  const fullName = (profile?.full_name as string | null) ?? null
   const activeTeamId = (profile?.active_team_id as string | null) ?? null
 
   const { data: membershipsData, error: membershipError } = await supabase
@@ -156,7 +148,6 @@ export default async function DashboardPage() {
   let totalPlays = 0
   let explosivePlays = 0
   let turnovers = 0
-  let quickstartProgress: QuickstartProgressRow | null = null
 
   if (activeTeam) {
     const [
@@ -165,7 +156,6 @@ export default async function DashboardPage() {
       totalPlaysRes,
       explosiveRes,
       turnoverRes,
-      quickstartRes,
     ] = await Promise.all([
       supabase
         .from('game_sessions')
@@ -195,11 +185,6 @@ export default async function DashboardPage() {
         .select('*', { count: 'exact', head: true })
         .eq('team_id', activeTeam.id)
         .eq('turnover', true),
-      supabase
-        .from('quickstart_progress')
-        .select('seeded_position_groups, seeded_tags, seeded_schedule, completed_at')
-        .eq('team_id', activeTeam.id)
-        .maybeSingle(),
     ])
 
     if (sessionsRes.error) {
@@ -226,14 +211,10 @@ export default async function DashboardPage() {
     explosivePlays = explosiveRes.count ?? 0
     turnovers = turnoverRes.count ?? 0
 
-    if (quickstartRes.error) {
-      console.error('Dashboard quickstart progress error:', quickstartRes.error.message)
-    } else if (quickstartRes.data) {
-      quickstartProgress = quickstartRes.data as QuickstartProgressRow
-    }
   }
 
-  const displayName = fullName || user.email || 'Coach'
+  const activeRole =
+    memberships.find((m) => m.team_id === activeTeamId)?.role || memberships[0]?.role || 'Coach'
 
   const stats = [
     { label: 'Total plays logged', value: totalPlays.toLocaleString(), helper: 'All-time snaps' },
@@ -246,30 +227,40 @@ export default async function DashboardPage() {
     },
   ]
 
-  const quickstartNeeded =
-    activeTeam &&
-    (!quickstartProgress ||
-      !quickstartProgress.seeded_position_groups ||
-      !quickstartProgress.seeded_tags ||
-      !quickstartProgress.seeded_schedule)
-
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-brand">Dashboard</h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Signed in as <span className="font-semibold">{displayName}</span>
-          </p>
-          {activeTeam ? (
-            <p className="text-xs text-slate-500 mt-1">
-              Active team: <span className="font-semibold">{activeTeam.name || 'Unnamed Team'}</span>{' '}
-              {activeTeam.school_name && ` | ${activeTeam.school_name}`}
-              {activeTeam.level && ` | ${activeTeam.level}`}
-            </p>
-          ) : (
-            <p className="text-xs text-slate-500 mt-1">No teams linked to this account yet.</p>
+    <section className="container space-y-8 py-6">
+      <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-900/60 bg-black/60 px-4 py-3 backdrop-blur-md shadow-card">
+        <div className="flex flex-wrap items-center gap-2 text-[0.75rem] text-slate-200">
+          <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">Role: {activeRole || 'Coach'}</span>
+          {activeTeam && (
+            <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
+              Team: {activeTeam.name || 'Unnamed'}
+            </span>
           )}
+          <span className="pill bg-emerald-500/10 border-emerald-700/40 text-emerald-300">Live updates</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/games" className="btn-primary text-[0.75rem] tracking-[0.2em]">
+            Go to Games
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-900/60 bg-surface-muted/70 p-5 shadow-card">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <h1 className="font-display text-3xl md:text-4xl font-semibold text-slate-50">Command Center</h1>
+            <p className="text-sm text-slate-400">
+              {activeRole || 'Coach'} | {activeTeam ? activeTeam.name || 'Unnamed Team' : 'No team'}{' '}
+              {activeTeam?.school_name ? `| ${activeTeam.school_name}` : ''}{' '}
+              {activeTeam?.level ? `| ${activeTeam.level}` : ''} | Live updates on
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/games" className="btn-primary text-[0.75rem] tracking-[0.2em]">
+              Go to Games
+            </Link>
+          </div>
         </div>
         {teams.length > 0 && (
           <form
@@ -277,16 +268,16 @@ export default async function DashboardPage() {
               'use server'
               await setActiveTeam(formData)
             }}
-            className="flex flex-wrap items-center gap-2 text-sm"
+            className="mt-4 flex flex-wrap items-center gap-2 text-sm"
           >
             <label htmlFor="teamId" className="text-slate-400">
-              Team:
+              Team
             </label>
             <select
               id="teamId"
               name="teamId"
               defaultValue={activeTeam?.id}
-              className="rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className="rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
@@ -301,81 +292,52 @@ export default async function DashboardPage() {
 
       <Suspense
         fallback={
-          <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-4 text-sm text-slate-400">
-            Subscribing to live updates...
+          <div className="rounded-2xl border border-slate-900/70 bg-surface-muted/70 p-4 space-y-3">
+            <div className="skeleton h-4 w-24"></div>
+            <div className="skeleton h-5 w-full"></div>
+            <div className="skeleton h-5 w-2/3"></div>
           </div>
         }
       >
         <DashboardRealtimeClient teamId={activeTeam.id} />
       </Suspense>
 
-      {quickstartNeeded && (
-        <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Quickstart</p>
-            <p className="text-sm text-amber-100">
-              Finish seeding tags, position groups, and a sample game so analysts can chart without setup friction.
-            </p>
-          </div>
-          <form
-            action={async (formData) => {
-              'use server'
-              await setActiveTeamAndGo(formData)
-            }}
-            className="flex flex-wrap items-center gap-2"
-          >
-            <input type="hidden" name="teamId" value={activeTeam.id} />
-            <input type="hidden" name="redirectTo" value="/onboarding/quickstart" />
-            <ActionButton
-              label="Resume quickstart"
-              pendingLabel="Loading..."
-              className="bg-amber-300 text-amber-950 hover:opacity-90"
-            />
-          </form>
-        </div>
-      )}
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="rounded-3xl border border-slate-900/60 bg-black/30 p-4 shadow-inner shadow-black/10"
+            className="rounded-2xl border border-slate-900/60 bg-surface-muted/70 p-4 shadow-card space-y-2"
           >
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{stat.label}</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-50">{stat.value}</p>
-            <p className="text-xs text-slate-500">{stat.helper}</p>
+            <p className="text-[0.7rem] uppercase tracking-[0.24em] text-slate-500">{stat.label}</p>
+            <p className="text-3xl font-semibold text-slate-50">{stat.value}</p>
+            <p className="text-xs text-slate-400">{stat.helper}</p>
           </div>
         ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
-          <div className="rounded-3xl border border-slate-900/70 bg-surface-raised/60 p-6 space-y-4">
+          <div className="rounded-2xl border border-slate-900/70 bg-surface-raised/80 p-6 space-y-4 shadow-card">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-100">Live sessions</h2>
                 <p className="text-sm text-slate-500">
-                  Quickly jump into active charting or review recent sessions.
+                  Jump into active charting or review recent sessions.
                 </p>
               </div>
-              <Link
-                href="/games"
-                className="text-xs font-semibold text-brand underline underline-offset-4"
-              >
-                Manage
-              </Link>
             </div>
             {sessionSummaries.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No sessions started yet. Kick off offense, defense, or special teams via the games
-                page before kickoff.
-              </p>
+              <div className="empty-state text-sm">
+                <p>No sessions yet. Start offense, defense, or special teams from Games.</p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {sessionSummaries.map((session) => (
+                {sessionSummaries.map((session, idx) => (
                   <div
                     key={session.id}
-                    className="rounded-2xl border border-slate-900/70 bg-black/30 p-4 flex flex-col gap-1"
+                    className={`rounded-2xl border border-slate-900/70 p-4 flex flex-col gap-1 shadow-card ${
+                      idx % 2 === 0 ? 'bg-surface-muted/70' : 'bg-slate-950/40'
+                    }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-sm font-semibold text-slate-100">
@@ -395,10 +357,10 @@ export default async function DashboardPage() {
                     </p>
                     <div className="flex flex-wrap gap-2 pt-2 text-xs">
                       <Link
-                        href={`/games/${session.game_id}/chart/${(session.unit || '')
-                          .toLowerCase()
-                          .replace('_', '-')}`}
-                        className="rounded-full bg-brand/80 px-3 py-1 font-semibold text-black"
+                      href={`/games/${session.game_id}/chart/${(session.unit || '')
+                        .toLowerCase()
+                        .replace('_', '-')}`}
+                        className="btn-primary text-[0.75rem]"
                       >
                         Open chart
                       </Link>
@@ -412,7 +374,7 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-900/70 bg-black/20 p-6 space-y-4">
+          <div className="rounded-2xl border border-slate-900/70 bg-black/25 p-6 space-y-4 shadow-card">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-100">Recent plays logged</h2>
@@ -420,24 +382,19 @@ export default async function DashboardPage() {
                   Live feed of the latest charted plays across your sessions.
                 </p>
               </div>
-              <span className="text-xs text-slate-500">Last {recentEvents.length} events</span>
             </div>
             {recentEvents.length === 0 ? (
-              <div className="space-y-2 text-sm text-slate-500">
-                <p>Chart events will show here in real time once analysts start logging.</p>
-                <Link
-                  href="/games"
-                  className="inline-flex text-xs font-semibold text-brand underline underline-offset-4"
-                >
-                  Start a charting session
-                </Link>
+              <div className="empty-state text-sm">
+                <p>No plays yet. Start a session in Games to see the live feed.</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                {recentEvents.map((event) => (
+                {recentEvents.map((event, idx) => (
                   <div
                     key={event.id}
-                    className="rounded-2xl border border-slate-900/60 bg-slate-950/40 px-4 py-3 text-sm text-slate-200"
+                    className={`rounded-2xl border border-slate-900/60 px-4 py-3 text-sm text-slate-200 shadow-card ${
+                      idx % 2 === 0 ? 'bg-surface-muted/60' : 'bg-slate-950/50'
+                    }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                       <span>{formatUnitLabel(event.game_sessions?.unit)}</span>
@@ -466,7 +423,7 @@ export default async function DashboardPage() {
           </div>
 
           {teams.length > 1 && (
-            <div className="rounded-3xl border border-slate-900/70 bg-black/30 p-6">
+            <div className="rounded-2xl border border-slate-900/70 bg-black/30 p-6 shadow-card">
               <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
               <ul className="mt-3 space-y-2 text-sm text-slate-300">
                 {teams.map((team) => {
