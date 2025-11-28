@@ -152,8 +152,8 @@ export default async function ChartUnitPage({
   const dictionaries = await loadDictionaryBundle()
 
   return (
-    <section className="space-y-8">
-      <header className="flex flex-col gap-3 rounded-3xl border border-slate-900/60 bg-surface-raised/70 p-6">
+    <section className="container space-y-8 py-8">
+      <header className="flex flex-col gap-3 rounded-2xl border border-slate-900/60 bg-surface-raised/70 p-6 shadow-card">
         <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
           {game.season_label || 'Season'}
         </div>
@@ -184,7 +184,7 @@ export default async function ChartUnitPage({
       </header>
 
       <div className="md:sticky md:top-4 z-10">
-        <div className="rounded-3xl border border-slate-900/70 bg-slate-900/50 p-4 text-slate-50">
+        <div className="rounded-2xl border border-slate-900/70 bg-slate-900/50 p-4 text-slate-50 shadow-card">
           <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6 text-sm md:divide-x md:divide-slate-800">
             <div className="px-1 md:px-3">
               <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Plays</div>

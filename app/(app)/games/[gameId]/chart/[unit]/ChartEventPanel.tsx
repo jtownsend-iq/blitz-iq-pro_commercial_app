@@ -435,7 +435,7 @@ export function ChartEventPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-3">
+      <div className="rounded-2xl border border-slate-900/70 bg-surface-raised p-6 space-y-3 shadow-card">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-slate-100">Live charting | {unitLabel}</h2>
@@ -443,7 +443,7 @@ export function ChartEventPanel({
               Shortcut-friendly charting: tab to move, Ctrl/Cmd+Enter saves, Alt+O/D/S switches units.
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-xs text-slate-300">
-              Keyboard shortcuts ready
+              {situationLabel}
             </div>
             <div className="text-xs text-slate-300">
               ALT+O = Offense | ALT+D = Defense | ALT+S = ST | CTRL/CMD+Enter = Save play
@@ -459,7 +459,7 @@ export function ChartEventPanel({
       </div>
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-5">
+        <div className="rounded-2xl border border-slate-900/70 bg-surface-raised p-6 space-y-5 shadow-card">
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
             <section className="space-y-3">
               <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Situation</h3>
@@ -876,7 +876,7 @@ export function ChartEventPanel({
           </form>
         </div>
 
-        <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-4">
+        <div className="rounded-2xl border border-slate-900/70 bg-surface-raised p-6 space-y-4 shadow-card">
           <div>
             <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
             <p className="text-sm text-slate-300">
