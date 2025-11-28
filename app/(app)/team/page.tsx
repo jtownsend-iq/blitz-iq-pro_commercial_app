@@ -131,6 +131,7 @@ export default async function TeamPage() {
   } = await fetchTeamData(supabase, activeTeamId)
 
   const readiness = buildReadiness(players, staff)
+  const nextReturn = buildNextReturn(players)
 
   const safePlayers: PlayerRow[] =
     Array.isArray(players) && players.every((p) => p && typeof p === 'object' && 'id' in p)
@@ -158,6 +159,26 @@ export default async function TeamPage() {
         }
       />
 
+      <div className="flex flex-wrap items-center gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-200">
+        {[
+          { label: 'Readiness', href: '#readiness' },
+          { label: 'Roster', href: '#roster' },
+          { label: 'Add player', href: '#add-player' },
+          { label: 'Staff', href: '#staff' },
+          { label: 'Position groups', href: '#position-groups' },
+        ].map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 hover:border-brand hover:text-white transition"
+            aria-label={item.label}
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+
+      <div id="readiness">
       <GlassCard>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
@@ -179,7 +200,15 @@ export default async function TeamPage() {
           <StatBadge label="Pending invites" value={invites.length} tone="amber" />
           <StatBadge label="Ready" value={readiness.ready} tone="emerald" />
         </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          <Pill label={`Next return: ${nextReturn.label}`} tone="cyan" icon={<ActivitySquare className="h-3.5 w-3.5" />} />
+          <Pill label="Manage roles" tone="slate" icon={<Crown className="h-3.5 w-3.5" />} />
+          <CTAButton href="#staff" variant="secondary" size="sm" iconRight={<ArrowRight className="h-3 w-3" />}>
+            Go to staff
+          </CTAButton>
+        </div>
       </GlassCard>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
         <div id="roster">
@@ -226,10 +255,10 @@ export default async function TeamPage() {
           >
             <InputField label="First name" name="first_name" required placeholder="Jordan" />
             <InputField label="Last name" name="last_name" required placeholder="Greene" />
-            <InputField label="Jersey" name="jersey_number" placeholder="12" />
+            <InputField label="Jersey" name="jersey_number" placeholder="12" type="number" />
             <InputField label="Position" name="position" placeholder="QB" />
             <InputField label="Unit" name="unit" placeholder="OFFENSE" />
-            <InputField label="Class year" name="class_year" placeholder="2026" />
+            <InputField label="Class year" name="class_year" placeholder="2026" type="number" />
             <div className="sm:col-span-2 flex justify-end">
               <CTAButton type="submit" variant="primary">
                 Add player
@@ -475,4 +504,25 @@ function buildReadiness(players: PlayerRow[], staff: StaffMemberRow[]) {
     total,
     staff: staffCount,
   }
+}
+
+function buildNextReturn(players: PlayerRow[]) {
+  const dates = players
+    .map((p) => p.return_target_date)
+    .filter(Boolean)
+    .map((d) => new Date(d as string).getTime())
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b)
+
+  if (dates.length === 0) {
+    return { label: 'No return targets set' }
+  }
+
+  const next = new Date(dates[0])
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(next)
+
+  return { label: formatted }
 }
