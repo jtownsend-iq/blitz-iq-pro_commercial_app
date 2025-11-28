@@ -183,33 +183,35 @@ export default async function ChartUnitPage({
         </div>
       </header>
 
-      <div className="rounded-3xl border border-slate-900/70 bg-slate-900/50 p-4 text-slate-50">
-        <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6 text-sm md:divide-x md:divide-slate-800">
-          <div className="px-1 md:px-3">
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Plays</div>
-            <div className="text-2xl font-semibold text-slate-50">{totalPlays}</div>
-          </div>
-          <div className="px-1 md:px-3">
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Yards / YPP</div>
-            <div className="text-2xl font-semibold text-slate-50">
-              {totalYards} / {ypp.toFixed(1)}
+      <div className="md:sticky md:top-4 z-10">
+        <div className="rounded-3xl border border-slate-900/70 bg-slate-900/50 p-4 text-slate-50">
+          <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6 text-sm md:divide-x md:divide-slate-800">
+            <div className="px-1 md:px-3">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Plays</div>
+              <div className="text-2xl font-semibold text-slate-50">{totalPlays}</div>
             </div>
-          </div>
-          <div className="px-1 md:px-3">
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Explosives</div>
-            <div className="text-2xl font-semibold text-slate-50">{explosives}</div>
-          </div>
-          <div className="px-1 md:px-3">
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Turnovers</div>
-            <div className="text-2xl font-semibold text-slate-50">{turnovers}</div>
-          </div>
-          <div className="px-1 md:px-3">
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Drive</div>
-            <div className="text-2xl font-semibold text-slate-50">{currentDrive ?? '--'}</div>
-          </div>
-          <div className="px-1 md:px-3">
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Last result</div>
-            <div className="text-2xl font-semibold text-slate-50 truncate">{lastResult}</div>
+            <div className="px-1 md:px-3">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Yards / YPP</div>
+              <div className="text-2xl font-semibold text-slate-50">
+                {totalYards} / {ypp.toFixed(1)}
+              </div>
+            </div>
+            <div className="px-1 md:px-3">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Explosives</div>
+              <div className="text-2xl font-semibold text-slate-50">{explosives}</div>
+            </div>
+            <div className="px-1 md:px-3">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Turnovers</div>
+              <div className="text-2xl font-semibold text-slate-50">{turnovers}</div>
+            </div>
+            <div className="px-1 md:px-3">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Drive</div>
+              <div className="text-2xl font-semibold text-slate-50">{currentDrive ?? '--'}</div>
+            </div>
+            <div className="px-1 md:px-3">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Last result</div>
+              <div className="text-2xl font-semibold text-slate-50 truncate">{lastResult}</div>
+            </div>
           </div>
         </div>
       </div>
