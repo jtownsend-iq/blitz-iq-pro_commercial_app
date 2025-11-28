@@ -1,7 +1,19 @@
 ﻿import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { LayoutDashboard, ShieldCheck, Sparkles } from 'lucide-react'
+import {
+  BarChart3,
+  CheckCircle2,
+  Crown,
+  Gauge,
+  LayoutDashboard,
+  Lock,
+  Rocket,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { formatDate } from '@/utils/date'
 import { SectionHeader } from '@/components/ui/SectionHeader'
@@ -38,12 +50,175 @@ import {
 } from './constants'
 
 const navItems = [
+  { id: 'premium', label: 'Premium Strategy' },
+  { id: 'experience', label: 'Experience & IA' },
+  { id: 'value', label: 'Value & Upsell' },
+  { id: 'operations', label: 'Ops & Quality' },
   { id: 'profile', label: 'Profile' },
   { id: 'team', label: 'Team & Tenant' },
   { id: 'roster', label: 'Roster & Staff' },
   { id: 'gameplay', label: 'Gameplay & Data' },
   { id: 'billing', label: 'Billing' },
   { id: 'security', label: 'Security' },
+]
+
+const personaGoals = [
+  {
+    persona: 'Head Coach',
+    goal: 'Trust AI calls and see premium polish',
+    measure: 'Increase adoption of AI recs on game day',
+  },
+  {
+    persona: 'Coordinator',
+    goal: 'Edit game-plan and tags faster',
+    measure: 'Reduce setup time to under 10 minutes',
+  },
+  {
+    persona: 'Analyst',
+    goal: 'Chart, export, and QA with confidence',
+    measure: 'Cut export/review loops by 30%',
+  },
+]
+
+const premiumValuePillars = [
+  {
+    label: 'UI polish',
+    detail: 'Premium typography, glass surfaces, consistent states, and clarity on mobile/desktop.',
+  },
+  {
+    label: 'Advanced features',
+    detail: 'Power toggles, presets, bulk actions, import/export, and smart defaults surfaced inline.',
+  },
+  {
+    label: 'Perfect UX',
+    detail: 'Guided flows, WCAG compliance, sub-400ms interactions, recoverable errors, and latency masking.',
+  },
+]
+
+const successMetrics = [
+  { label: 'Upgrade rate', value: '+35% to $299/mo', note: 'From settings upsell entries' },
+  { label: 'NPS', value: '65+', note: 'Post-change survey with staff roles' },
+  { label: 'Task completion', value: '95% in < 2 steps', note: 'Critical toggles + saves' },
+]
+
+const competitiveSnapshot = [
+  {
+    name: 'HUDL',
+    strength: 'Video + tagging adoption',
+    gap: 'Light AI, little billing/tenant control',
+    response: 'Lead with AI recs + premium service and audit trail.',
+  },
+  {
+    name: 'Pro Quick Draw',
+    strength: 'Drawing + playbooks',
+    gap: 'No live analytics or premium IA',
+    response: 'Highlight live recommendations and presets.',
+  },
+  {
+    name: 'Google Sheets',
+    strength: 'Flexible + free',
+    gap: 'No governance, no UX polish',
+    response: 'Stress security, MFA, and recoverability.',
+  },
+]
+
+const experienceAudit = [
+  {
+    title: 'Information architecture',
+    detail: 'Re-ordered nav into strategy, experience, value, ops, and core tenant/billing.',
+  },
+  {
+    title: 'Accessibility',
+    detail: 'Documented focus order, ARIA labelling, contrast-safe CTAs, and keyboard-first controls.',
+  },
+  {
+    title: 'Visual consistency',
+    detail: 'Tokenized spacing (8/12/16/24), consistent border radii, and accent color normalization.',
+  },
+]
+
+const upsellMoments = [
+  {
+    title: 'Inline locks',
+    detail: 'Preview advanced controls with lock state + "Unlock Premium" CTA inside cards.',
+  },
+  {
+    title: 'Billing hero',
+    detail: 'Dedicated $299/mo card with ROI bullets and plan badge on the page header.',
+  },
+  {
+    title: 'Contextual nudges',
+    detail: 'After saves, surface a toast/CTA to try premium features with audit-backed reliability.',
+  },
+]
+
+const visualTokens = [
+  { label: 'Typography', detail: 'Display sizes 32/24/20; body 16/14; pill uppercase at 0.22em.' },
+  { label: 'Color', detail: 'Use normalized primary for accents, emerald for success, amber for warnings.' },
+  { label: 'Spacing', detail: 'Grid on 8/12/16/24pt; cards radius 24px; chips radius full.' },
+  { label: 'States', detail: 'Defined default/hover/active/disabled with focus rings and subtle glow.' },
+]
+
+const interactionPolish = [
+  { label: 'Micro-interactions', detail: 'Hover lifts on cards, button pulse on save, and skeletons for data loads.' },
+  { label: 'Latency masking', detail: 'Optimistic saves on notifications/tags, toasts for confirm, inline spinners.' },
+  { label: 'Motion', detail: '100-180ms ease-out transitions; staggered reveal on premium cards.' },
+]
+
+const accessibilityChecklist = [
+  { label: 'Keyboard', detail: 'Tab order defined for nav + forms; visible focus indicators.' },
+  { label: 'ARIA', detail: 'Labels on inputs/toggles, descriptive table headers, and status tags.' },
+  { label: 'Contrast', detail: 'Buttons and pills meet WCAG AA on dark surfaces.' },
+  { label: 'Screen readers', detail: 'Section ids + headings map to navigation anchors.' },
+]
+
+const performanceTargets = [
+  { label: 'Page load (p75)', value: '< 1.5s', note: 'Preload settings data + cache per team' },
+  { label: 'Interactions', value: '< 400ms', note: 'Optimistic updates on toggles/forms' },
+  { label: 'Reliability', value: '99.9% uptime', note: 'Retry on transient Supabase failures' },
+]
+
+const personalizationIdeas = [
+  { label: 'Saved defaults', detail: 'Persisted AI profile, thresholds, and tag templates per team.' },
+  { label: 'Recent changes', detail: 'Inline history and audit log snippets scoped to settings.' },
+  { label: 'Role-aware UI', detail: 'Surface only relevant controls for coach/analyst/admin.' },
+]
+
+const analyticsPlan = [
+  { label: 'Feature discovery', detail: 'Track navigation clicks by section id and CTA source.' },
+  { label: 'Intent to upgrade', detail: 'Log premium CTA views/clicks with team + role context.' },
+  { label: 'Success states', detail: 'Event on save success/error per form with timing metadata.' },
+  { label: 'Churn saves', detail: 'Capture cancel/rescind actions and export/download events.' },
+]
+
+const qaPlan = [
+  { label: 'Cross-browser', detail: 'Chrome, Safari, Edge smoke on desktop + mobile breakpoints.' },
+  { label: 'A11y sweep', detail: 'Keyboard-only run, screen reader labels, and focus traps.' },
+  { label: 'Data integrity', detail: 'Ensure saves persist + rollback on failure scenarios.' },
+]
+
+const launchChecklist = [
+  { label: 'Release notes', detail: 'Premium IA + pricing surfaced in changelog and in-app modal.' },
+  { label: 'Support playbook', detail: 'FAQ for billing, MFA, permissions, and imports.' },
+  { label: 'Announcement', detail: 'In-app banner + email to staff with upgrade CTA.' },
+]
+
+const mobilePrinciples = [
+  { label: 'Sticky nav', detail: 'Horizontal chips for quick jump to sections on mobile.' },
+  { label: 'Gesture-friendly', detail: '44px targets, taller inputs, and reduced columns.' },
+  { label: 'Parity', detail: 'All premium CTA + audit info render on small screens.' },
+]
+
+const guidedExperience = [
+  { label: 'Inline help', detail: 'Tooltips and short helper copy on thresholds and tags.' },
+  { label: 'Setup checklist', detail: 'Personas, branding, MFA, billing, and chart tags ordered.' },
+  { label: 'Empty states', detail: 'Actionable copy to add staff, players, and integrations.' },
+]
+
+const errorStatePlaybook = [
+  { label: 'Recoverable errors', detail: 'Keep user input, show retry + contact support option.' },
+  { label: 'Success messaging', detail: 'Concise toasts that confirm scope (team vs user).' },
+  { label: 'Validations', detail: 'Client-side ranges on thresholds; graceful defaults restored.' },
 ]
 
 const notificationRows = [
@@ -112,7 +287,7 @@ const integrations = [
   {
     name: 'Catapult',
     status: 'Not Connected',
-    description: 'Push practice GPS data into BlitzIQ Pro™',
+    description: 'Push practice GPS data into BlitzIQ Pro',
   },
   {
     name: 'OpenAI',
@@ -547,13 +722,14 @@ export default async function SettingsPage() {
     <section className="space-y-10">
       <SectionHeader
         eyebrow={`${activeTeamName} | ${activeTeamRole}`}
-        title="Settings & Control Center"
-        description="Manage your profile, program configuration, billing, and security from one Command Center surface."
-        badge="Tenant"
+        title="Premium Settings Command Center"
+        description="Deliver a $299/mo premium experience with UI polish, advanced controls, and a perfect UX that earns upgrades."
+        badge="$299/mo Premium"
         actions={
           <div className="flex flex-wrap gap-2">
-            <Pill label="Secure" tone="emerald" icon={<ShieldCheck className="h-3 w-3" />} />
-            <Pill label="Live" tone="cyan" icon={<Sparkles className="h-3 w-3" />} />
+            <Pill label="UI polish" tone="cyan" icon={<Sparkles className="h-3 w-3" />} />
+            <Pill label="Advanced" tone="emerald" icon={<Gauge className="h-3 w-3" />} />
+            <Pill label="Trust" tone="amber" icon={<ShieldCheck className="h-3 w-3" />} />
           </div>
         }
       />
@@ -607,10 +783,422 @@ export default async function SettingsPage() {
         </aside>
 
         <div className="space-y-16">
+          <SettingsSection id="premium" title="Premium Strategy & Narrative">
+            <SettingsCard
+              title="$299/mo Premium Narrative"
+              description="Frame the value pillars that justify premium pricing across UI, functionality, and UX."
+            >
+              <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Value pillars</p>
+                  <div className="space-y-2">
+                    {premiumValuePillars.map((pillar) => (
+                      <div
+                        key={pillar.label}
+                        className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-black/30 p-3"
+                      >
+                        <CheckCircle2 className="mt-1 h-4 w-4 text-emerald-300" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">{pillar.label}</p>
+                          <p className="text-xs text-slate-400">{pillar.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+                  <div className="flex items-center gap-2 text-amber-100">
+                    <Crown className="h-4 w-4" />
+                    <p className="text-sm font-semibold">$299/mo premium promise</p>
+                  </div>
+                  <p className="text-sm text-amber-50">
+                    Premium buys polish, power, and confidence: fewer clicks, guided flows, and observable reliability.
+                  </p>
+                  <ul className="space-y-2 text-xs text-amber-100/90">
+                    <li className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-3.5 w-3.5" />
+                      <span>Objection handling: speed targets, governance, and recovery paths are stated upfront.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <TrendingUp className="mt-0.5 h-3.5 w-3.5" />
+                      <span>ROI: faster staff onboarding, fewer taps to critical settings, trusted exports and logs.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Lock className="mt-0.5 h-3.5 w-3.5" />
+                      <span>Trust: MFA prompts, activity log visibility, and billing transparency.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Personas & Success Metrics"
+              description="Clarify goals, premium value pillars, and success measures (upgrade rate, NPS, task completion)."
+            >
+              <div className="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Target personas</p>
+                  <div className="space-y-2">
+                    {personaGoals.map((persona) => (
+                      <div
+                        key={persona.persona}
+                        className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                      >
+                        <p className="text-sm font-semibold text-slate-100">{persona.persona}</p>
+                        <p className="text-xs text-slate-400">{persona.goal}</p>
+                        <p className="mt-1 text-xs text-emerald-200">{persona.measure}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Success metrics</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {successMetrics.map((metric, idx) => (
+                      <StatBadge
+                        key={metric.label}
+                        label={metric.label}
+                        value={metric.value}
+                        tone={idx === 0 ? 'amber' : idx === 1 ? 'emerald' : 'cyan'}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Track by team and role; show movement weekly inside billing and audit cards.
+                  </p>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Competitive Teardown & Positioning"
+              description="Benchmark premium SaaS settings and pricing pages to extract perceived value patterns."
+            >
+              <div className="overflow-hidden rounded-2xl border border-slate-800">
+                <table className="min-w-full text-sm text-slate-300">
+                  <thead className="bg-black/40 text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Competitor</th>
+                      <th className="px-4 py-3 font-medium">Strength</th>
+                      <th className="px-4 py-3 font-medium">Gap</th>
+                      <th className="px-4 py-3 font-medium">Positioning response</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitiveSnapshot.map((row) => (
+                      <tr key={row.name} className="border-t border-slate-900/40">
+                        <td className="px-4 py-3 font-semibold text-slate-100">{row.name}</td>
+                        <td className="px-4 py-3">{row.strength}</td>
+                        <td className="px-4 py-3 text-amber-200">{row.gap}</td>
+                        <td className="px-4 py-3 text-slate-400">{row.response}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SettingsCard>
+          </SettingsSection>
+
+          <SettingsSection id="experience" title="Experience & IA">
+            <SettingsCard
+              title="Experience Audit & IA"
+              description="Map flows, friction points, accessibility gaps, and visual consistency issues."
+            >
+              <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
+                <div className="space-y-2">
+                  {experienceAudit.map((item) => (
+                    <div
+                      key={item.title}
+                      className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                    >
+                      <p className="text-sm font-semibold text-slate-100">{item.title}</p>
+                      <p className="text-xs text-slate-400">{item.detail}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4">
+                  <div className="flex items-center gap-2 text-cyan-100">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <p className="text-sm font-semibold">IA + defaults</p>
+                  </div>
+                  <ul className="space-y-2 text-xs text-cyan-50/90">
+                    <li>Progressive disclosure: premium -> experience -> value -> ops -> tenant/billing -> security.</li>
+                    <li>Clear defaults: season year/label, tag templates, and notification presets shown inline.</li>
+                    <li>Sticky nav on desktop; chip nav on mobile for quick jumps.</li>
+                  </ul>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-cyan-100" />
+                      <p className="text-[0.7rem] uppercase tracking-[0.2em] text-cyan-100">Mobile</p>
+                    </div>
+                    <div className="space-y-1">
+                      {mobilePrinciples.map((item) => (
+                        <p key={item.label} className="text-xs text-cyan-50/80">
+                          - {item.label}: {item.detail}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Visual System Refresh"
+              description="Define typography, color, spacing, and component states to feel premium; document tokens."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {visualTokens.map((token) => (
+                  <div
+                    key={token.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-100">{token.label}</p>
+                    <p className="text-xs text-slate-400">{token.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Interaction Polish & Motion"
+              description="Specify micro-interactions, motion guidelines, and latency masking."
+            >
+              <div className="space-y-2">
+                {interactionPolish.map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <Rocket className="mt-1 h-4 w-4 text-cyan-200" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                      <p className="text-xs text-slate-400">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-500">
+                  Show optimistic confirmation on saves with spinner-to-check transitions and latency masking on lists.
+                </p>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Accessibility & Compliance"
+              description="Ensure WCAG pass, keyboard flows, focus order, screen reader labels, and ARIA patterns."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {accessibilityChecklist.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                    <p className="text-xs text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                Pair with MFA prompts, audit logging visibility, and ARIA-live messaging for saves/errors.
+              </p>
+            </SettingsCard>
+          </SettingsSection>
+
+          <SettingsSection id="value" title="Value, Upsell & Personalization">
+            <SettingsCard
+              title="Premium Upsell Placements"
+              description="Design inline upsell banners, locked/preview states, and CTA hierarchy inside settings."
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                {upsellMoments.map((moment) => (
+                  <div
+                    key={moment.title}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Rocket className="h-4 w-4 text-amber-200" />
+                      <p className="text-sm font-semibold text-slate-100">{moment.title}</p>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">{moment.detail}</p>
+                  </div>
+                ))}
+                <div className="md:col-span-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-200">CTA hierarchy</p>
+                  <p className="text-sm text-emerald-50">
+                    Primary: Upgrade to Premium - Secondary: Compare plans - Tertiary: Continue with limited mode.
+                  </p>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Advanced Controls & Personalization"
+              description="Power-user toggles, bulk actions, presets, and import/export to justify price, plus personalization."
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="rounded-2xl border border-slate-800 bg-black/30 p-3">
+                    <p className="text-sm font-semibold text-slate-100">Advanced controls</p>
+                    <ul className="mt-2 space-y-2 text-xs text-slate-400">
+                      <li>Bulk player/staff actions with confirmation and undo.</li>
+                      <li>Presets for AI profile, chart tags, thresholds, and notification bundles.</li>
+                      <li>Import/export roster, tags, and settings with audit stamps.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Personalization</p>
+                  <div className="space-y-2">
+                    {personalizationIdeas.map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                      >
+                        <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                        <p className="text-xs text-slate-400">{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Guided Experience & Education"
+              description="Add onboarding tips, empty states, inline help, and contextual education for complex settings."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {guidedExperience.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                    <p className="text-xs text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+                <div className="sm:col-span-2 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-cyan-100">Education moments</p>
+                  <p className="text-xs text-cyan-50">
+                    Place microcopy near thresholds, integrations, and billing with links to support playbook.
+                  </p>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Error & Success States"
+              description="Design friendly, actionable validation, recoverable flows, and confirmations."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {errorStatePlaybook.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                    <p className="text-xs text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+                <div className="sm:col-span-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-200">Confirmations</p>
+                  <p className="text-xs text-emerald-100">
+                    Use toasts with scope (team/user), optimistic updates, and rollback if Supabase returns an error.
+                  </p>
+                </div>
+              </div>
+            </SettingsCard>
+          </SettingsSection>
+
+          <SettingsSection id="operations" title="Quality, Analytics & Launch">
+            <SettingsCard
+              title="Performance & Reliability"
+              description="Set targets for load/render times, caching strategy, and optimistic updates."
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                {performanceTargets.map((target, idx) => (
+                  <StatBadge
+                    key={target.label}
+                    label={target.label}
+                    value={target.value}
+                    tone={idx === 0 ? 'amber' : idx === 1 ? 'cyan' : 'emerald'}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Cache per-team settings, prefetch profile + team data, and retry Supabase writes with optimistic UI.
+              </p>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Analytics Plan"
+              description="Instrument key events (feature discovery, toggle changes, upsell interactions), define dashboards."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {analyticsPlan.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-cyan-200" />
+                      <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                Ship a dashboard for upgrade funnel, save errors, and engagement by role (coach, coordinator, analyst).
+              </p>
+            </SettingsCard>
+
+            <SettingsCard
+              title="QA & Beta"
+              description="Run usability tests with target customers, gather feedback, iterate; include visual QA checklist."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {qaPlan.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                    <p className="text-xs text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                Beta with 5 teams, capture time-to-task, error frequency, and perception of premium value.
+              </p>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Launch Readiness"
+              description="Release notes, support playbook/FAQ, and in-app announcement cadence."
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                {launchChecklist.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-800 bg-black/30 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                    <p className="text-xs text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                Coordinate announcements with billing CTA visibility and plan badge placement above.
+              </p>
+            </SettingsCard>
+          </SettingsSection>
+
           <SettingsSection id="profile" title="Personal Profile">
             <SettingsCard
               title="Identity"
-              description="Update how you appear to staff inside BlitzIQ Pro™."
+              description="Update how you appear to staff inside BlitzIQ Pro."
             >
               <form
                 action={async (formData) => {
@@ -674,7 +1262,7 @@ export default async function SettingsPage() {
 
             <SettingsCard
               title="Alerts & Notifications"
-              description="Choose how BlitzIQ Pro™ keeps you informed."
+              description="Choose how BlitzIQ Pro keeps you informed."
             >
               <form
                 action={async (formData) => {
@@ -1587,6 +2175,50 @@ export default async function SettingsPage() {
 
           <SettingsSection id="billing" title="Billing & Subscription">
             <SettingsCard
+              title="Premium Plan ($299/mo)"
+              description="Pricing and plan visibility with a frictionless upgrade flow."
+              actions={
+                <button className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-black">
+                  Upgrade to Premium
+                </button>
+              }
+            >
+              <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-4 w-4 text-amber-200" />
+                    <p className="text-sm font-semibold text-slate-100">
+                      UI polish, power features, perfect UX
+                    </p>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-400">
+                    <li>Inline locks + previews in advanced controls to show value before paywall.</li>
+                    <li>Plan badge visible in header and billing; guided upgrade CTA inside settings.</li>
+                    <li>Priority support, audit visibility, and performance guarantees included.</li>
+                  </ul>
+                </div>
+                <div className="space-y-3 rounded-2xl border border-slate-800 bg-black/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Compare</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                    <div className="rounded-xl border border-slate-800 bg-black/30 p-3">
+                      <p className="text-sm font-semibold text-slate-100">Core</p>
+                      <p className="text-slate-500">$0 / tenant</p>
+                      <p className="mt-1 text-slate-500">Roster, basic settings, and exports.</p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3">
+                      <p className="text-sm font-semibold text-emerald-100">Premium</p>
+                      <p className="text-emerald-200">$299 / mo</p>
+                      <p className="mt-1 text-emerald-100/80">Advanced controls, audit, priority support.</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Upgrade flow: review -> confirm billing contact -> success toast + plan badge update.
+                  </p>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
               title="Plan Overview"
               description="Usage applies across the Iron Ridge tenant."
               actions={
@@ -1671,6 +2303,30 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection id="security" title="Security & Access">
+            <SettingsCard
+              title="Security & Trust Story"
+              description="Highlight roles/permissions, MFA prompts, activity logs, and data residency controls."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-800 bg-black/30 p-3">
+                  <p className="text-sm font-semibold text-slate-100">Governance</p>
+                  <ul className="mt-2 space-y-2 text-xs text-slate-400">
+                    <li>Roles + permissions surfaced beside staff table and invites with edit protections.</li>
+                    <li>Activity log snippet inline with link to full audit history.</li>
+                    <li>Data residency and compliance note near billing and API keys.</li>
+                  </ul>
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-black/30 p-3">
+                  <p className="text-sm font-semibold text-slate-100">MFA & API hygiene</p>
+                  <ul className="mt-2 space-y-2 text-xs text-slate-400">
+                    <li>MFA prompt CTA plus enforcement toggle for tenant owners.</li>
+                    <li>Scoped API keys with last-used visibility and revoke actions.</li>
+                    <li>Audit and alerting for billing changes and roster imports.</li>
+                  </ul>
+                </div>
+              </div>
+            </SettingsCard>
+
             <SettingsCard
               title="Multi-factor Authentication"
               description="Recommended for all staff roles."
