@@ -253,7 +253,9 @@ export function ChartEventPanel({
   const [quarterValue, setQuarterValue] = useState<string>(latestEvent?.quarter ? String(latestEvent.quarter) : '')
   const [ballOnValue, setBallOnValue] = useState<string>(latestEvent?.ball_on || '')
   const [hashValue, setHashValue] = useState<string>('')
-  const [advancedOpen, setAdvancedOpen] = useState<boolean>(true)
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  )
   const [formData, setFormData] = useState<Record<string, string | number | boolean>>({})
   const eventType: EventType =
     unit === 'OFFENSE' ? 'Offense' : unit === 'DEFENSE' ? 'Defense' : 'Special Teams'
@@ -266,7 +268,6 @@ export function ChartEventPanel({
     selectedPersonnel && selectedPersonnel.length > 0
       ? offenseFormationsUnique.filter((f) => f.personnel === selectedPersonnel)
       : offenseFormationsUnique
-  const searchedFormations = filteredFormations
 
   const selectedBackfieldMeta = selectedBackfield
     ? backfieldOptions.find((b) => b.code === selectedBackfield)
@@ -329,16 +330,6 @@ export function ChartEventPanel({
       upsertEvent(normalizeRealtimeEvent(payload))
     },
   })
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setAdvancedOpen(window.innerWidth >= 1024)
-    }
-  }, [])
-
-  useEffect(() => {
-    resetDynamicFieldsForEventType()
-  }, [unit])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -602,27 +593,33 @@ export function ChartEventPanel({
                   field.name === 'offensive_personnel_code'
                     ? offensePersonnel.map((code) => ({ value: code, label: code }))
                     : field.name === 'offensive_formation_id'
-                    ? searchedFormations.map((f) => ({ value: f.id, label: `${f.personnel} | ${f.formation}` }))
+                    ? filteredFormations.map((f) => ({ value: f.id, label: `${f.personnel} | ${f.formation}` }))
                     : field.name === 'backfield_code'
-                    ? backfieldOptions.map((b) => ({ value: b.code, label: `${b.code} | ${b.description}` }))
+                    ? backfieldOptions.map((b) => ({
+                        value: b.code,
+                        label: b.description ? `${b.code} | ${b.description}` : b.code,
+                      }))
                     : field.name === 'wr_concept_id'
-                    ? wrConcepts.map((w) => ({ value: w.id, label: `${w.family ? `${w.family} | ` : ''}${w.name}` }))
+                    ? wrConcepts.map((w) => ({
+                        value: w.id,
+                        label: w.family ? `${w.family} | ${w.name}` : w.name,
+                      }))
                     : field.name === 'front_code'
                     ? frontOptions.map((name) => ({ value: name, label: name }))
                     : field.name === 'defensive_structure_id'
-                    ? defenseStructures.map((d) => ({ value: d.id, label: d.name || d.family || d.id }))
+                    ? defenseStructures.map((d) => ({ value: d.id, label: d.name || d.id }))
                     : field.name === 'coverage_shell_pre'
                     ? coverageShellOptions.map((c) => ({ value: c.value, label: c.label }))
                     : field.name === 'coverage_shell_post'
                     ? coveragePostOptions.map((c) => ({ value: c.value, label: c.label }))
                     : (field.options || []).map((opt) => ({ value: opt, label: prettify(opt) }))
-                const fieldError = inlineErrors[field.name]
-                const fieldWarning = inlineWarnings[field.name]
+                const error = inlineErrors[field.name]
+                const warning = inlineWarnings[field.name]
                 const baseInputClass =
                   'w-full rounded-lg border px-3 py-2 text-sm ' +
-                  (fieldError
+                  (error
                     ? 'border-red-500 bg-red-950/30 text-red-50'
-                    : fieldWarning
+                    : warning
                     ? 'border-amber-500 bg-amber-950/30 text-amber-50'
                     : 'border-slate-800 bg-black/40 text-slate-100')
                 const handleChange = (value: string | boolean) => {
@@ -631,7 +628,7 @@ export function ChartEventPanel({
                   if (field.name === 'backfield_code') setSelectedBackfield(String(value))
                 }
                 return (
-                  <label key={field.name} className="space-y-1 text-xs text-slate-400 min-w-[160px]">
+                  <label key={field.name} className="space-y-1 text-xs text-slate-400 min-w-40">
                     <span className="uppercase tracking-[0.18em]">{field.label}</span>
                     {field.type === 'select' && (
                       <select
@@ -675,9 +672,9 @@ export function ChartEventPanel({
                         className={baseInputClass}
                       />
                     )}
-                    {fieldError && <p className="text-[0.7rem] text-red-300">{fieldError}</p>}
-                    {!fieldError && fieldWarning && (
-                      <p className="text-[0.7rem] text-amber-300">{fieldWarning}</p>
+                    {error && <p className="text-[0.7rem] text-red-300">{error}</p>}
+                    {!error && warning && (
+                      <p className="text-[0.7rem] text-amber-300">{warning}</p>
                     )}
                   </label>
                 )
