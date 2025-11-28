@@ -18,6 +18,8 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
+import { TrackedCTAButton } from '@/components/ui/TrackedCTAButton'
+import { ScoutingNav } from '@/components/scout/ScoutingNav'
 import { StatBadge } from '@/components/ui/StatBadge'
 
 const navItems = [
@@ -288,9 +290,15 @@ export default async function ScoutingPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Pill label="AI ready" tone="cyan" icon={<Sparkles className="h-3 w-3" />} />
             <Pill label="Advanced" tone="emerald" icon={<Gauge className="h-3 w-3" />} />
-            <CTAButton href="/settings#billing" variant="secondary" size="sm">
+            <TrackedCTAButton
+              href="/settings#billing"
+              variant="secondary"
+              size="sm"
+              event="scouting_cta_click"
+              payload={{ cta: 'manage_plan' }}
+            >
               Manage plan
-            </CTAButton>
+            </TrackedCTAButton>
           </div>
         }
       />
@@ -312,32 +320,14 @@ export default async function ScoutingPage() {
         </p>
       </GlassCard>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 lg:hidden">
-        {navItems.map((item) => (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200 transition hover:border-brand hover:text-white"
-          >
-            {item.label}
-          </a>
-        ))}
+      <div className="lg:hidden">
+        <ScoutingNav items={navItems} variant="mobile" />
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[240px,1fr]">
         <aside className="hidden lg:block">
           <GlassCard padding="none" className="sticky top-6">
-            <nav className="space-y-1 p-4">
-              {navItems.map((item) => (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-slate-50"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
+            <ScoutingNav items={navItems} variant="desktop" />
           </GlassCard>
         </aside>
 
@@ -563,12 +553,23 @@ export default async function ScoutingPage() {
                 ))}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <CTAButton href="/settings#billing" size="sm">
+                <TrackedCTAButton
+                  href="/settings#billing"
+                  size="sm"
+                  event="scouting_cta_click"
+                  payload={{ cta: 'unlock_premium' }}
+                >
                   Unlock Premium
-                </CTAButton>
-                <CTAButton href="/pricing" variant="secondary" size="sm">
+                </TrackedCTAButton>
+                <TrackedCTAButton
+                  href="/pricing"
+                  variant="secondary"
+                  size="sm"
+                  event="scouting_cta_click"
+                  payload={{ cta: 'compare_plans' }}
+                >
                   Compare plans
-                </CTAButton>
+                </TrackedCTAButton>
               </div>
             </ScoutingCard>
           </ScoutingSection>
