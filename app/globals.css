@@ -7,8 +7,22 @@
 /* Root CSS variables (also used by Tailwind tokens below) */
 :root {
   /* App background + foreground */
-  --background: #020617;  /* near-black slate */
+  --background: #05070f;  /* deep navy canvas */
   --foreground: #e5e7eb;  /* light slate text */
+
+  /* Brand + surface tokens */
+  --brand: #00e5ff;
+  --brand-soft: #38e8ff;
+  --brand-dark: #0891b2;
+  --surface: #05070f;
+  --surface-muted: #0c1324;
+  --surface-raised: #111b33;
+
+  /* Backdrop gradients */
+  --bg-hero: radial-gradient(circle at 20% 20%, rgba(0, 229, 255, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(134, 239, 255, 0.08), transparent 30%),
+    linear-gradient(180deg, #070a14 0%, #04060d 45%, #02040a 100%);
+  --bg-sheen: radial-gradient(140% 140% at 50% 0%, rgba(0, 229, 255, 0.08), transparent 50%);
 
   /* Tell the browser we're primarily dark UI */
   color-scheme: dark;
@@ -55,9 +69,56 @@ body {
 }
 
 body {
-  background: var(--background);
+  background: var(--bg-hero);
   color: var(--foreground);
   font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand) 30%, transparent);
+}
+
+/* Focus + interactive states */
+button,
+a,
+input,
+textarea,
+select {
+  transition: background-color 180ms cubic-bezier(0.4, 0.14, 0.3, 1),
+    color 180ms cubic-bezier(0.4, 0.14, 0.3, 1),
+    border-color 180ms cubic-bezier(0.4, 0.14, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0.14, 0.3, 1),
+    transform 180ms cubic-bezier(0.4, 0.14, 0.3, 1);
+}
+
+button:active,
+a:active {
+  transform: translateY(0.5px) scale(0.995);
+}
+
+:focus {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.18);
+}
+
+/* Cards & surface helpers */
+.surface-shell {
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.surface-raised {
+  background: var(--surface-raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
