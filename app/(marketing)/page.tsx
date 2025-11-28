@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import Image from 'next/image'
@@ -47,12 +47,12 @@ type ContactField = {
 const contactFields: ContactField[] = [
   { label: 'Name', name: 'name', type: 'text', required: true, autoComplete: 'name', description: 'Full name for follow-up.' },
   {
-    label: 'Command Post',
+    label: 'Role',
     name: 'role',
     type: 'select',
     required: true,
     autoComplete: 'organization-title',
-    description: 'Your current post (HC, OC, DC, Analyst, AD, etc.).',
+    description: 'HC, OC, DC, Analyst, AD, etc.',
     options: [
       { label: 'Head Coach', value: 'Head Coach' },
       { label: 'Offensive Coordinator', value: 'Offensive Coordinator' },
@@ -152,37 +152,47 @@ const contactFields: ContactField[] = [
 ]
 
 const outcomes = [
-  { title: 'Series clarity', description: 'Explosives and success mapped to opponent tendencies.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
-  { title: 'Cutups on demand', description: 'AI-tagged filters ready mid-game for booth and sideline.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
-  { title: 'Staff lockstep', description: 'Command, booth, and field share one live feed.', icon: <Shield className="h-5 w-5 text-emerald-200" /> },
+  { title: 'Own 3rd-and-medium', description: 'Know their calls by formation, hash, and personnel before they dial it.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
+  { title: 'Instant cutups', description: 'Filters by formation, hash, and motion in seconds for booth and sideline.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
+  { title: 'Staff in sync', description: 'Booth, sideline, and call sheet stay on one live scouting feed.', icon: <Shield className="h-5 w-5 text-emerald-200" /> },
 ]
 
 const capabilities = [
-  { title: 'One live source', copy: 'Offense, defense, and special teams stay in one truth set.', icon: <Flame className="h-5 w-5 text-amber-300" /> },
-  { title: 'Playbook vision', copy: 'Formations and personnel tied to outcomes, pace, and explosives.', icon: <Trophy className="h-5 w-5 text-cyan-300" /> },
-  { title: 'Call sheet ready', copy: 'Auto summaries for thirds, red zone, and explosives by hash.', icon: <BadgeCheck className="h-5 w-5 text-emerald-300" /> },
+  { title: 'One truth set', copy: 'Offense, defense, and special teams share synced charting and scouting.', icon: <Flame className="h-5 w-5 text-amber-300" /> },
+  { title: 'Call sheet fuel', copy: 'Top formations, personnel, and motions tied to explosives and success.', icon: <Trophy className="h-5 w-5 text-cyan-300" /> },
+  { title: 'Situational speed', copy: 'Auto summaries for thirds, red zone, and pressure by hash and down.', icon: <BadgeCheck className="h-5 w-5 text-emerald-300" /> },
 ]
 
 const plans = [
   {
     name: 'Elite',
     price: 'Custom',
-    summary: 'Full stack with white-glove onboarding, live support, and AI speed.',
-    highlights: ['Unlimited games & sessions', 'AI tagging + live charts', 'Dedicated analyst concierge'],
+    summary: 'Custom pricing with white-glove onboarding, tight support, and advanced AI workflows.',
+    highlights: [
+      'Concierge onboarding + staff training',
+      'Live AI tagging, charts, and cutups',
+      'Analyst concierge for weekly prep',
+      'Priority support + play-night coverage',
+    ],
   },
   {
     name: 'Standard',
-    price: '$299/mo',
-    summary: 'Live charting and scouting essentials for fast-moving staffs.',
-    highlights: ['Live charting for all units', 'Scouting imports & cutups', 'Staff access with controls'],
+    price: 'Starts at $299/mo',
+    summary: 'Built for most HS and college staffs: live charting and scouting that just works.',
+    highlights: [
+      'Live charting for O/D/ST with staff roles',
+      'Scouting CSV imports and instant cutups',
+      'Call sheet-ready reports by down/dist',
+      'Secure access controls and audit trails',
+    ],
   },
 ]
 
 const securityPoints = [
-  'Dedicated Supabase project with row-level policies',
+  'Multi-tenant isolation with row-level security (RLS)',
   'Audit trails on exports and API keys',
   'TLS everywhere with least-privilege roles',
-  'Backed by Trips Right, LLC (US-based)',
+  'Operated by Trips Right, LLC (US-based)',
 ]
 
 const pulseVariants = {
@@ -223,9 +233,9 @@ export default function MarketingPage() {
 
   const successCopy = useMemo<Record<Intent, string>>(
     () => ({
-      elite_availability: 'We will confirm Elite availability in your region and follow up by email.',
-      demo_deck: 'We will send the demo deck and sample breakdown so you can see how it fits your staff.',
-      call_request: 'We will follow up to schedule a call based on your availability.',
+      elite_availability: 'Got it - we will confirm Elite availability in your area and reply fast.',
+      demo_deck: 'Thanks - we will send the demo deck and a sample breakdown shortly.',
+      call_request: 'Thanks - we will email to schedule a call that fits your time.',
     }),
     []
   )
@@ -316,9 +326,9 @@ export default function MarketingPage() {
               <Image src="/blitziq-logo.png" alt="BlitzIQ Pro logo" fill className="object-contain drop-shadow-[0_8px_24px_rgba(0,229,255,0.35)]" priority />
             </div>
             <div className="leading-tight">
-              <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</div>
+              <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro</div>
               <div className="text-[0.7rem] uppercase tracking-[0.16em] text-brand-soft">
-                Command every snap.
+                Make the call everyone else wishes they had
               </div>
             </div>
           </div>
@@ -380,10 +390,10 @@ export default function MarketingPage() {
 
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-14">
         <SectionHeader
-          eyebrow="Live Game-Day Operating System"
-          title="Command every snap with BlitzIQ Pro"
-          description="Elite staffs keep booth, sideline, and command post aligned on one live surface."
-          badge="Command Center"
+          eyebrow="BlitzIQ Pro ties charting, scouting, AI analysis, and reports into one booth-to-sideline system."
+          title="Make the call everyone else wishes they had"
+          description="A game-week and game-day scouting OS built for head coaches, coordinators, and analysts."
+          badge="Starting at $299/mo"
           actions={
             <div className="flex flex-wrap gap-2">
               <Pill label="Live charting" tone="emerald" icon={<Sparkles className="h-3.5 w-3.5" />} />
@@ -394,7 +404,7 @@ export default function MarketingPage() {
 
         <GlassCard className="grid gap-6 md:grid-cols-[1.1fr,0.9fr] items-center">
           <div className="space-y-4">
-            <p className="text-lg text-slate-200">Built for staffs that need clarity under pressure.</p>
+            <p className="text-lg text-slate-200">Built for staffs that need fast answers and a synced call sheet.</p>
             <div className="grid grid-cols-3 gap-3">
               <StatBadge label="Explosive IDs" value="Live" tone="cyan" />
               <StatBadge label="Call Sheet Sync" value="Real-time" tone="emerald" />
@@ -548,7 +558,7 @@ export default function MarketingPage() {
                     onClick={() => setIntentAndScroll('elite_availability', plan.name as Plan)}
                     className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft"
                   >
-                    {plan.name === 'Elite' ? 'Check availability' : 'Start Standard'}
+                    {plan.name === 'Elite' ? 'Check Elite availability' : 'Start Standard ($299+)'}
                   </button>
                   <button
                     type="button"
@@ -584,7 +594,7 @@ export default function MarketingPage() {
           <SectionHeader
             eyebrow="Contact"
             title="Set your staff up in minutes"
-            description="Tell us your role, classification, and goal. We respond fast during in-season."
+            description="Tell us your role, classification, and goal. We respond quickly in-season."
             badge="White glove"
           />
           <GlassCard>
@@ -719,3 +729,8 @@ export default function MarketingPage() {
     </main>
   )
 }
+
+
+
+
+

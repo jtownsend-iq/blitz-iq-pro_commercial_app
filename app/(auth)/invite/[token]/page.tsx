@@ -56,9 +56,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   if (invalid) {
     return renderMessage({
       title: 'Invite not found',
-      body: 'This invite link is invalid or has been revoked. Ask the team admin to resend it.',
+      body: 'This invite link is invalid or was revoked. Ask your admin to resend a fresh link.',
       ctaHref: '/login',
-      ctaLabel: 'Back to login',
+      ctaLabel: 'Go to login',
     })
   }
 
@@ -67,7 +67,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
       title: 'Invite expired',
       body: 'This invite has expired. Ask your admin to generate a new link.',
       ctaHref: '/login',
-      ctaLabel: 'Back to login',
+      ctaLabel: 'Go to login',
     })
   }
 
@@ -83,9 +83,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   if (!user) {
     return renderMessage({
       title: 'Sign in to accept',
-      body: `You need to sign in with the invited email (${invite.email || 'unknown'}) to join ${
-        teamName || 'this team'
-      }.`,
+      body: `Sign in with the invited email (${invite.email || 'unknown'}) to join ${teamName || 'this team'}.`,
       ctaHref: `/login?redirectTo=/invite/${params.token}`,
       secondaryHref: `/signup?redirectTo=/invite/${params.token}`,
       ctaLabel: 'Sign in',
@@ -96,11 +94,11 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   if (!emailMatches) {
     return renderMessage({
       title: 'Email mismatch',
-      body: `You are signed in as ${user.email}. This invite is for ${
-        invite.email
-      }. Sign out and sign in with the invited email.`,
-      ctaHref: '/login?error=email_mismatch',
+      body: `You are signed in as ${user.email}. This invite is for ${invite.email}. Switch accounts to continue.`,
+      ctaHref: `/login?redirectTo=/invite/${params.token}`,
       ctaLabel: 'Switch account',
+      secondaryHref: `/signup?redirectTo=/invite/${params.token}`,
+      secondaryLabel: 'Create account',
     })
   }
 
@@ -112,7 +110,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           Join {teamName || 'this team'}
         </h1>
         <p className="text-sm text-slate-400">
-          Accept as <span className="font-semibold text-slate-200">{invite.role}</span> using{' '}
+          Accepting adds you to {teamName || 'this team'} as <span className="font-semibold text-slate-200">{invite.role}</span> with{' '}
           <span className="font-semibold text-slate-200">{invite.email}</span>.
         </p>
         {errorCode && (
@@ -124,13 +122,12 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
       <div className="space-y-4 rounded-2xl border border-slate-800/70 bg-black/30 p-4 text-sm text-slate-200">
         <p>
-          You are signed in as <span className="font-semibold">{user.email}</span>. Accepting will
-          add you to this team and set your active tenant.
+          You are signed in as <span className="font-semibold">{user.email}</span>. Accepting will add you to this team and set it as one of your tenants.
         </p>
         <ul className="list-disc space-y-1 pl-5 text-slate-400">
-          <li>We will create or update your membership for this team.</li>
-          <li>We mark the invite as consumed to keep the audit trail clean.</li>
-          <li>You can manage team access from Settings &gt; Roster &amp; Staff.</li>
+          <li>We create or update your membership for this team.</li>
+          <li>The invite is marked consumed to keep the audit trail clean.</li>
+          <li>Team access can be managed anytime in Settings &rarr; Roster &amp; Staff.</li>
         </ul>
       </div>
 

@@ -41,34 +41,60 @@ export default async function TeamOnboardingPage({
       ? errorParam
       : undefined
 
-  let errorMessage: string | null = null
+  const errorMessages: Record<string, string> = {
+    invalid:
+      "We couldn't create your team. Check your details and try again, or contact support if the issue persists.",
+    team: "We couldn't create your team. Check your details and try again, or contact support if the issue persists.",
+    member:
+      "We created the team but could not add you as a member. Contact support so we can fix access.",
+    user:
+      "We set up your team but could not link it to your profile. Contact support so we can fix access.",
+  }
 
-  if (error === 'invalid') {
-    errorMessage = 'Please check the fields and try again.'
-  } else if (error === 'team') {
-    errorMessage = "We couldn't create your team. Try again."
-  } else if (error === 'member') {
-    errorMessage =
-      'Team was created but we could not complete membership. Contact support.'
-  } else if (error === 'user') {
-    errorMessage =
-      'We set up your team but could not link it to your profile. Contact support.'
+  const errorMessage = error ? errorMessages[error] ?? null : null
+
+  const getValue = (key: string) => {
+    const value = params?.[key]
+    if (Array.isArray(value)) {
+      return value[0] ?? ''
+    }
+    return typeof value === 'string' ? value : ''
   }
 
   return (
     <main className="min-h-[60vh] flex items-center justify-center text-foreground">
-      <div className="w-full max-w-2xl space-y-6 bg-surface-raised border border-slate-800 rounded-2xl p-8 shadow-brand-card">
-        <header className="space-y-2">
-          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-            Step 1 of 2
-          </p>
-          <h1 className="text-2xl md:text-3xl font-bold">
-            Set up your primary team
-          </h1>
-          <p className="text-xs text-slate-400">
-            This powers your scouting imports, AI reports, and gameday
-            dashboards. You can add more teams later.
-          </p>
+      <div className="w-full max-w-3xl space-y-6 bg-surface-raised border border-slate-800 rounded-2xl p-8 shadow-brand-card">
+        <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
+              Step 1 of 2
+            </p>
+            <div className="space-y-1">
+              <h1 className="text-2xl md:text-3xl font-bold">
+                Set up your primary team
+              </h1>
+              <p className="text-sm text-slate-400">
+                Drop in your program details so scouting imports, AI reports,
+                and gameday dashboards are tied to the right team. You can add
+                more teams later.
+              </p>
+            </div>
+          </div>
+          <div className="w-full md:w-auto rounded-xl border border-slate-800/80 bg-black/30 px-4 py-3 text-xs text-slate-300">
+            <p className="text-[0.68rem] uppercase tracking-[0.18em] text-slate-500">
+              Onboarding map
+            </p>
+            <div className="mt-2 space-y-1">
+              <p className="flex items-start gap-2">
+                <span className="mt-0.5 h-2 w-2 rounded-full bg-brand" />
+                <span>Step 1: Primary team details (now)</span>
+              </p>
+              <p className="flex items-start gap-2 text-slate-400">
+                <span className="mt-0.5 h-2 w-2 rounded-full border border-slate-600" />
+                <span>Step 2: Add roster and staff (next)</span>
+              </p>
+            </div>
+          </div>
         </header>
 
         {errorMessage && (
@@ -83,6 +109,12 @@ export default async function TeamOnboardingPage({
         >
           <input type="hidden" name="redirectTo" value="/dashboard" />
 
+          <div className="md:col-span-2">
+            <p className="text-[0.72rem] uppercase tracking-[0.14em] text-slate-500">
+              Team identity
+            </p>
+          </div>
+
           <div className="md:col-span-2 space-y-1">
             <label
               htmlFor="name"
@@ -94,7 +126,8 @@ export default async function TeamOnboardingPage({
               id="name"
               name="name"
               required
-              placeholder="American Christian Academy Varsity"
+              placeholder="River Town High Varsity"
+              defaultValue={getValue('name')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
             <p className="text-[0.65rem] text-slate-500">
@@ -112,9 +145,16 @@ export default async function TeamOnboardingPage({
             <input
               id="level"
               name="level"
-              placeholder="Varsity, JV, 8U, etc."
+              placeholder="Varsity, JV, Freshman"
+              defaultValue={getValue('level')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
+          </div>
+
+          <div className="md:col-span-2 pt-2">
+            <p className="text-[0.72rem] uppercase tracking-[0.14em] text-slate-500">
+              School or organization
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -127,9 +167,16 @@ export default async function TeamOnboardingPage({
             <input
               id="school_name"
               name="school_name"
-              placeholder="American Christian Academy"
+              placeholder="River Town High School"
+              defaultValue={getValue('school_name')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
+          </div>
+
+          <div className="md:col-span-2 pt-2">
+            <p className="text-[0.72rem] uppercase tracking-[0.14em] text-slate-500">
+              Address details
+            </p>
           </div>
 
           <div className="md:col-span-2 space-y-1">
@@ -142,7 +189,8 @@ export default async function TeamOnboardingPage({
             <input
               id="school_address_line1"
               name="school_address_line1"
-              placeholder="7115 1st Ave"
+              placeholder="123 Main St"
+              defaultValue={getValue('school_address_line1')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
@@ -157,7 +205,8 @@ export default async function TeamOnboardingPage({
             <input
               id="school_city"
               name="school_city"
-              placeholder="Tuscaloosa"
+              placeholder="Dallas"
+              defaultValue={getValue('school_city')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
@@ -172,7 +221,8 @@ export default async function TeamOnboardingPage({
             <input
               id="school_state"
               name="school_state"
-              placeholder="AL"
+              placeholder="TX"
+              defaultValue={getValue('school_state')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
@@ -187,18 +237,23 @@ export default async function TeamOnboardingPage({
             <input
               id="school_zip"
               name="school_zip"
-              placeholder="35405"
+              placeholder="75201"
+              defaultValue={getValue('school_zip')}
               className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
 
-          <div className="md:col-span-2 flex justify-end pt-2">
+          <div className="md:col-span-2 flex flex-col items-end gap-2 pt-2">
             <button
               type="submit"
               className="inline-flex items-center justify-center rounded-full bg-brand text-black text-xs font-semibold tracking-[0.16em] uppercase px-6 py-2 hover:bg-brand-soft transition-colors"
             >
-              Save team &amp; continue
+              Save team and continue
             </button>
+            <p className="text-[0.7rem] text-slate-400">
+              Next you&apos;ll add roster and staff so we can build your reports
+              correctly.
+            </p>
           </div>
         </form>
       </div>
