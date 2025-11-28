@@ -65,14 +65,13 @@ export default async function ScoutingPage() {
         <SectionHeader
           eyebrow="Scouting"
           title="Activate a team"
-          description="Pick an active team in Settings before loading opponent scouting."
+          description="Set an active team in Settings before running opponent scouting."
           badge="Team needed"
-          actions={<Pill label="Scouting" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />}
+          actions={<Pill label="Activate team" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />}
         />
         <GlassCard tone="amber">
           <p className="text-sm text-amber-100">
-            Set an active team in Settings to start uploading scouting CSVs and viewing opponent
-            tendencies.
+            Activate a team in Settings, then upload scouting CSVs and view opponent tendencies.
           </p>
         </GlassCard>
       </main>
@@ -92,13 +91,13 @@ export default async function ScoutingPage() {
         <SectionHeader
           eyebrow="Scouting"
           title="Access restricted"
-          description="You are not on staff for this team. Switch to a team where you are a member."
+          description="You are not on staff for this team. Switch to a team where you are a member to manage scouting."
           badge="Permission"
           actions={<Pill label="Switch team" tone="amber" />}
         />
         <GlassCard tone="amber">
           <p className="text-sm text-amber-100">
-            Join the staff for this program or switch teams to manage opponent scouting.
+            Join the staff for this program or switch to a team where you are on staff before using scouting.
           </p>
         </GlassCard>
       </main>
@@ -122,23 +121,19 @@ export default async function ScoutingPage() {
   const plays = (playsData as PlayRow[] | null) ?? []
   const imports = (importsData as ImportRow[] | null) ?? []
 
-  const opponentSeasonPairs = plays
-    .filter((p) => p.opponent_name)
-    .map((p) => `${p.opponent_name ?? ''}|${p.season ?? ''}`)
-  const distinctOpponents = new Set<string>()
-  const distinctSeasons = new Set<string>()
-  opponentSeasonPairs.forEach((key) => {
-    const [opponent, season] = key.split('|')
-    if (opponent) distinctOpponents.add(opponent)
-    if (season) distinctSeasons.add(season)
-  })
-
   const lastSuccess = imports.find((imp) => imp.status === 'completed')
   const lastSuccessTs = lastSuccess?.created_at ?? null
 
+  const opponentSet = new Set<string>()
+  plays.forEach((p) => {
+    if (p.opponent_name) opponentSet.add(p.opponent_name)
+  })
+  imports.forEach((imp) => {
+    if (imp.opponent_name) opponentSet.add(imp.opponent_name)
+  })
   const uniqueOpponentsList =
-    distinctOpponents.size > 0
-      ? Array.from(distinctOpponents).map((opp) => ({ opponent: opp, season: '' }))
+    opponentSet.size > 0
+      ? Array.from(opponentSet).map((opp) => ({ opponent: opp, season: '' }))
       : [{ opponent: 'Set Opponent', season: '' }]
 
   const upcomingImport =
@@ -163,15 +158,15 @@ export default async function ScoutingPage() {
       <SectionHeader
         eyebrow="Scouting"
         title="Opponent scouting workspace"
-        description="Upload opponent CSVs, clean errors, and let BlitzIQ’s OpenAI-powered analysis break down calls, fronts, coverages, motions, and special teams looks for pregame and in-game decisions."
+        description="Upload opponent CSVs, clean errors, and let BlitzIQ's OpenAI LLM analyze that data for tendencies and reports - no model training required."
         badge="Premium"
         actions={<Pill label="Scouting ready" tone="emerald" icon={<Crosshair className="h-3 w-3" />} />}
       />
 
       <GlassCard>
         <div className="grid gap-4 md:grid-cols-4">
-          <StatBadge label="Opponents scouted" value={summaryStats.opponents} tone="cyan" />
-          <StatBadge label="Seasons covered" value={summaryStats.seasons} tone="emerald" />
+          <StatBadge label="Opponent-season pairs" value={summaryStats.opponentSeasons} tone="cyan" />
+          <StatBadge label="Opponents scouted" value={summaryStats.opponents} tone="emerald" />
           <StatBadge label="Imports processed" value={summaryStats.imports} tone="amber" />
           <StatBadge label="Imports needing fix" value={summaryStats.failedImports} tone="slate" />
         </div>
@@ -181,8 +176,8 @@ export default async function ScoutingPage() {
             Last successful import:{' '}
             {lastSuccessTs ? new Date(lastSuccessTs).toLocaleString() : 'No successful imports yet'}
           </span>
-          <span className="text-slate-600">•</span>
-          <span>{distinctOpponents.size || 0} opponents | {distinctSeasons.size || 0} seasons</span>
+          <span className="text-slate-600">|</span>
+          <span>{summaryStats.opponents} opponents | {summaryStats.opponentSeasons} opponent-season pairs</span>
         </div>
       </GlassCard>
 
@@ -239,12 +234,12 @@ export default async function ScoutingPage() {
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
                 Export CSVs from your film or analytics tools, pick the opponent and season, upload and
-                map columns, clear any errors, and BlitzIQ’s OpenAI-powered layer will surface
+                map columns, clear any errors, and BlitzIQ&apos;s OpenAI-powered layer will surface
                 tendencies for pregame reports and in-game calls.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
                 <StatBadge label="Opponents covered" value={summaryStats.opponents} tone="cyan" />
-                <StatBadge label="Seasons covered" value={summaryStats.seasons} tone="emerald" />
+                <StatBadge label="Opponent-season pairs" value={summaryStats.opponentSeasons} tone="emerald" />
                 <StatBadge label="Imports to fix" value={summaryStats.failedImports} tone="amber" />
               </div>
               <p className="text-xs text-slate-400">
@@ -280,7 +275,7 @@ export default async function ScoutingPage() {
                 <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
                   <p className="text-sm font-semibold text-slate-200">No imports yet</p>
                   <p className="text-xs text-slate-500">
-                    Upload scouting CSVs to power BlitzIQ’s LLM analysis for pregame reports and in-game tendencies.
+                    Upload scouting CSVs to power BlitzIQ&apos;s LLM analysis for pregame reports and in-game tendencies.
                   </p>
                 </div>
               ) : (
@@ -370,7 +365,7 @@ export default async function ScoutingPage() {
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
                 Once CSVs are imported and clean, BlitzIQ sends your structured scouting data to an OpenAI LLM at query
-                time—no model training or fine-tuning required. It generates pregame summaries and game-day insights by
+                time - no model training or fine-tuning required. It generates pregame summaries and game-day insights by
                 down/distance, personnel, formation, front, coverage, pressure, and special teams situations.
               </p>
               <p className="text-sm text-slate-300">
@@ -392,7 +387,7 @@ export default async function ScoutingPage() {
               <p className="text-sm text-slate-300">
                 Export scouting CSVs from your film or analytics tools. Upload them here, map columns, and clear any
                 errors. Once clean, every tendency panel, pregame report, and in-game recommendation uses this data across
-                BlitzIQ. Repeat each week for your next opponent—the flow stays the same, so your staff stays fast.
+                BlitzIQ. Repeat each week for your next opponent - the flow stays the same, so your staff stays fast.
               </p>
               <p className="text-sm text-slate-300">
                 Clean data in means trusted reports out. If an import fails, open the log, fix headers or tags, and reupload.
@@ -428,14 +423,23 @@ function ScoutingSection({
 
 function computeSummaryStats(imports: ImportRow[], plays: PlayRow[]) {
   const opponents = new Set<string>()
-  const seasons = new Set<string>()
+  const opponentSeasons = new Set<string>()
   plays.forEach((p) => {
-    if (p.opponent_name) opponents.add(p.opponent_name)
-    if (p.season) seasons.add(p.season)
+    const opp = p.opponent_name || ''
+    const season = p.season || ''
+    if (opp) opponents.add(opp)
+    if (opp || season) opponentSeasons.add(`${opp}|${season}`)
   })
+  imports.forEach((imp) => {
+    const opp = imp.opponent_name || ''
+    const season = imp.season || ''
+    if (opp) opponents.add(opp)
+    if (opp || season) opponentSeasons.add(`${opp}|${season}`)
+  })
+  opponentSeasons.delete('|')
   return {
     opponents: opponents.size,
-    seasons: seasons.size,
+    opponentSeasons: opponentSeasons.size,
     imports: imports.length,
     failedImports: imports.filter((imp) => imp.status !== 'completed').length,
   }
@@ -507,3 +511,5 @@ function topValue(values: Array<string | null | undefined>) {
   })
   return best
 }
+
+
