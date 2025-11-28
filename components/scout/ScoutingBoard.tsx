@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { trackEvent } from '@/utils/telemetry'
 
@@ -96,8 +96,11 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const track = (name: string, payload: Record<string, unknown> = {}) =>
-    trackEvent(name, { ...payload, opponent: opponent || null, season: season || null, phase }, 'scouting_board')
+  const track = useCallback(
+    (name: string, payload: Record<string, unknown> = {}) =>
+      trackEvent(name, { ...payload, opponent: opponent || null, season: season || null, phase }, 'scouting_board'),
+    [opponent, season, phase]
+  )
 
   const baseExportParams = useMemo(() => {
     const params = new URLSearchParams()
@@ -213,7 +216,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
 
     loadTendencies()
     loadRecent()
-  }, [opponent, season, phase, teamId, tagFilter, tagLogic, hashFilter, fieldBucket])
+  }, [opponent, season, phase, teamId, tagFilter, tagLogic, hashFilter, fieldBucket, track])
 
   const loadMoreRecent = async () => {
     if (recentEnd || !opponent || !season) return

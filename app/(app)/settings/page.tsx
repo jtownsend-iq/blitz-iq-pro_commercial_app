@@ -923,7 +923,9 @@ export default async function SettingsPage() {
                     <p className="text-sm font-semibold">IA + defaults</p>
                   </div>
                   <ul className="space-y-2 text-xs text-cyan-50/90">
-                    <li>Progressive disclosure: premium -> experience -> value -> ops -> tenant/billing -> security.</li>
+                    <li>
+                      {'Progressive disclosure: premium -> experience -> value -> ops -> tenant/billing -> security.'}
+                    </li>
                     <li>Clear defaults: season year/label, tag templates, and notification presets shown inline.</li>
                     <li>Sticky nav on desktop; chip nav on mobile for quick jumps.</li>
                   </ul>
@@ -2212,7 +2214,7 @@ export default async function SettingsPage() {
                     </div>
                   </div>
                   <p className="text-xs text-slate-500">
-                    Upgrade flow: review -> confirm billing contact -> success toast + plan badge update.
+                    {'Upgrade flow: review -> confirm billing contact -> success toast + plan badge update.'}
                   </p>
                 </div>
               </div>

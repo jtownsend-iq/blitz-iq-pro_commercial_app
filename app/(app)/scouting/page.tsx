@@ -1,195 +1,61 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import {
-  BarChart3,
-  CheckCircle2,
-  Crosshair,
-  Gauge,
-  Lock,
-  Rocket,
-  Shield,
-  ShieldAlert,
-  Sparkles,
-  Smartphone,
-} from 'lucide-react'
+import { Clock3, Crosshair, FileWarning, ShieldAlert, Table2 } from 'lucide-react'
 import ScoutingBoard from '@/components/scout/ScoutingBoard'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
-import { CTAButton } from '@/components/ui/CTAButton'
-import { TrackedCTAButton } from '@/components/ui/TrackedCTAButton'
-import { ScoutingNav } from '@/components/scout/ScoutingNav'
 import { StatBadge } from '@/components/ui/StatBadge'
+import { ScoutingNav } from '@/components/scout/ScoutingNav'
+
+type ImportRow = {
+  id: string
+  opponent_name: string
+  season: string | null
+  status: string
+  created_at: string
+  original_filename: string | null
+  file_hash: string | null
+  error_log?: Record<string, unknown> | null
+}
+
+type PlayRow = {
+  opponent_name: string | null
+  season: string | null
+  phase: string | null
+  down: number | null
+  distance: number | null
+  hash: string | null
+  formation: string | null
+  personnel: string | null
+  play_family: string | null
+  tags: string[] | null
+  gained_yards: number | null
+  created_at: string | null
+}
 
 const navItems = [
-  { id: 'premium', label: 'Premium Goals' },
-  { id: 'experience', label: 'Experience & IA' },
-  { id: 'data', label: 'Data & Controls' },
-  { id: 'ai', label: 'AI & Education' },
-  { id: 'security', label: 'Trust & Upsell' },
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'qa', label: 'QA & Launch' },
-  { id: 'workspace', label: 'Scouting Workspace' },
-]
-
-const personaGoals = [
-  {
-    persona: 'Head Coach',
-    goal: 'Confidently approve plans and live calls',
-    measure: 'Upgrade intent and adoption of AI recs',
-  },
-  {
-    persona: 'OC/DC',
-    goal: 'Edit tendencies and tags in under 2 steps',
-    measure: 'Task completion under 2 steps per edit',
-  },
-  {
-    persona: 'Analyst',
-    goal: 'Import, clean, and export without errors',
-    measure: 'Bug rate and export success per import',
-  },
-]
-
-const valuePillars = [
-  {
-    label: 'UI polish',
-    detail: 'Consistent cards, nav, spacing, focus rings, and premium typography on dark glass.',
-  },
-  {
-    label: 'Advanced features',
-    detail: 'Bulk edits, presets, imports/exports with audit stamps, and undo for destructive actions.',
-  },
-  {
-    label: 'Perfect UX',
-    detail: 'Guided flows, inline education, recoverable errors, and <1.5s p75 load with <400ms interactions.',
-  },
-]
-
-const successMetrics = [
-  { label: 'Upgrade intent', value: '+35%', note: 'Scouting page to billing CTA' },
-  { label: 'Task completion', value: '<2 steps', note: 'Critical edits and saves' },
-  { label: 'Latency p75', value: '<1.5s', note: 'Page load and interactions' },
-  { label: 'Bug rate', value: '<0.5%', note: 'Failed saves/imports' },
-]
-
-const iaPrinciples = [
-  'Order: Premium -> Experience -> Data -> AI -> Trust -> Analytics -> QA -> Workspace.',
-  'Sticky nav on desktop; chip nav on mobile; scroll anchors align to headings.',
-  'Reuse SectionHeader, GlassCard, Pill, StatBadge for consistency.',
-]
-
-const visualSystem = [
-  'Typography: display 32/24/20, body 16/14; uppercase pills at 0.22em tracking.',
-  'Color: normalized brand accent, emerald for success, amber for warnings, cyan for info.',
-  'Spacing: 8/12/16/24 grid; radius 24px on cards; full radius on chips and pills.',
-  'States: hover/active/focus rings on buttons; disabled opacity; skeletons for loading.',
-]
-
-const interactionPolish = [
-  'Hover/active/focus styles on all primary and secondary actions.',
-  'Skeletons and shimmer placeholders while fetching scouting data.',
-  'Optimistic saves for edits with spinner-to-check confirmation and rollback on error.',
-  'Latency masking: keep layout stable with placeholders and inline spinners.',
-]
-
-const accessibilityChecklist = [
-  'Keyboard tab order through nav, filters, tables, and actions.',
-  'ARIA labels on tables, filters, and toggles; descriptive headers and captions.',
-  'Screen-reader friendly headings and section ids matching nav anchors.',
-  'WCAG AA contrast on dark UI for buttons, pills, and status badges.',
-]
-
-const dataIntegrityPlan = [
-  'Validate Supabase errors; show recoverable states with retry and preserved input.',
-  'Empty and error states for scout reports, cut-ups, and tags.',
-  'Rollback paths on failed mutations; log errors with context.',
-]
-
-const advancedControls = [
-  'Opponent presets for tendencies and personnel groupings.',
-  'Bulk tag edits and batch updates with undo.',
-  'Import/export scouting data with audit stamps and hash checks.',
-]
-
-const aiDifferentiators = [
-  'Inline AI scouting summaries with confidence indicators.',
-  'What-if controls (adjust blitz rate, coverage shells) to see projected impact.',
-  'Contextual live call recommendations tied to opponent tendencies.',
-]
-
-const educationPlan = [
-  'Inline tooltips for metrics and glossary terms.',
-  'Quick-start checklist for a new opponent: import, map tags, review errors, publish.',
-  'Empty states with guided actions for first-time scouting.',
-]
-
-const performancePlan = [
-  'Cache per-opponent data; prefetch linked routes for reports and film cut-ups.',
-  'Paginate or virtualize long scout lists and logs.',
-  'Target <400ms interactions for filters, saves, and AI requests.',
-]
-
-const mobilePrinciples = [
-  'Gesture-friendly 44px tap targets and taller inputs.',
-  'Reduced columns on small screens with persistent filter chip bar.',
-  'Parity of premium CTAs and audit snippets on mobile.',
-]
-
-const securityTrust = [
-  'Role-aware controls for coach/analyst/admin with protected actions.',
-  'MFA prompt banner and data residency note near exports and downloads.',
-  'Audit log snippet for scouting edits, imports, and downloads.',
-]
-
-const billingUpsell = [
-  'Plan badge on page header and inline locked premium blocks with Unlock Premium CTA.',
-  'Compare plans modal link near premium controls.',
-  'Upgrade CTA near AI recommendations and imports to highlight premium value.',
-]
-
-const analyticsPlan = [
-  'Nav clicks by section id and role.',
-  'Filter changes, AI usage, exports/downloads.',
-  'Save success/error events with timing and error codes.',
-  'Upsell CTA views/clicks and conversion to billing.',
-]
-
-const qaChecklist = [
-  'Visual regression on cards and tables.',
-  'Cross-browser/device smoke (desktop and mobile).',
-  'Keyboard-only and screen-reader pass.',
-  'Seeded data test scripts for import, edit, save, export.',
-]
-
-const launchReadiness = [
-  'Release notes highlighting premium scouting improvements.',
-  'Support playbook for scouting workflows and recoveries.',
-  'In-app announcement with premium CTA and fallback rollback checklist.',
+  { id: 'overview', label: 'Overview' },
+  { id: 'imports', label: 'CSV imports' },
+  { id: 'workspace', label: 'Scouting workspace' },
+  { id: 'ai', label: 'AI & reports' },
+  { id: 'help', label: 'How it works' },
 ]
 
 export default async function ScoutingPage() {
   const supabase = await createSupabaseServerClient()
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser()
-
-  if (authError) {
-    console.error('Error fetching auth user for scouting:', authError.message)
-  }
 
   if (!user) redirect('/login')
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from('users')
     .select('active_team_id')
     .eq('id', user.id)
     .maybeSingle()
-
-  if (profileError) {
-    console.error('Error fetching profile for scouting:', profileError.message)
-  }
 
   const activeTeamId = profile?.active_team_id as string | null
 
@@ -199,29 +65,26 @@ export default async function ScoutingPage() {
         <SectionHeader
           eyebrow="Scouting"
           title="Activate a team"
-          description="Pick an active team in Settings before you manage scouting intel."
-          badge="Access needed"
-          actions={<Pill label="Secure" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />}
+          description="Pick an active team in Settings before loading opponent scouting."
+          badge="Team needed"
+          actions={<Pill label="Scouting" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />}
         />
         <GlassCard tone="amber">
           <p className="text-sm text-amber-100">
-            Select or activate a team in Settings before managing scouting.
+            Set an active team in Settings to start uploading scouting CSVs and viewing opponent
+            tendencies.
           </p>
         </GlassCard>
       </main>
     )
   }
 
-  const { data: membership, error: membershipError } = await supabase
+  const { data: membership } = await supabase
     .from('team_members')
     .select('team_id')
     .eq('team_id', activeTeamId)
     .eq('user_id', user.id)
     .maybeSingle()
-
-  if (membershipError) {
-    console.error('Error fetching membership for scouting:', membershipError.message)
-  }
 
   if (!membership) {
     return (
@@ -229,101 +92,141 @@ export default async function ScoutingPage() {
         <SectionHeader
           eyebrow="Scouting"
           title="Access restricted"
-          description="You do not have access to this team."
+          description="You are not on staff for this team. Switch to a team where you are a member."
           badge="Permission"
           actions={<Pill label="Switch team" tone="amber" />}
         />
         <GlassCard tone="amber">
           <p className="text-sm text-amber-100">
-            You do not have access to this team. Please switch to a team you belong to.
+            Join the staff for this program or switch teams to manage opponent scouting.
           </p>
         </GlassCard>
       </main>
     )
   }
 
-  const [{ data: opponentsData, error: opponentsError }, { data: importsData, error: importsError }] =
-    await Promise.all([
-      supabase
-        .from('scout_plays')
-        .select('opponent_name, season')
-        .eq('team_id', activeTeamId),
-      supabase
-        .from('scout_imports')
-        .select(
-          'id, opponent_name, season, status, created_at, original_filename, file_hash, error_log'
-        )
-        .eq('team_id', activeTeamId)
-        .order('created_at', { ascending: false }),
-    ])
+  const [{ data: playsData }, { data: importsData, error: importsError }] = await Promise.all([
+    supabase
+      .from('scout_plays')
+      .select(
+        'opponent_name, season, phase, down, distance, hash, formation, personnel, play_family, tags, gained_yards, created_at'
+      )
+      .eq('team_id', activeTeamId),
+    supabase
+      .from('scout_imports')
+      .select('id, opponent_name, season, status, created_at, original_filename, file_hash, error_log')
+      .eq('team_id', activeTeamId)
+      .order('created_at', { ascending: false }),
+  ])
 
-  if (opponentsError) {
-    console.error('Error fetching opponents for scouting:', opponentsError.message)
-  }
+  const plays = (playsData as PlayRow[] | null) ?? []
+  const imports = (importsData as ImportRow[] | null) ?? []
 
-  if (importsError) {
-    console.error('Error fetching imports for scouting:', importsError.message)
-  }
+  const opponentSeasonPairs = plays
+    .filter((p) => p.opponent_name)
+    .map((p) => `${p.opponent_name ?? ''}|${p.season ?? ''}`)
+  const distinctOpponents = new Set<string>()
+  const distinctSeasons = new Set<string>()
+  opponentSeasonPairs.forEach((key) => {
+    const [opponent, season] = key.split('|')
+    if (opponent) distinctOpponents.add(opponent)
+    if (season) distinctSeasons.add(season)
+  })
 
-  const opponents =
-    opponentsData && opponentsData.length > 0
-      ? Array.from(
-          new Map(
-            opponentsData.map((o) => {
-              const key = `${o.opponent_name || ''}|${o.season || ''}`
-              return [key, { opponent: o.opponent_name, season: o.season }]
-            })
-          ).values()
-        )
+  const lastSuccess = imports.find((imp) => imp.status === 'completed')
+  const lastSuccessTs = lastSuccess?.created_at ?? null
+
+  const uniqueOpponentsList =
+    distinctOpponents.size > 0
+      ? Array.from(distinctOpponents).map((opp) => ({ opponent: opp, season: '' }))
       : [{ opponent: 'Set Opponent', season: '' }]
 
-  const imports = importsData ?? []
+  const upcomingImport =
+    imports.find((imp) => imp.status === 'completed') ??
+    imports.find((imp) => imp.status === 'pending') ??
+    null
+
+  const upcomingOpponent = upcomingImport?.opponent_name || plays[0]?.opponent_name || ''
+  const upcomingSeason = upcomingImport?.season || plays[0]?.season || ''
+
+  const playsForUpcoming = plays.filter(
+    (p) =>
+      (p.opponent_name || '') === (upcomingOpponent || '') &&
+      (upcomingSeason ? p.season === upcomingSeason : true)
+  )
+
+  const summaryStats = computeSummaryStats(imports, plays)
+  const tendencyPanels = buildTendencyPanels(playsForUpcoming)
 
   return (
-    <main className="mx-auto max-w-7xl space-y-8 px-4 py-10">
+    <main className="mx-auto max-w-7xl space-y-10 px-4 py-10">
       <SectionHeader
         eyebrow="Scouting"
-        title="Scouting Command Center"
-        description="Premium scouting workspace with AI insights, polished controls, and reliable data for game-day confidence."
-        badge="$299/mo Premium"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Pill label="AI ready" tone="cyan" icon={<Sparkles className="h-3 w-3" />} />
-            <Pill label="Advanced" tone="emerald" icon={<Gauge className="h-3 w-3" />} />
-            <TrackedCTAButton
-              href="/settings#billing"
-              variant="secondary"
-              size="sm"
-              event="scouting_cta_click"
-              payload={{ cta: 'manage_plan' }}
-            >
-              Manage plan
-            </TrackedCTAButton>
-          </div>
-        }
+        title="Opponent scouting workspace"
+        description="Upload opponent CSVs, clean errors, and let BlitzIQ’s OpenAI-powered analysis break down calls, fronts, coverages, motions, and special teams looks for pregame and in-game decisions."
+        badge="Premium"
+        actions={<Pill label="Scouting ready" tone="emerald" icon={<Crosshair className="h-3 w-3" />} />}
       />
 
       <GlassCard>
-        <div className="grid gap-3 md:grid-cols-4">
-          {successMetrics.map((metric, idx) => (
-            <StatBadge
-              key={metric.label}
-              label={metric.label}
-              value={metric.value}
-              tone={idx === 0 ? 'amber' : idx === 1 ? 'emerald' : idx === 2 ? 'cyan' : 'slate'}
-            />
+        <div className="grid gap-4 md:grid-cols-4">
+          <StatBadge label="Opponents scouted" value={summaryStats.opponents} tone="cyan" />
+          <StatBadge label="Seasons covered" value={summaryStats.seasons} tone="emerald" />
+          <StatBadge label="Imports processed" value={summaryStats.imports} tone="amber" />
+          <StatBadge label="Imports needing fix" value={summaryStats.failedImports} tone="slate" />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          <Clock3 className="h-3.5 w-3.5 text-slate-500" />
+          <span>
+            Last successful import:{' '}
+            {lastSuccessTs ? new Date(lastSuccessTs).toLocaleString() : 'No successful imports yet'}
+          </span>
+          <span className="text-slate-600">•</span>
+          <span>{distinctOpponents.size || 0} opponents | {distinctSeasons.size || 0} seasons</span>
+        </div>
+      </GlassCard>
+
+      <GlassCard>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent</p>
+            <h2 className="text-xl font-semibold text-slate-100">
+              {upcomingOpponent || 'Set your next opponent'}
+            </h2>
+            <p className="text-sm text-slate-400">
+              Fast reads for offense, defense, and special teams based on your latest scouting CSVs.
+            </p>
+          </div>
+          <Pill label="Tendencies" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {tendencyPanels.map((panel) => (
+            <GlassCard key={panel.label} padding="md" className="h-full bg-black/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">{panel.label}</p>
+                  <p className="text-sm font-semibold text-slate-100">{panel.headline}</p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-slate-200">
+                  {panel.split}
+                </span>
+              </div>
+              <ul className="mt-3 space-y-1.5 text-xs text-slate-300">
+                {panel.callouts.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+              <p className="mt-3 text-[0.7rem] uppercase tracking-[0.18em] text-slate-500">
+                {panel.cta}
+              </p>
+            </GlassCard>
           ))}
         </div>
-        <p className="mt-3 text-xs text-slate-400">
-          KPIs roll up to upgrade intent, task completion speed, performance targets, and bug rate
-          on scouting workflows.
-        </p>
       </GlassCard>
 
       <div className="lg:hidden">
         <ScoutingNav items={navItems} variant="mobile" />
       </div>
-
       <div className="grid gap-8 lg:grid-cols-[240px,1fr]">
         <aside className="hidden lg:block">
           <GlassCard padding="none" className="sticky top-6">
@@ -332,334 +235,170 @@ export default async function ScoutingPage() {
         </aside>
 
         <div className="space-y-12">
-          <ScoutingSection id="premium" title="Premium goals and success metrics">
-            <ScoutingCard title="Personas, value pillars, and KPIs">
-              <div className="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Personas and goals
-                  </p>
-                  <div className="space-y-2">
-                    {personaGoals.map((persona) => (
-                      <div
-                        key={persona.persona}
-                        className="rounded-2xl border border-slate-800 bg-black/30 p-3"
-                      >
-                        <p className="text-sm font-semibold text-slate-100">{persona.persona}</p>
-                        <p className="text-xs text-slate-400">{persona.goal}</p>
-                        <p className="mt-1 text-xs text-emerald-200">{persona.measure}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Premium value pillars
-                  </p>
-                  <div className="space-y-2">
-                    {valuePillars.map((pillar) => (
-                      <div
-                        key={pillar.label}
-                        className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-black/30 p-3"
-                      >
-                        <CheckCircle2 className="mt-1 h-4 w-4 text-emerald-300" />
-                        <div>
-                          <p className="text-sm font-semibold text-slate-100">{pillar.label}</p>
-                          <p className="text-xs text-slate-400">{pillar.detail}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          <ScoutingSection id="overview" title="Overview">
+            <GlassCard className="space-y-3">
+              <p className="text-sm text-slate-300">
+                Export CSVs from your film or analytics tools, pick the opponent and season, upload and
+                map columns, clear any errors, and BlitzIQ’s OpenAI-powered layer will surface
+                tendencies for pregame reports and in-game calls.
+              </p>
+              <div className="grid gap-3 md:grid-cols-3">
+                <StatBadge label="Opponents covered" value={summaryStats.opponents} tone="cyan" />
+                <StatBadge label="Seasons covered" value={summaryStats.seasons} tone="emerald" />
+                <StatBadge label="Imports to fix" value={summaryStats.failedImports} tone="amber" />
               </div>
-            </ScoutingCard>
+              <p className="text-xs text-slate-400">
+                Clean imports feed every tendency panel and pregame report. Fix failed imports to trust
+                AI reports and game-day recommendations.
+              </p>
+            </GlassCard>
           </ScoutingSection>
 
-          <ScoutingSection id="experience" title="Experience, IA, visual system, and accessibility">
-            <ScoutingCard title="Information architecture and visual system">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">IA</p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {iaPrinciples.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+          <ScoutingSection id="imports" title="CSV imports">
+            {importsError ? (
+              <GlassCard tone="amber">
+                <div className="flex items-center gap-2 text-sm text-amber-100">
+                  <FileWarning className="h-4 w-4" />
+                  <span>Failed to load imports: {importsError.message}</span>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Visual system
+              </GlassCard>
+            ) : null}
+
+            <GlassCard className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Imports</p>
+                  <h3 className="text-base font-semibold text-slate-100">History & cleanup</h3>
+                  <p className="text-sm text-slate-400">
+                    Upload CSVs, see status, and preview errors so you can fix headers, tags, or formats.
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {visualSystem.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
+                <Pill label="CSV" tone="cyan" icon={<Table2 className="h-3 w-3" />} />
               </div>
-            </ScoutingCard>
 
-            <ScoutingCard title="Interaction polish and accessibility">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Interaction polish
+              {imports.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
+                  <p className="text-sm font-semibold text-slate-200">No imports yet</p>
+                  <p className="text-xs text-slate-500">
+                    Upload scouting CSVs to power BlitzIQ’s LLM analysis for pregame reports and in-game tendencies.
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {interactionPolish.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Accessibility</p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {accessibilityChecklist.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-slate-200">
+                    <thead className="bg-white/5 text-slate-400">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Opponent</th>
+                        <th className="px-3 py-2 text-left font-medium">Season</th>
+                        <th className="px-3 py-2 text-left font-medium">File</th>
+                        <th className="px-3 py-2 text-left font-medium">Created</th>
+                        <th className="px-3 py-2 text-left font-medium">Status</th>
+                        <th className="px-3 py-2 text-left font-medium">Errors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {imports.map((imp) => (
+                        <tr key={imp.id} className="border-t border-slate-900/50">
+                          <td className="px-3 py-2">{imp.opponent_name}</td>
+                          <td className="px-3 py-2">{imp.season || '--'}</td>
+                          <td className="px-3 py-2">{imp.original_filename || imp.file_hash || '--'}</td>
+                          <td className="px-3 py-2 text-slate-400">
+                            {new Date(imp.created_at).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                imp.status === 'completed'
+                                  ? 'bg-emerald-500/15 text-emerald-100'
+                                  : imp.status === 'failed'
+                                  ? 'bg-rose-500/15 text-rose-100'
+                                  : 'bg-amber-500/15 text-amber-100'
+                              }`}
+                            >
+                              {imp.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-slate-300">
+                            {imp.error_log ? (
+                              <details className="space-y-1 rounded border border-slate-800 bg-slate-900/60 px-3 py-2">
+                                <summary className="cursor-pointer text-amber-200">View log</summary>
+                                <pre className="whitespace-pre-wrap break-words text-[0.7rem] text-slate-200">
+                                  {JSON.stringify(imp.error_log, null, 2)}
+                                </pre>
+                              </details>
+                            ) : (
+                              <span className="text-slate-500">--</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-            </ScoutingCard>
-          </ScoutingSection>
-
-          <ScoutingSection
-            id="data"
-            title="Data integrity, advanced controls, performance, and mobile readiness"
-          >
-            <ScoutingCard title="Data integrity and advanced controls">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Data integrity
-                  </p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {dataIntegrityPlan.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Advanced controls
-                  </p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {advancedControls.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </ScoutingCard>
-
-            <ScoutingCard title="Performance and mobile">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    Performance
-                  </p>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {performancePlan.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-cyan-200" />
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Mobile and responsive
-                    </p>
-                  </div>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    {mobilePrinciples.map((item) => (
-                      <li key={item} className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </ScoutingCard>
-          </ScoutingSection>
-
-          <ScoutingSection id="ai" title="AI differentiation and contextual education">
-            <ScoutingCard title="AI features">
-              <div className="space-y-2">
-                {aiDifferentiators.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-black/30 p-3"
-                  >
-                    <Rocket className="mt-1 h-4 w-4 text-cyan-200" />
-                    <p className="text-xs text-slate-300">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </ScoutingCard>
-
-            <ScoutingCard title="Contextual education">
-              <div className="space-y-2">
-                {educationPlan.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-800 bg-black/30 p-3 text-xs text-slate-300"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </ScoutingCard>
-          </ScoutingSection>
-
-          <ScoutingSection id="security" title="Security, trust, and upsell integration">
-            <ScoutingCard title="Security and trust">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {securityTrust.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-black/30 p-3"
-                  >
-                    <Shield className="mt-1 h-4 w-4 text-emerald-200" />
-                    <p className="text-xs text-slate-300">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </ScoutingCard>
-
-            <ScoutingCard title="Billing and upsell">
-              <div className="grid gap-3 sm:grid-cols-3">
-                {billingUpsell.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-800 bg-black/30 p-3 text-xs text-slate-300"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <TrackedCTAButton
-                  href="/settings#billing"
-                  size="sm"
-                  event="scouting_cta_click"
-                  payload={{ cta: 'unlock_premium' }}
-                >
-                  Unlock Premium
-                </TrackedCTAButton>
-                <TrackedCTAButton
-                  href="/pricing"
-                  variant="secondary"
-                  size="sm"
-                  event="scouting_cta_click"
-                  payload={{ cta: 'compare_plans' }}
-                >
-                  Compare plans
-                </TrackedCTAButton>
-              </div>
-            </ScoutingCard>
-          </ScoutingSection>
-
-          <ScoutingSection id="analytics" title="Analytics and instrumentation">
-            <ScoutingCard title="Scouting analytics plan">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {analyticsPlan.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-black/30 p-3"
-                  >
-                    <BarChart3 className="mt-1 h-4 w-4 text-cyan-200" />
-                    <p className="text-xs text-slate-300">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </ScoutingCard>
-          </ScoutingSection>
-
-          <ScoutingSection id="qa" title="QA, testing, and launch readiness">
-            <ScoutingCard title="QA plan">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {qaChecklist.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-800 bg-black/30 p-3 text-xs text-slate-300"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </ScoutingCard>
-
-            <ScoutingCard title="Launch readiness">
-              <div className="grid gap-3 sm:grid-cols-3">
-                {launchReadiness.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-800 bg-black/30 p-3 text-xs text-slate-300"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </ScoutingCard>
+              )}
+            </GlassCard>
           </ScoutingSection>
 
           <ScoutingSection id="workspace" title="Scouting workspace">
-            <ScoutingCard
-              title="Opponent intelligence workspace"
-              description="Upload CSV data, review errors, pull tendencies, and drive AI-assisted scouting."
-              actions={
-                <div className="flex flex-wrap items-center gap-2">
-                  <Pill label="Live" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
-                  <Pill label="Secure" tone="emerald" icon={<Lock className="h-3 w-3" />} />
+            {importsError ? (
+              <GlassCard tone="amber">
+                <div className="flex items-center gap-2 text-sm text-amber-100">
+                  <FileWarning className="h-4 w-4" />
+                  <span>Imports failed to load. Retry after fixing the file or headers.</span>
                 </div>
-              }
-            >
-              {importsError ? (
-                <GlassCard tone="amber">
-                  <p className="text-sm text-amber-100">
-                    Failed to load imports: {importsError.message}
+              </GlassCard>
+            ) : null}
+            <GlassCard className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Workspace</p>
+                  <h3 className="text-base font-semibold text-slate-100">Upload, map, clean, explore</h3>
+                  <p className="text-sm text-slate-400">
+                    Select opponents, upload CSVs, map columns to BlitzIQ tags, resolve row errors, and explore tendencies.
+                    When imports are clean, AI reports and in-game charts treat that opponent as ready.
                   </p>
-                </GlassCard>
-              ) : (
-                <GlassCard>
-                  <ScoutingBoard teamId={activeTeamId} opponents={opponents} imports={imports} />
-                </GlassCard>
-              )}
-              {opponentsError ? (
-                <p className="mt-3 text-xs text-amber-200">
-                  Opponent data failed to load; retry or refresh to continue.
-                </p>
-              ) : null}
-              <div className="mt-4 grid gap-3 md:grid-cols-3 text-xs text-slate-400">
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                  <p className="font-semibold text-slate-100">Performance targets</p>
-                  <p>Prefetch opponent data, cache lists, keep interactions under 400ms.</p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                  <p className="font-semibold text-slate-100">Reliability</p>
-                  <p>Optimistic saves with rollback, error toasts, and preserved input.</p>
-                </div>
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                  <p className="font-semibold text-slate-100">Mobile parity</p>
-                  <p>Chip nav, reduced columns, and accessible touch targets on phones.</p>
-                </div>
+                <Pill label="Live data" tone="emerald" />
               </div>
-            </ScoutingCard>
+              <GlassCard>
+                <ScoutingBoard teamId={activeTeamId} opponents={uniqueOpponentsList} imports={imports} />
+              </GlassCard>
+            </GlassCard>
+          </ScoutingSection>
+
+          <ScoutingSection id="ai" title="AI & reports">
+            <GlassCard className="space-y-3">
+              <p className="text-sm text-slate-300">
+                Once CSVs are imported and clean, BlitzIQ sends your structured scouting data to an OpenAI LLM at query
+                time—no model training or fine-tuning required. It generates pregame summaries and game-day insights by
+                down/distance, personnel, formation, front, coverage, pressure, and special teams situations.
+              </p>
+              <p className="text-sm text-slate-300">
+                Use the reports and exports you already run from the scouting workspace to open pregame packets and game-ready
+                cutups in one click for the upcoming opponent.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Pregame tendency report</span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Down & distance</span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Front & coverage</span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Pressure & stunts</span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Special teams looks</span>
+              </div>
+            </GlassCard>
+          </ScoutingSection>
+
+          <ScoutingSection id="help" title="How it works">
+            <GlassCard className="space-y-3">
+              <p className="text-sm text-slate-300">
+                Export scouting CSVs from your film or analytics tools. Upload them here, map columns, and clear any
+                errors. Once clean, every tendency panel, pregame report, and in-game recommendation uses this data across
+                BlitzIQ. Repeat each week for your next opponent—the flow stays the same, so your staff stays fast.
+              </p>
+              <p className="text-sm text-slate-300">
+                Clean data in means trusted reports out. If an import fails, open the log, fix headers or tags, and reupload.
+                When the import is green, you can trust the AI summaries and live charts.
+              </p>
+            </GlassCard>
           </ScoutingSection>
         </div>
       </div>
@@ -667,7 +406,15 @@ export default async function ScoutingPage() {
   )
 }
 
-function ScoutingSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function ScoutingSection({
+  id,
+  title,
+  children,
+}: {
+  id: string
+  title: string
+  children: ReactNode
+}) {
   return (
     <section id={id} className="space-y-4 scroll-mt-24">
       <div>
@@ -679,27 +426,84 @@ function ScoutingSection({ id, title, children }: { id: string; title: string; c
   )
 }
 
-function ScoutingCard({
-  title,
-  description,
-  actions,
-  children,
-}: {
-  title: string
-  description?: string
-  actions?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <GlassCard className="space-y-4" padding="lg">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold text-slate-100">{title}</h3>
-          {description ? <p className="text-sm text-slate-400">{description}</p> : null}
-        </div>
-        {actions}
-      </div>
-      {children}
-    </GlassCard>
-  )
+function computeSummaryStats(imports: ImportRow[], plays: PlayRow[]) {
+  const opponents = new Set<string>()
+  const seasons = new Set<string>()
+  plays.forEach((p) => {
+    if (p.opponent_name) opponents.add(p.opponent_name)
+    if (p.season) seasons.add(p.season)
+  })
+  return {
+    opponents: opponents.size,
+    seasons: seasons.size,
+    imports: imports.length,
+    failedImports: imports.filter((imp) => imp.status !== 'completed').length,
+  }
+}
+
+function buildTendencyPanels(plays: PlayRow[]) {
+  const offense = plays.filter((p) => (p.phase || '').toUpperCase() === 'OFFENSE')
+  const defense = plays.filter((p) => (p.phase || '').toUpperCase() === 'DEFENSE')
+  const special = plays.filter((p) => (p.phase || '').toUpperCase().includes('SPECIAL'))
+
+  return [
+    buildPanel('Offense', offense, 'Open scouting workspace for more offense detail'),
+    buildPanel('Defense', defense, 'Open scouting workspace for more defense detail'),
+    buildPanel('Special teams', special, 'Open scouting workspace for special teams detail'),
+  ]
+}
+
+function buildPanel(label: string, plays: PlayRow[], cta: string) {
+  const total = plays.length || 1
+  const runPlays = plays.filter((p) => includesAny(p, ['run']))
+  const passPlays = plays.filter((p) => includesAny(p, ['pass']))
+  const runRate = Math.round((runPlays.length / total) * 100)
+  const passRate = Math.round((passPlays.length / total) * 100)
+
+  const topFormation = topValue(plays.map((p) => p.formation))
+  const topPersonnel = topValue(plays.map((p) => p.personnel))
+  const topPlayFamily = topValue(plays.map((p) => p.play_family))
+  const blitzPlays = plays.filter((p) => includesAny(p, ['blitz', 'pressure']))
+  const blitzRate = Math.round((blitzPlays.length / total) * 100)
+
+  const split = label === 'Offense' ? `${runRate}% run / ${passRate}% pass` : `${blitzRate}% pressure looks`
+
+  const callouts: string[] = []
+  if (topFormation) callouts.push(`Most used formation: ${topFormation}`)
+  if (topPersonnel) callouts.push(`Top personnel: ${topPersonnel}`)
+  if (topPlayFamily) callouts.push(`Leaning on: ${topPlayFamily}`)
+  if (label !== 'Offense' && blitzPlays.length) callouts.push(`Pressure rate: ${blitzRate}%`)
+  if (callouts.length === 0) callouts.push('Add CSVs to see tendencies.')
+
+  return {
+    label,
+    headline: callouts[0] || 'No data yet',
+    callouts,
+    split,
+    cta,
+  }
+}
+
+function includesAny(play: PlayRow, keywords: string[]) {
+  const family = (play.play_family || '').toLowerCase()
+  const tags = (play.tags || []).map((t) => t.toLowerCase())
+  return keywords.some((kw) => family.includes(kw) || tags.some((t) => t.includes(kw)))
+}
+
+function topValue(values: Array<string | null | undefined>) {
+  const counts = new Map<string, number>()
+  values.forEach((v) => {
+    if (!v) return
+    const key = v.toString()
+    counts.set(key, (counts.get(key) || 0) + 1)
+  })
+  let best = ''
+  let bestCount = 0
+  counts.forEach((count, key) => {
+    if (count > bestCount) {
+      best = key
+      bestCount = count
+    }
+  })
+  return best
 }
