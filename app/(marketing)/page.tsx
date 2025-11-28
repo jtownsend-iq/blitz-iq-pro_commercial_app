@@ -45,7 +45,7 @@ type ContactField = {
 }
 
 const contactFields: ContactField[] = [
-  { label: 'Name', name: 'name', type: 'text', required: true, autoComplete: 'name', description: 'Full name for follow-up.' },
+  { label: 'Name', name: 'name', type: 'text', required: true, autoComplete: 'name', description: 'Who are we talking with?' },
   {
     label: 'Role',
     name: 'role',
@@ -147,38 +147,38 @@ const contactFields: ContactField[] = [
       { label: 'Other', value: 'Other' },
     ],
   },
-  { label: 'Region', name: 'region', type: 'text', required: true, description: 'Metro/area coverage.', autoComplete: 'address-level2' },
-  { label: 'Work Email', name: 'email', type: 'email', required: true, autoComplete: 'email', description: 'We never share your email.' },
+  { label: 'Region', name: 'region', type: 'text', required: true, description: 'Your metro/area for coverage and support.', autoComplete: 'address-level2' },
+  { label: 'Work Email', name: 'email', type: 'email', required: true, autoComplete: 'email', description: 'We use this to follow up quickly. We never share it.' },
 ]
 
 const outcomes = [
-  { title: 'Own 3rd-and-medium', description: 'Know their calls by formation, hash, and personnel before they dial it.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
-  { title: 'Instant cutups', description: 'Filters by formation, hash, and motion in seconds for booth and sideline.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
-  { title: 'Staff in sync', description: 'Booth, sideline, and call sheet stay on one live scouting feed.', icon: <Shield className="h-5 w-5 text-emerald-200" /> },
+  { title: 'Own 3rd-and-medium', description: 'See their go-to calls by formation, hash, and personnel before you dial it.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
+  { title: 'Instant cutups', description: 'Filter by formation, hash, motion, and front in seconds—booth and sideline stay aligned.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
+  { title: 'Staff in sync', description: 'Booth, sideline, and call sheet share one live scouting feed.', icon: <Shield className="h-5 w-5 text-emerald-200" /> },
 ]
 
 const capabilities = [
-  { title: 'One truth set', copy: 'Offense, defense, and special teams share synced charting and scouting.', icon: <Flame className="h-5 w-5 text-amber-300" /> },
-  { title: 'Call sheet fuel', copy: 'Top formations, personnel, and motions tied to explosives and success.', icon: <Trophy className="h-5 w-5 text-cyan-300" /> },
-  { title: 'Situational speed', copy: 'Auto summaries for thirds, red zone, and pressure by hash and down.', icon: <BadgeCheck className="h-5 w-5 text-emerald-300" /> },
+  { title: 'One place for O/D/ST', copy: 'Offense, defense, and special teams share synced charting and scouting.', icon: <Flame className="h-5 w-5 text-amber-300" /> },
+  { title: 'Call sheet fuel', copy: 'Top formations, personnel, motions, and fronts tied to explosives and success.', icon: <Trophy className="h-5 w-5 text-cyan-300" /> },
+  { title: 'Situational speed', copy: 'Fast filters for thirds, red zone, pressure, and specials by hash and down.', icon: <BadgeCheck className="h-5 w-5 text-emerald-300" /> },
 ]
 
 const plans = [
   {
     name: 'Elite',
     price: 'Custom',
-    summary: 'Custom pricing with white-glove onboarding, tight support, and advanced AI workflows.',
+    summary: 'Custom setup with live charting, AI breakdowns, scouting imports, and white-glove support.',
     highlights: [
-      'Concierge onboarding + staff training',
-      'Live AI tagging, charts, and cutups',
-      'Analyst concierge for weekly prep',
-      'Priority support + play-night coverage',
+      'Live charting for offense/defense/special teams',
+      'Scouting CSV imports and AI-powered breakdowns',
+      'Pre-game reports and post-game exports',
+      'White-glove onboarding and game-night support',
     ],
   },
   {
     name: 'Standard',
     price: 'Starts at $299/mo',
-    summary: 'Built for most HS and college staffs: live charting and scouting that just works.',
+    summary: 'Live charting and scouting for most staffs with simple rollout.',
     highlights: [
       'Live charting for O/D/ST with staff roles',
       'Scouting CSV imports and instant cutups',
@@ -189,9 +189,9 @@ const plans = [
 ]
 
 const securityPoints = [
-  'Multi-tenant isolation with row-level security (RLS)',
-  'Audit trails on exports and API keys',
-  'TLS everywhere with least-privilege roles',
+  'Multi-tenant security with row-level access controls',
+  'Audit logs on staff activity and exports',
+  'Encrypted in transit and at rest',
   'Operated by Trips Right, LLC (US-based)',
 ]
 
@@ -328,7 +328,7 @@ export default function MarketingPage() {
             <div className="leading-tight">
               <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro</div>
               <div className="text-[0.7rem] uppercase tracking-[0.16em] text-brand-soft">
-                Make the call everyone else wishes they had
+                Engineered to Destroy Egos.
               </div>
             </div>
           </div>
@@ -390,25 +390,25 @@ export default function MarketingPage() {
 
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-14">
         <SectionHeader
-          eyebrow="BlitzIQ Pro ties charting, scouting, AI analysis, and reports into one booth-to-sideline system."
+          eyebrow="Chart your calls, break down scouting, and get fast answers on game night."
           title="Make the call everyone else wishes they had"
-          description="A game-week and game-day scouting OS built for head coaches, coordinators, and analysts."
+          description="Built for coaches who need the right call, the right cutup, and the right report without slowing down."
           badge="Starting at $299/mo"
           actions={
             <div className="flex flex-wrap gap-2">
               <Pill label="Live charting" tone="emerald" icon={<Sparkles className="h-3.5 w-3.5" />} />
-              <Pill label="Scouting OS" tone="cyan" icon={<Radar className="h-3.5 w-3.5" />} />
+              <Pill label="Live scouting" tone="cyan" icon={<Radar className="h-3.5 w-3.5" />} />
             </div>
           }
         />
 
         <GlassCard className="grid gap-6 md:grid-cols-[1.1fr,0.9fr] items-center">
           <div className="space-y-4">
-            <p className="text-lg text-slate-200">Built for staffs that need fast answers and a synced call sheet.</p>
+            <p className="text-lg text-slate-200">Answers for the booth and sideline in one place—no extra lifts.</p>
             <div className="grid grid-cols-3 gap-3">
-              <StatBadge label="Explosive IDs" value="Live" tone="cyan" />
-              <StatBadge label="Call Sheet Sync" value="Real-time" tone="emerald" />
-              <StatBadge label="Deployments" value="500+ games" tone="amber" />
+              <StatBadge label="Call sheet decisions" value="Faster" tone="cyan" />
+              <StatBadge label="Explosive alerts" value="Live" tone="emerald" />
+              <StatBadge label="Booth + sideline view" value="Synced" tone="amber" />
             </div>
             <div className="flex flex-wrap gap-3">
               <button
@@ -434,10 +434,10 @@ export default function MarketingPage() {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-950/70 to-black/60 p-6 shadow-[0_25px_90px_-50px_rgba(0,0,0,0.8)]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(59,130,246,0.18),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.16),transparent_40%)]" />
             <div className="relative flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <Pill label="Live Ops" tone="emerald" />
-                <Pill label="AI Assist" tone="cyan" />
-              </div>
+                <div className="flex items-center justify-between">
+                  <Pill label="Charting" tone="emerald" />
+                  <Pill label="Scouting" tone="cyan" />
+                </div>
               <div className="relative h-32 rounded-2xl border border-white/10 bg-slate-950/60 overflow-hidden">
                 <motion.div
                   className="absolute inset-6 rounded-full bg-cyan-500/20 blur-3xl"
@@ -457,7 +457,7 @@ export default function MarketingPage() {
                 </div>
                 <div className="absolute inset-0 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-200">
                   <Sparkles className="h-4 w-4 text-brand" />
-                  Live call sheet sync
+                  Charting and scouting stay aligned
                   <Sparkles className="h-4 w-4 text-brand" />
                 </div>
               </div>
@@ -481,8 +481,8 @@ export default function MarketingPage() {
               </div>
               <GlassCard padding="md" className="flex items-center justify-between" tone="neutral">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Velocity</p>
-                  <p className="text-base font-semibold text-slate-50">2.4x faster decisions</p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Game-night focus</p>
+                  <p className="text-base font-semibold text-slate-50">Fewer clicks, faster answers</p>
                 </div>
                 <Rocket className="h-6 w-6 text-brand" />
               </GlassCard>
@@ -493,7 +493,7 @@ export default function MarketingPage() {
         <section id="outcomes" className="space-y-4">
           <div className="flex items-center gap-3">
             <Pill label="Outcomes" tone="emerald" icon={<Trophy className="h-4 w-4" />} />
-            <p className="text-sm text-slate-400">What staffs report after deploying BlitzIQ Pro.</p>
+            <p className="text-sm text-slate-400">What staffs see when the system is live on game night.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {outcomes.map((item) => (
@@ -511,7 +511,7 @@ export default function MarketingPage() {
         <section id="capabilities" className="space-y-4">
           <div className="flex items-center gap-3">
             <Pill label="Capabilities" tone="cyan" icon={<Sparkles className="h-4 w-4" />} />
-            <p className="text-sm text-slate-400">Command Center-grade tools for game day and scouting.</p>
+            <p className="text-sm text-slate-400">Concrete tools for practice, scouting, and Friday night.</p>
           </div>
           <MotionList
             items={capabilities}
@@ -531,7 +531,7 @@ export default function MarketingPage() {
         <section id="plans" className="space-y-4">
           <div className="flex items-center gap-3">
             <Pill label="Plans" tone="slate" icon={<BadgeCheck className="h-4 w-4" />} />
-            <p className="text-sm text-slate-400">Choose Elite for white-glove or Standard for streamlined rollout.</p>
+            <p className="text-sm text-slate-400">Pick the setup that matches your staff.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {plans.map((plan) => (
@@ -558,7 +558,7 @@ export default function MarketingPage() {
                     onClick={() => setIntentAndScroll('elite_availability', plan.name as Plan)}
                     className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft"
                   >
-                    {plan.name === 'Elite' ? 'Check Elite availability' : 'Start Standard ($299+)'}
+                    {plan.name === 'Elite' ? 'Check Elite availability' : 'Start Standard (from $299/mo)'}
                   </button>
                   <button
                     type="button"
@@ -576,7 +576,7 @@ export default function MarketingPage() {
         <section id="security" className="space-y-4">
           <div className="flex items-center gap-3">
             <Pill label="Security" tone="emerald" icon={<Fingerprint className="h-4 w-4" />} />
-            <p className="text-sm text-slate-400">Multi-tenant, policy-driven access with full auditability.</p>
+            <p className="text-sm text-slate-400">Built-in protections for your staff and data.</p>
           </div>
           <GlassCard>
             <div className="grid gap-3 md:grid-cols-2">
@@ -593,9 +593,9 @@ export default function MarketingPage() {
         <section id="contact" className="space-y-4">
           <SectionHeader
             eyebrow="Contact"
-            title="Set your staff up in minutes"
-            description="Tell us your role, classification, and goal. We respond quickly in-season."
-            badge="White glove"
+            title="Tell us what you need"
+            description="Share your role and what you’re trying to solve. We reply fast in-season."
+            badge="We respond quickly"
           />
           <GlassCard>
             <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
@@ -648,8 +648,8 @@ export default function MarketingPage() {
                 </select>
                 <span className="block text-[0.7rem] text-slate-500">
                   {selectedPlan === 'Elite'
-                    ? 'Elite unlocks AI velocity, concierge analyst, and premium support.'
-                    : 'Standard includes core live charting, scouting imports, and staff controls.'}
+                    ? 'Elite includes white-glove setup, analyst support, and game-night coverage.'
+                    : 'Standard includes live charting, scouting imports, and staff access controls.'}
                 </span>
               </label>
               <div className="md:col-span-2 flex flex-wrap gap-3">
