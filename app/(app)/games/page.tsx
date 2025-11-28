@@ -7,7 +7,7 @@ import { Pill } from '@/components/ui/Pill'
 import { StatBadge } from '@/components/ui/StatBadge'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { closeGameSession, startGameSession } from './chart-actions'
+import { startGameSession } from './chart-actions'
 import { createGame } from './actions'
 
 export const revalidate = 0
@@ -197,6 +197,15 @@ export default async function GamesPage({
   const formatHomeAway = (value: string | null) => {
     if (!value) return 'Home/Away'
     return value.toUpperCase() === 'HOME' ? 'Home' : 'Away'
+  }
+
+  const deriveGameStatus = (game: GameRow, sessions: SessionRow[]) => {
+    const hasActive = sessions.some((s) => s.status === 'active')
+    const hasFinal = sessions.some((s) => s.status === 'closed' || s.status === 'final')
+    const lowerStatus = (game.status || '').toLowerCase()
+    if (hasActive) return 'In Progress'
+    if (lowerStatus === 'final' || lowerStatus === 'closed' || hasFinal) return 'Final'
+    return 'Scheduled'
   }
 
   return (
@@ -443,10 +452,10 @@ export default async function GamesPage({
         <EmptyState
           icon={<Gamepad2 className="h-10 w-10 text-slate-500" />}
           title="No games on the calendar yet"
-          description="Create your first matchup above to activate charting sessions."
+          description="Create your first matchup above or launch Quickstart to spin up a sample game and sessions without touching live team data."
           action={
             <CTAButton href="/onboarding/quickstart" variant="secondary" size="sm">
-              Run Quickstart
+              Launch Quickstart demo
             </CTAButton>
           }
         />
@@ -454,108 +463,147 @@ export default async function GamesPage({
         <div className="space-y-6">
           {games.map((game) => {
             const sessions = sessionsByGame[game.id] ?? []
+            const gameStatus = deriveGameStatus(game, sessions)
             return (
-              <GlassCard key={game.id} className="space-y-6">
-                <div className="flex flex-col gap-1">
-                  <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
-                    <Pill label={game.season_label || 'Season TBD'} tone="slate" />
-                    <Pill label={formatKickoff(game.start_time)} tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
+              <GlassCard key={game.id} className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em] text-slate-500">
+                      <Pill label={game.season_label || 'Season TBD'} tone="slate" />
+                      <Pill label={formatKickoff(game.start_time)} tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
+                    </div>
+                    <h2 className="text-xl font-semibold text-slate-50">
+                      {game.opponent_name || 'Opponent TBD'}
+                    </h2>
+                    <p className="text-sm text-slate-400">
+                      {[
+                        formatKickoff(game.start_time),
+                        game.home_away ? game.home_away.toUpperCase() : null,
+                        game.location || 'Venue TBD',
+                      ]
+                        .filter(Boolean)
+                        .join(' | ')}
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-semibold text-slate-50">
-                    {game.opponent_name || 'Opponent TBD'}
-                  </h2>
-                  <p className="text-sm text-slate-400">
-                    {[
-                      formatKickoff(game.start_time),
-                      game.home_away ? game.home_away.toUpperCase() : null,
-                      game.location || 'Venue TBD',
-                    ]
-                      .filter(Boolean)
-                      .join(' | ')}
-                  </p>
-                  <p className="text-xs text-slate-400 flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                    Status: {game.status ? game.status.toUpperCase() : 'SCHEDULED'}
-                  </p>
+                  <Pill
+                    label={gameStatus}
+                    tone={
+                      gameStatus === 'In Progress'
+                        ? 'emerald'
+                        : gameStatus === 'Final'
+                        ? 'slate'
+                        : 'cyan'
+                    }
+                    icon={<ShieldCheck className="h-4 w-4" />}
+                  />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   {unitConfigs.map((unit) => {
-                    const activeSession = sessions.find(
-                      (session) =>
-                        session.unit === unit.key && session.status === 'active'
-                    )
-                    const pendingSession = sessions.find(
-                      (session) =>
-                        session.unit === unit.key && session.status === 'pending'
-                    )
-                    const disabled = Boolean(activeSession || pendingSession)
+                    const unitSession = sessions.find((session) => session.unit === unit.key) || null
+                    const status = unitSession?.status?.toLowerCase() || 'none'
+                    const unitSlug = unit.key.toLowerCase()
+
+                    const statusLabel =
+                      status === 'active'
+                        ? 'Live'
+                        : status === 'pending'
+                        ? 'Pending'
+                        : status === 'closed' || status === 'final'
+                        ? 'Final'
+                        : 'No session'
+
+                    const renderCta = () => {
+                      if (status === 'active') {
+                        return (
+                          <CTAButton href={`/games/${game.id}/chart/${unitSlug}`} size="sm" fullWidth>
+                            Open chart
+                          </CTAButton>
+                        )
+                      }
+                      if (status === 'pending') {
+                        return (
+                          <CTAButton
+                            href={`/games/${game.id}/chart/${unitSlug}`}
+                            size="sm"
+                            fullWidth
+                            variant="secondary"
+                          >
+                            Resume chart
+                          </CTAButton>
+                        )
+                      }
+                      if (status === 'closed' || status === 'final') {
+                        return (
+                          <CTAButton
+                            href={`/games/${game.id}/chart/${unitSlug}`}
+                            size="sm"
+                            fullWidth
+                            variant="secondary"
+                          >
+                            View report
+                          </CTAButton>
+                        )
+                      }
+                      return (
+                        <form
+                          action={async (formData) => {
+                            'use server'
+                            await startGameSession(formData)
+                            return
+                          }}
+                        >
+                          <input type="hidden" name="gameId" value={game.id} />
+                          <input type="hidden" name="unit" value={unit.key} />
+                          <CTAButton type="submit" size="sm" fullWidth>
+                            Start
+                          </CTAButton>
+                        </form>
+                      )
+                    }
 
                     return (
-                      <GlassCard key={unit.key} padding="md" className="flex flex-col gap-3" interactive>
-                        <div>
+                      <div key={unit.key} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-2">
+                        <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
-                          <p className="text-xs text-slate-500">{unit.description}</p>
+                          <Pill
+                            label={statusLabel}
+                            tone={
+                              status === 'active'
+                                ? 'emerald'
+                                : status === 'pending'
+                                ? 'amber'
+                                : status === 'closed' || status === 'final'
+                                ? 'slate'
+                                : 'slate'
+                            }
+                            icon={
+                              status === 'active'
+                                ? <Play className="h-3 w-3" />
+                                : status === 'pending'
+                                ? <PauseCircle className="h-3 w-3" />
+                                : <ShieldCheck className="h-3 w-3" />
+                            }
+                          />
                         </div>
-
-                        {activeSession ? (
-                          <div className="space-y-3">
-                            <Pill
-                              label={`Active | Analyst ${activeSession.analyst_user_id ? activeSession.analyst_user_id.slice(0, 6) : 'Assigned'}`}
-                              tone="emerald"
-                              icon={<Play className="h-3.5 w-3.5" />}
-                            />
-                            <div className="flex gap-2">
-                              <a
-                                href={`/games/${game.id}/chart/${unit.key.toLowerCase()}`}
-                                className="flex-1 rounded-full bg-brand px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-black"
-                              >
-                                Open chart
-                              </a>
-                              <form
-                                action={async (formData) => {
-                                  'use server'
-                                  await closeGameSession(formData)
-                                  return
-                                }}
-                                className="flex-1"
-                              >
-                                <input
-                                  type="hidden"
-                                  name="sessionId"
-                                  value={activeSession.id}
-                                />
-                                <CTAButton type="submit" variant="secondary" fullWidth size="sm">
-                                  Close
-                                </CTAButton>
-                              </form>
-                            </div>
-                          </div>
-                        ) : pendingSession ? (
-                          <Pill label="Pending session exists | resume from chart" tone="amber" icon={<PauseCircle className="h-3.5 w-3.5" />} />
-                        ) : (
-                          <form
-                            action={async (formData) => {
-                              'use server'
-                              await startGameSession(formData)
-                              return
-                            }}
-                            className="space-y-2"
-                          >
-                            <input type="hidden" name="gameId" value={game.id} />
-                            <input type="hidden" name="unit" value={unit.key} />
-                            <CTAButton type="submit" disabled={disabled} fullWidth size="sm">
-                              Start session
-                            </CTAButton>
-                          </form>
-                        )}
-                      </GlassCard>
+                        {renderCta()}
+                      </div>
                     )
                   })}
                 </div>
               </GlassCard>
             )
           })}
+          <GlassCard className="space-y-2 border-dashed border-white/15 bg-slate-950/70">
+            <h3 className="text-base font-semibold text-slate-50">Quickstart demo</h3>
+            <p className="text-sm text-slate-400">
+              Launch a sample game with offense, defense, and special teams sessions to see live charting in under two
+              minutes—no real team data touched.
+            </p>
+            <CTAButton href="/onboarding/quickstart" variant="secondary" size="sm">
+              Launch Quickstart demo
+            </CTAButton>
+          </GlassCard>
         </div>
       )}
     </section>
