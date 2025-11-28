@@ -731,6 +731,75 @@ export default async function SettingsPage() {
       />
 
       <GlassCard>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Setup checklist</p>
+            <p className="text-sm text-slate-300">
+              {`${[
+                profileFullName || profileTitle || profilePhone ? 'Profile' : '',
+                teamBrandingRow?.name ? 'Team' : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}`}
+            </p>
+          </div>
+          <Pill
+            label={`${[
+              Boolean(profileFullName && profileTitle && profilePhone),
+              Boolean(teamBrandingRow?.name && teamBrandingRow?.level && teamBrandingRow?.primary_color),
+              rosterPlayers.length > 0,
+              staffList.length > 1 || pendingInvites.length > 0,
+              Boolean(chartingDefaults) && defaultTagRows.length > 0,
+              invoices.length > 0,
+            ].filter(Boolean).length} of 6 complete`}
+            tone="emerald"
+            icon={<CheckCircle2 className="h-3 w-3" />}
+          />
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {[
+            {
+              id: 'profile',
+              label: 'Profile, title, and mobile set',
+              complete: Boolean(profileFullName && profileTitle && profilePhone),
+            },
+            {
+              id: 'team',
+              label: 'Team branding and level set',
+              complete: Boolean(teamBrandingRow?.name && teamBrandingRow?.level && teamBrandingRow?.primary_color),
+            },
+            { id: 'roster', label: 'Roster has players', complete: rosterPlayers.length > 0 },
+            {
+              id: 'roster',
+              label: 'Staff invites or members added',
+              complete: staffList.length > 1 || pendingInvites.length > 0,
+            },
+            {
+              id: 'gameplay',
+              label: 'Gameplay thresholds and tag defaults saved',
+              complete: Boolean(chartingDefaults) && defaultTagRows.length > 0,
+            },
+            { id: 'billing', label: 'Billing and payment configured', complete: invoices.length > 0 },
+          ].map((item) => (
+            <a
+              key={item.label}
+              href={`#${item.id}`}
+              className="flex items-center justify-between rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-200 hover:border-brand transition"
+            >
+              <span>{item.label}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${
+                  item.complete ? 'bg-emerald-500/15 text-emerald-200' : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                {item.complete ? 'Done' : 'Todo'}
+              </span>
+            </a>
+          ))}
+        </div>
+      </GlassCard>
+
+      <GlassCard>
         <div className="flex flex-wrap items-center gap-3">
           <LayoutDashboard className="h-5 w-5 text-cyan-300" />
           <p className="text-sm text-slate-300">
@@ -1199,59 +1268,102 @@ export default async function SettingsPage() {
 
           <SettingsSection id="profile" title="Personal Profile">
             <SettingsCard
-              title="Identity"
-              description="Update how you appear to staff inside BlitzIQ Pro."
+              title="Profile & notifications"
+              description="Update your profile and how BlitzIQ keeps you informed."
             >
               <form
                 action={async (formData) => {
                   'use server'
                   await updateProfileIdentity(formData)
+                  await updateNotificationPreferences(formData)
                   return
                 }}
-                className="grid gap-4 md:grid-cols-2"
+                className="space-y-6"
               >
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-300">Full Name</span>
-                  <input
-                    name="full_name"
-                    type="text"
-                    defaultValue={profileFullName}
-                    required
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/40"
-                  />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-300">Title</span>
-                  <input
-                    name="title"
-                    type="text"
-                    defaultValue={profileTitle}
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/40"
-                  />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-300">Mobile Number</span>
-                  <input
-                    name="phone_number"
-                    type="tel"
-                    defaultValue={profilePhone}
-                    placeholder="(555) 123-4567"
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/40"
-                  />
-                </label>
-                <label className="space-y-1 text-sm md:col-span-2">
-                  <span className="text-slate-300">Primary Email</span>
-                  <input
-                    type="email"
-                    value={userEmail}
-                    disabled
-                    className="w-full cursor-not-allowed rounded-lg border border-slate-900/50 bg-slate-900/40 px-3 py-2 text-sm text-slate-500"
-                  />
-                  <p className="text-[0.7rem] text-slate-500">
-                    Contact support if you need to change your sign-in email.
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1 text-sm">
+                    <span className="text-slate-300">Full Name</span>
+                    <input
+                      name="full_name"
+                      type="text"
+                      defaultValue={profileFullName}
+                      required
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/40"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="text-slate-300">Title</span>
+                    <input
+                      name="title"
+                      type="text"
+                      defaultValue={profileTitle}
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/40"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="text-slate-300">Mobile Number</span>
+                    <input
+                      name="phone_number"
+                      type="tel"
+                      defaultValue={profilePhone}
+                      placeholder="(555) 123-4567"
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/40"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm md:col-span-2">
+                    <span className="text-slate-300">Primary Email</span>
+                    <input
+                      type="email"
+                      value={userEmail}
+                      disabled
+                      className="w-full cursor-not-allowed rounded-lg border border-slate-900/50 bg-slate-900/40 px-3 py-2 text-sm text-slate-500"
+                    />
+                    <p className="text-[0.7rem] text-slate-500">
+                      Contact support if you need to change your sign-in email.
+                    </p>
+                  </label>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-black/20 p-4 space-y-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Notifications</p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {notificationRows.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-slate-800 bg-black/30 p-3 space-y-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">{row.label}</p>
+                          <p className="text-xs text-slate-500">{row.description}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {(['email', 'sms', 'push'] as const).map((channel) => {
+                            const fieldKey = row.keys[channel]
+                            const inputId = `${row.id}-${channel}`
+                            return (
+                              <label
+                                key={channel}
+                                htmlFor={inputId}
+                                className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-black/20 px-2 py-1 text-slate-300"
+                              >
+                                <input
+                                  id={inputId}
+                                  name={fieldKey}
+                                  type="checkbox"
+                                  defaultChecked={notificationDefaults[fieldKey]}
+                                  className="h-3 w-3 rounded border-slate-700 bg-black"
+                                />
+                                <span className="capitalize">{channel}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-500">
+                    Keep your contact info and alerts current so staff reach you fast.
                   </p>
-                </label>
-                <div className="md:col-span-2 flex justify-end">
                   <button
                     type="submit"
                     className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
@@ -1261,116 +1373,21 @@ export default async function SettingsPage() {
                 </div>
               </form>
             </SettingsCard>
-
-            <SettingsCard
-              title="Alerts & Notifications"
-              description="Choose how BlitzIQ Pro keeps you informed."
-            >
-              <form
-                action={async (formData) => {
-                  'use server'
-                  await updateNotificationPreferences(formData)
-                  return
-                }}
-                className="space-y-4"
-              >
-                <div className="overflow-hidden rounded-2xl border border-slate-800">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-black/40 text-slate-400">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium">Alert Type</th>
-                        <th className="px-4 py-3 font-medium">Email</th>
-                        <th className="px-4 py-3 font-medium">SMS</th>
-                        <th className="px-4 py-3 font-medium">Push</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {notificationRows.map((item) => (
-                        <tr
-                          key={item.id}
-                          className="border-t border-slate-900/40 text-slate-300"
-                        >
-                          <td className="px-4 py-3">
-                            <div className="font-medium">{item.label}</div>
-                            <p className="text-xs text-slate-500">{item.description}</p>
-                          </td>
-                          {(Object.keys(item.keys) as Array<'email' | 'sms' | 'push'>).map(
-                            (channel) => {
-                              const fieldKey = item.keys[channel]
-                              const inputId = `${item.id}-${channel}`
-                              return (
-                                <td key={channel} className="px-4 py-3 text-center">
-                                  <label
-                                    htmlFor={inputId}
-                                    className="inline-flex cursor-pointer items-center justify-center"
-                                  >
-                                    <input
-                                      id={inputId}
-                                      name={fieldKey}
-                                      type="checkbox"
-                                      defaultChecked={notificationDefaults[fieldKey]}
-                                      className="peer sr-only"
-                                    />
-                                    <span className="inline-flex min-w-[70px] items-center justify-center rounded-full border border-slate-800 px-3 py-1 text-xs font-semibold text-slate-500 transition peer-checked:border-transparent peer-checked:bg-brand peer-checked:text-black">
-                                      <span className="peer-checked:hidden">Off</span>
-                                      <span className="hidden peer-checked:inline">On</span>
-                                    </span>
-                                  </label>
-                                </td>
-                              )
-                            }
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="rounded-full border border-brand px-4 py-1.5 text-xs font-semibold text-brand"
-                  >
-                    Save notification settings
-                  </button>
-                </div>
-              </form>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Authentication"
-              description="Keep your account secure while staying fast on game day."
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-2">
-                  <p className="text-sm font-semibold text-slate-200">Password</p>
-                  <p className="text-xs text-slate-500">Last changed 42 days ago</p>
-                  <button className="text-xs font-semibold text-brand">Update password</button>
-                </div>
-                <div className="rounded-xl border border-slate-800 bg-black/30 p-4 space-y-3">
-                  <p className="text-sm font-semibold text-slate-200">SSO Connections</p>
-                  <div className="space-y-2 text-xs text-slate-400">
-                    <p>Google | Connected</p>
-                    <p>Microsoft | Not linked</p>
-                    <p>District SSO | Connected</p>
-                  </div>
-                  <button className="text-xs font-semibold text-brand">Manage providers</button>
-                </div>
-              </div>
-            </SettingsCard>
           </SettingsSection>
 
           <SettingsSection id="team" title="Team & Tenant">
             <SettingsCard
-              title="Branding & Identity"
-              description="Logo, colors, and copy that appear across dashboards and exports."
+              title="Branding, level, and season"
+              description="Logo, colors, level, and season defaults shown across dashboards and exports."
             >
               <form
                 action={async (formData) => {
                   'use server'
                   await updateTeamBranding(formData)
+                  await updateSeasonMetadata(formData)
                   return
                 }}
-                className="space-y-4"
+                className="space-y-5"
               >
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1 text-sm">
@@ -1421,9 +1438,35 @@ export default async function SettingsPage() {
                     />
                   </label>
                 </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1 text-sm">
+                    <span className="text-slate-300">Season Year</span>
+                    <input
+                      type="number"
+                      name="season_year"
+                      min={1990}
+                      max={2100}
+                      defaultValue={seasonYear}
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm"
+                      required
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="text-slate-300">Season Label</span>
+                    <input
+                      type="text"
+                      name="season_label"
+                      placeholder="2025 Varsity"
+                      defaultValue={seasonLabel}
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  {teamBrandingRow?.logo_url ? (
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
+                    {teamBrandingRow?.logo_url ? (
                       <Image
                         src={teamBrandingRow.logo_url}
                         alt={`${teamBrandingRow.name || activeTeamName} logo`}
@@ -1432,66 +1475,19 @@ export default async function SettingsPage() {
                         unoptimized
                         className="h-12 w-20 rounded-lg border border-slate-800 bg-black/30 object-contain"
                       />
-                      <p className="text-xs text-slate-500">Preview</p>
+                    ) : (
+                      <div className="h-12 w-20 rounded-lg border border-dashed border-slate-700 bg-black/20" />
+                    )}
+                    <div className="text-xs text-slate-500">
+                      <p>Preview: {teamBrandingRow?.name || activeTeamName}</p>
+                      <p className="text-[0.7rem] text-slate-600">Shown on dashboards and exports.</p>
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-500">
-                      Upload your logo to a CDN (S3, Supabase Storage) and paste the URL above.
-                    </p>
-                  )}
+                  </div>
                   <button
                     type="submit"
                     className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-black"
                   >
-                    Save branding
-                  </button>
-                </div>
-              </form>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Season Metadata"
-              description="Control the default season context for analytics and reports."
-            >
-              <form
-                action={async (formData) => {
-                  'use server'
-                  await updateSeasonMetadata(formData)
-                  return
-                }}
-                className="grid gap-4 md:grid-cols-2"
-              >
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-300">Season Year</span>
-                  <input
-                    type="number"
-                    name="season_year"
-                    min={1990}
-                    max={2100}
-                    defaultValue={seasonYear}
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm"
-                    required
-                  />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-300">Season Label</span>
-                  <input
-                    type="text"
-                    name="season_label"
-                    placeholder="2025 Varsity"
-                    defaultValue={seasonLabel}
-                    className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm"
-                  />
-                </label>
-                <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-4">
-                  <p className="text-xs text-slate-500">
-                    Season label is used in exports and reports. Leave blank to auto-generate.
-                  </p>
-                  <button
-                    type="submit"
-                    className="rounded-full border border-brand px-4 py-1.5 text-xs font-semibold text-brand"
-                  >
-                    Save season settings
+                    Save team settings
                   </button>
                 </div>
               </form>
