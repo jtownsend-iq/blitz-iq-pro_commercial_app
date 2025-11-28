@@ -1,4 +1,4 @@
-﻿// app/login/page.tsx
+// app/login/page.tsx
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
@@ -11,9 +11,9 @@ type SearchParams = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>
+  searchParams: SearchParams | Promise<SearchParams>
 }) {
-  const params = await searchParams
+  const params = await Promise.resolve(searchParams)
 
   const supabase = await createSupabaseServerClient()
 
@@ -21,7 +21,6 @@ export default async function LoginPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Already signed in -> straight to the app
   if (user) {
     redirect('/dashboard')
   }
@@ -30,12 +29,10 @@ export default async function LoginPage({
   const redirectParam = params?.redirectTo
 
   const error =
-    typeof errorParam === 'string' && errorParam.length > 0
-      ? errorParam
-      : undefined
+    typeof errorParam === 'string' && errorParam.length > 0 ? errorParam : undefined
 
   const redirectTo =
-    typeof redirectParam === 'string' && redirectParam.length > 0
+    typeof redirectParam === 'string' && redirectParam.startsWith('/') && redirectParam.length > 0
       ? redirectParam
       : '/dashboard'
 
@@ -53,13 +50,16 @@ export default async function LoginPage({
     <main className="min-h-[60vh] flex items-center justify-center text-foreground">
       <div className="w-full max-w-md space-y-6 bg-surface-raised border border-slate-800 rounded-2xl p-8 shadow-brand-card">
         <header className="space-y-2">
-          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-500">
-            BlitzIQ Pro™
-          </p>
+          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-400">BlitzIQ Pro</p>
+          <p className="text-xs text-slate-500">Engineered to Destroy Egos.</p>
+          <h1 className="text-xl font-semibold text-slate-50">Sign in to continue</h1>
         </header>
 
         {errorMessage && (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[0.7rem] text-red-200">
+          <div
+            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[0.7rem] text-red-200"
+            role="alert"
+          >
             {errorMessage}
           </div>
         )}
@@ -68,10 +68,7 @@ export default async function LoginPage({
           <input type="hidden" name="redirectTo" value={redirectTo} />
 
           <div className="space-y-1 text-xs">
-            <label
-              htmlFor="email"
-              className="block text-slate-300 font-medium"
-            >
+            <label htmlFor="email" className="block text-slate-300 font-medium">
               Email
             </label>
             <input
@@ -85,10 +82,7 @@ export default async function LoginPage({
           </div>
 
           <div className="space-y-1 text-xs">
-            <label
-              htmlFor="password"
-              className="block text-slate-300 font-medium"
-            >
+            <label htmlFor="password" className="block text-slate-300 font-medium">
               Password
             </label>
             <input
@@ -111,11 +105,8 @@ export default async function LoginPage({
 
         <div className="flex items-center justify-between text-[0.7rem] text-slate-500">
           <span>Need access?</span>
-          <Link
-            href="/signup"
-            className="font-semibold text-brand-soft hover:text-brand transition-colors"
-          >
-            Request early access
+          <Link href="/signup" className="font-semibold text-brand-soft hover:text-brand transition-colors">
+            Request access
           </Link>
         </div>
       </div>

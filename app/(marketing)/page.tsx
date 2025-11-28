@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -42,6 +42,15 @@ type ContactField = {
   required?: boolean
   autoComplete?: string
   options?: { label: string; value: string }[]
+}
+
+type Outcome = { title: string; description: string; icon: ReactNode }
+type Capability = { title: string; copy: string; icon: ReactNode }
+type PlanCard = {
+  name: Plan
+  price: string
+  summary: string
+  highlights: string[]
 }
 
 const contactFields: ContactField[] = [
@@ -151,19 +160,19 @@ const contactFields: ContactField[] = [
   { label: 'Work Email', name: 'email', type: 'email', required: true, autoComplete: 'email', description: 'We use this to follow up quickly. We never share it.' },
 ]
 
-const outcomes = [
+const outcomes: Outcome[] = [
   { title: 'Own 3rd-and-medium', description: 'See their go-to calls by formation, hash, and personnel before you dial it.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
-  { title: 'Instant cutups', description: 'Filter by formation, hash, motion, and front in seconds—booth and sideline stay aligned.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
+  { title: 'Instant cutups', description: 'Filter by formation, hash, motion, and front in seconds-booth and sideline stay aligned.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
   { title: 'Staff in sync', description: 'Booth, sideline, and call sheet share one live scouting feed.', icon: <Shield className="h-5 w-5 text-emerald-200" /> },
 ]
 
-const capabilities = [
+const capabilities: Capability[] = [
   { title: 'One place for O/D/ST', copy: 'Offense, defense, and special teams share synced charting and scouting.', icon: <Flame className="h-5 w-5 text-amber-300" /> },
   { title: 'Call sheet fuel', copy: 'Top formations, personnel, motions, and fronts tied to explosives and success.', icon: <Trophy className="h-5 w-5 text-cyan-300" /> },
   { title: 'Situational speed', copy: 'Fast filters for thirds, red zone, pressure, and specials by hash and down.', icon: <BadgeCheck className="h-5 w-5 text-emerald-300" /> },
 ]
 
-const plans = [
+const plans: PlanCard[] = [
   {
     name: 'Elite',
     price: 'Custom',
@@ -188,7 +197,7 @@ const plans = [
   },
 ]
 
-const securityPoints = [
+const securityPoints: string[] = [
   'Multi-tenant security with row-level access controls',
   'Audit logs on staff activity and exports',
   'Encrypted in transit and at rest',
@@ -299,8 +308,17 @@ export default function MarketingPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
-        const json = await res.json()
-        if (!res.ok) throw new Error(json?.error || 'Failed to send your info.')
+        let json: { error?: string } | null = null
+        try {
+          json = await res.json()
+        } catch {
+          json = null
+        }
+        if (!res.ok) {
+          const message = json?.error || 'We could not send your info. Please try again.'
+          setError(message)
+          return
+        }
         setSuccessIntent(intentRef.current)
         setInvalidField(null)
         form.reset()
@@ -555,14 +573,14 @@ export default function MarketingPage() {
                 <div className="mt-4 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setIntentAndScroll('elite_availability', plan.name as Plan)}
+                    onClick={() => setIntentAndScroll('elite_availability', plan.name)}
                     className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft"
                   >
                     {plan.name === 'Elite' ? 'Check Elite availability' : 'Start Standard (from $299/mo)'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIntentAndScroll('demo_deck', plan.name as Plan)}
+                    onClick={() => setIntentAndScroll('demo_deck', plan.name)}
                     className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white"
                   >
                     Demo deck
@@ -636,9 +654,10 @@ export default function MarketingPage() {
                   name="plan"
                   value={selectedPlan}
                   onChange={(e) => {
-                    const next = e.target.value as Plan
-                    planRef.current = next
-                    setSelectedPlan(next)
+                    const nextValue = e.target.value
+                    const nextPlan: Plan = nextValue === 'Elite' ? 'Elite' : 'Standard'
+                    planRef.current = nextPlan
+                    setSelectedPlan(nextPlan)
                   }}
                   aria-label="Select your plan of interest"
                   className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
