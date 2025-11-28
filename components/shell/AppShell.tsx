@@ -1,5 +1,8 @@
+ 'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 export type NavItem = {
@@ -37,6 +40,7 @@ export function AppShell({
   tenantTheme,
   shellConfig,
 }: AppShellProps) {
+  const pathname = usePathname()
   const mergedVariant = shellConfig?.variant ?? defaultShellConfig.variant
   const mergedNavItems = shellConfig?.navItems ?? navItems ?? []
   const mergedShowFooter =
@@ -93,8 +97,10 @@ type TopNavProps = {
 }
 
 export function TopNav({ navItems }: TopNavProps) {
+  const pathname = usePathname()
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-60" />
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-6">
         <div className="flex items-center gap-3">
           <div className="relative h-10 w-16 overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur">
@@ -119,12 +125,29 @@ export function TopNav({ navItems }: TopNavProps) {
             <Link
               key={item.href}
               href={item.href}
-              className="px-3 py-2 rounded-full border border-white/10 bg-white/5 text-slate-200 hover:border-brand hover:text-white hover:bg-brand/10 transition"
+              className={`px-3 py-2 rounded-full border ${
+                pathname?.startsWith(item.href)
+                  ? 'border-brand text-white bg-brand/10 shadow-[0_10px_30px_-18px_rgba(0,229,255,0.8)]'
+                  : 'border-white/10 bg-white/5 text-slate-200'
+              } hover:border-brand hover:text-white hover:bg-brand/10 transition`}
             >
               {item.label}
             </Link>
           ))}
         </nav>
+
+        <div className="hidden md:flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.22em] text-slate-200">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.18)]" />
+            Live sync
+          </span>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
+          >
+            Command
+          </Link>
+        </div>
       </div>
     </header>
   )

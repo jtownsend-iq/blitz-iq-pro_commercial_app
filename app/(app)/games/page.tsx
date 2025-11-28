@@ -6,6 +6,9 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Pill } from '@/components/ui/Pill'
 import { StatBadge } from '@/components/ui/StatBadge'
 import { MotionList } from '@/components/ui/MotionList'
+import { CTAButton } from '@/components/ui/CTAButton'
+import { InputField } from '@/components/ui/InputField'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { closeGameSession, startGameSession } from './chart-actions'
 import { createGame } from './actions'
 
@@ -186,42 +189,33 @@ export default async function GamesPage({
           }}
           className="grid gap-3 md:grid-cols-2 mt-4"
         >
+          <InputField
+            label="Opponent"
+            name="opponent_name"
+            required
+            placeholder="Springfield Prep"
+            description="Team you are facing."
+          />
+          <InputField
+            label="Kickoff"
+            name="start_time"
+            required
+            type="datetime-local"
+            description="Local date/time."
+          />
+          <InputField
+            as="select"
+            label="Home / Away"
+            name="home_away"
+            required
+            options={[
+              { label: 'Home', value: 'HOME' },
+              { label: 'Away', value: 'AWAY' },
+            ]}
+            description="Venue context."
+          />
           <label className="space-y-1 text-xs text-slate-400">
-            <span className="uppercase tracking-[0.2em]">Opponent</span>
-            <input
-              type="text"
-              name="opponent_name"
-              required
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-              placeholder="Springfield Prep"
-            />
-          </label>
-          <label className="space-y-1 text-xs text-slate-400">
-            <span className="uppercase tracking-[0.2em]">Kickoff</span>
-            <input
-              type="datetime-local"
-              name="start_time"
-              required
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </label>
-          <label className="space-y-1 text-xs text-slate-400">
-            <span className="uppercase tracking-[0.2em]">Home / Away</span>
-            <select
-              name="home_away"
-              required
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Select home/away
-              </option>
-              <option value="HOME">Home</option>
-              <option value="AWAY">Away</option>
-            </select>
-          </label>
-          <label className="space-y-1 text-xs text-slate-400">
-            <span className="uppercase tracking-[0.2em]">Location</span>
+            <span className="uppercase tracking-[0.2em] text-slate-300">Location</span>
             <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
               <MapPin className="h-4 w-4 text-slate-500" />
               <input
@@ -231,41 +225,34 @@ export default async function GamesPage({
                 className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none"
               />
             </div>
+            <span className="block text-[0.7rem] text-slate-500">Venue or facility name.</span>
           </label>
-          <label className="space-y-1 text-xs text-slate-400 md:col-span-2">
-            <span className="uppercase tracking-[0.2em]">Season label</span>
-            <input
-              type="text"
-              name="season_label"
-              placeholder="2025 Season"
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+          <InputField
+            label="Season label"
+            name="season_label"
+            placeholder="2025 Season"
+            description="Optional season tag."
+            required={false}
             />
-          </label>
           <div className="md:col-span-2 flex justify-end">
-            <button
-              type="submit"
-              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
-            >
+            <CTAButton type="submit" variant="primary">
               Create game
-            </button>
+            </CTAButton>
           </div>
         </form>
       </GlassCard>
 
       {games.length === 0 ? (
-        <GlassCard className="text-center space-y-3" tone="neutral">
-          <Gamepad2 className="mx-auto h-10 w-10 text-slate-500" />
-          <p className="text-sm text-slate-300 font-semibold">No games on the calendar yet</p>
-          <p className="text-sm text-slate-400">
-            Create your first matchup above to activate charting sessions for your units.
-          </p>
-          <a
-            href="/onboarding/quickstart"
-            className="inline-flex justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-200"
-          >
-            Need help? Run Quickstart
-          </a>
-        </GlassCard>
+        <EmptyState
+          icon={<Gamepad2 className="h-10 w-10 text-slate-500" />}
+          title="No games on the calendar yet"
+          description="Create your first matchup above to activate charting sessions."
+          action={
+            <CTAButton href="/onboarding/quickstart" variant="secondary" size="sm">
+              Run Quickstart
+            </CTAButton>
+          }
+        />
       ) : (
         <div className="space-y-6">
           <MotionList
@@ -325,12 +312,12 @@ export default async function GamesPage({
                                 icon={<Play className="h-3.5 w-3.5" />}
                               />
                               <div className="flex gap-2">
-                                <a
-                                  href={`/games/${game.id}/chart/${unit.key.toLowerCase()}`}
-                                  className="flex-1 rounded-full bg-brand px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-black"
-                                >
-                                  Open chart
-                                </a>
+                              <a
+                                href={`/games/${game.id}/chart/${unit.key.toLowerCase()}`}
+                                className="flex-1 rounded-full bg-brand px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                              >
+                                Open chart
+                              </a>
                                 <form
                                   action={async (formData) => {
                                     'use server'
@@ -344,16 +331,13 @@ export default async function GamesPage({
                                     name="sessionId"
                                     value={activeSession.id}
                                   />
-                                  <button
-                                    type="submit"
-                                    className="w-full rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-white/30 hover:text-white transition"
-                                  >
-                                    Close
-                                  </button>
-                                </form>
-                              </div>
+                                <CTAButton type="submit" variant="secondary" fullWidth size="sm">
+                                  Close
+                                </CTAButton>
+                              </form>
                             </div>
-                          ) : pendingSession ? (
+                          </div>
+                        ) : pendingSession ? (
                             <Pill label="Pending session exists | resume from chart" tone="amber" icon={<PauseCircle className="h-3.5 w-3.5" />} />
                           ) : (
                             <form
@@ -366,18 +350,14 @@ export default async function GamesPage({
                             >
                               <input type="hidden" name="gameId" value={game.id} />
                               <input type="hidden" name="unit" value={unit.key} />
-                              <button
-                                type="submit"
-                                disabled={disabled}
-                                className="w-full rounded-full bg-brand px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-black disabled:opacity-40"
-                              >
-                                Start session
-                              </button>
-                            </form>
-                          )}
-                        </GlassCard>
-                      )
-                    })}
+                            <CTAButton type="submit" disabled={disabled} fullWidth size="sm">
+                              Start session
+                            </CTAButton>
+                          </form>
+                        )}
+                      </GlassCard>
+                    )
+                  })}
                   </div>
                 </GlassCard>
               )

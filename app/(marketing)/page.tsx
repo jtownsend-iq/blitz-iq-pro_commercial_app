@@ -1,8 +1,26 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import {
+  ArrowRight,
+  BadgeCheck,
+  Fingerprint,
+  Flame,
+  Radar,
+  Rocket,
+  Shield,
+  Sparkles,
+  Trophy,
+  Zap,
+} from 'lucide-react'
+import { motion } from 'framer-motion'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { Pill } from '@/components/ui/Pill'
+import { StatBadge } from '@/components/ui/StatBadge'
+import { MotionList } from '@/components/ui/MotionList'
 
 type Plan = 'Elite' | 'Standard'
 type Intent = 'elite_availability' | 'demo_deck' | 'call_request'
@@ -27,14 +45,7 @@ type ContactField = {
 }
 
 const contactFields: ContactField[] = [
-  {
-    label: 'Name',
-    name: 'name',
-    type: 'text',
-    required: true,
-    autoComplete: 'name',
-    description: 'Full name for follow-up.',
-  },
+  { label: 'Name', name: 'name', type: 'text', required: true, autoComplete: 'name', description: 'Full name for follow-up.' },
   {
     label: 'Command Post',
     name: 'role',
@@ -53,14 +64,7 @@ const contactFields: ContactField[] = [
       { label: 'Other Coach', value: 'Other Coach' },
     ],
   },
-  {
-    label: 'School',
-    name: 'school',
-    type: 'text',
-    required: true,
-    autoComplete: 'organization',
-    description: 'Program or school name.',
-  },
+  { label: 'School', name: 'school', type: 'text', required: true, autoComplete: 'organization', description: 'Program or school name.' },
   {
     label: 'State',
     name: 'state',
@@ -124,9 +128,6 @@ const contactFields: ContactField[] = [
       { label: 'Quebec', value: 'QC' },
       { label: 'British Columbia', value: 'BC' },
       { label: 'Alberta', value: 'AB' },
-      { label: 'Saskatchewan', value: 'SK' },
-      { label: 'Manitoba', value: 'MB' },
-      { label: 'Other', value: 'Other' },
     ],
   },
   {
@@ -134,59 +135,80 @@ const contactFields: ContactField[] = [
     name: 'classification',
     type: 'select',
     required: true,
-    description: 'Division or class (e.g., 6A, FCS, D2).',
+    autoComplete: 'organization-title',
+    description: 'Level (HS, JUCO, NAIA, FBS, CFL, etc.).',
     options: [
-      { label: '6A', value: '6A' },
-      { label: '5A', value: '5A' },
-      { label: '4A', value: '4A' },
-      { label: '3A', value: '3A' },
-      { label: '2A', value: '2A' },
-      { label: '1A/Private', value: '1A/Private' },
-      { label: 'Independent', value: 'Independent' },
-      { label: 'College - FBS', value: 'College - FBS' },
-      { label: 'College - FCS', value: 'College - FCS' },
-      { label: 'College - D2', value: 'College - D2' },
-      { label: 'College - D3', value: 'College - D3' },
-      { label: 'College - JuCo', value: 'College - JuCo' },
-      { label: 'Other/International', value: 'Other/International' },
+      { label: 'High School', value: 'High School' },
+      { label: 'College FBS', value: 'College FBS' },
+      { label: 'College FCS', value: 'College FCS' },
+      { label: 'College D2/D3/NAIA', value: 'College D2/D3/NAIA' },
+      { label: 'JUCO', value: 'JUCO' },
+      { label: 'CFL / U Sports', value: 'CFL / U Sports' },
+      { label: 'Other', value: 'Other' },
     ],
   },
+  { label: 'Region', name: 'region', type: 'text', required: true, description: 'Metro/area coverage.', autoComplete: 'address-level2' },
+  { label: 'Work Email', name: 'email', type: 'email', required: true, autoComplete: 'email', description: 'We never share your email.' },
+]
+
+const outcomes = [
+  { title: 'Series clarity', description: 'Explosives and success mapped to opponent tendencies.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
+  { title: 'Cutups on demand', description: 'AI-tagged filters ready mid-game for booth and sideline.', icon: <Zap className="h-5 w-5 text-amber-200" /> },
+  { title: 'Staff lockstep', description: 'Command, booth, and field share one live feed.', icon: <Shield className="h-5 w-5 text-emerald-200" /> },
+]
+
+const capabilities = [
+  { title: 'One live source', copy: 'Offense, defense, and special teams stay in one truth set.', icon: <Flame className="h-5 w-5 text-amber-300" /> },
+  { title: 'Playbook vision', copy: 'Formations and personnel tied to outcomes, pace, and explosives.', icon: <Trophy className="h-5 w-5 text-cyan-300" /> },
+  { title: 'Call sheet ready', copy: 'Auto summaries for thirds, red zone, and explosives by hash.', icon: <BadgeCheck className="h-5 w-5 text-emerald-300" /> },
+]
+
+const plans = [
   {
-    label: 'Territory / District',
-    name: 'region',
-    type: 'text',
-    required: true,
-    description: 'Territory or district so we can verify Elite exclusivity.',
+    name: 'Elite',
+    price: 'Custom',
+    summary: 'Full stack with white-glove onboarding, live support, and AI speed.',
+    highlights: ['Unlimited games & sessions', 'AI tagging + live charts', 'Dedicated analyst concierge'],
   },
   {
-    label: 'Official Team Email',
-    name: 'email',
-    type: 'email',
-    required: true,
-    autoComplete: 'email',
-    description: 'Team email for the deck, breakdown, and confirmations.',
+    name: 'Standard',
+    price: '$299/mo',
+    summary: 'Live charting and scouting essentials for fast-moving staffs.',
+    highlights: ['Live charting for all units', 'Scouting imports & cutups', 'Staff access with controls'],
   },
 ]
 
-const planFieldDescription =
-  'Pick Elite to check exclusivity in your region or Standard to get the deck and walkthrough.'
+const securityPoints = [
+  'Dedicated Supabase project with row-level policies',
+  'Audit trails on exports and API keys',
+  'TLS everywhere with least-privilege roles',
+  'Backed by Trips Right, LLC (US-based)',
+]
 
-export default function Home() {
+const pulseVariants = {
+  animate: {
+    scale: [1, 1.08, 1],
+    opacity: [0.4, 0.8, 0.4],
+    transition: { duration: 6, repeat: Infinity, ease: 'easeInOut' as const },
+  },
+}
+
+export default function MarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<Plan>('Elite')
+  const [selectedIntent, setSelectedIntent] = useState<Intent>('elite_availability')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successIntent, setSuccessIntent] = useState<Intent | null>(null)
   const [invalidField, setInvalidField] = useState<ContactFieldName | null>(null)
-  const intentRef = useRef<Intent>('demo_deck')
+
+  const intentRef = useRef<Intent>('elite_availability')
   const planRef = useRef<Plan>('Elite')
   const currentYear = useMemo(() => new Date().getFullYear(), [])
   const copyrightSymbol = '\u00A9'
 
   const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' })
-    }
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
   const setIntentAndScroll = useCallback(
@@ -194,6 +216,7 @@ export default function Home() {
       intentRef.current = nextIntent
       planRef.current = nextPlan
       setSelectedPlan(nextPlan)
+      setSelectedIntent(nextIntent)
       setSuccessIntent(null)
       scrollToSection('contact')
     },
@@ -202,8 +225,7 @@ export default function Home() {
 
   const successCopy = useMemo<Record<Intent, string>>(
     () => ({
-      elite_availability:
-        'We have your info. We will confirm Elite availability in your region and follow up by email.',
+      elite_availability: 'We will confirm Elite availability in your region and follow up by email.',
       demo_deck: 'We will send the demo deck and sample breakdown so you can see how it fits your staff.',
       call_request: 'We will follow up to schedule a call based on your availability.',
     }),
@@ -270,9 +292,7 @@ export default function Home() {
           body: JSON.stringify(payload),
         })
         const json = await res.json()
-        if (!res.ok) {
-          throw new Error(json?.error || 'Failed to send your info.')
-        }
+        if (!res.ok) throw new Error(json?.error || 'Failed to send your info.')
         setSuccessIntent(intentRef.current)
         setInvalidField(null)
         form.reset()
@@ -289,45 +309,51 @@ export default function Home() {
   )
 
   return (
-    <main className="bg-surface text-slate-50 min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-slate-900/60 bg-black/70 backdrop-blur-md">
+    <main className="bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.12),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(16,185,129,0.1),transparent_30%),#020617] text-slate-50 min-h-screen">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-60" />
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="relative h-8 w-12">
-              <Image src="/blitziq-logo.png" alt="BlitzIQ Pro logo" fill className="object-contain" />
+            <div className="relative h-9 w-14 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+              <Image src="/blitziq-logo.png" alt="BlitzIQ Pro logo" fill className="object-contain" priority />
             </div>
-            <span className="text-sm font-semibold tracking-wide">BlitzIQ Pro™</span>
+            <span className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</span>
           </div>
-          <nav className="hidden md:flex items-center gap-5 text-xs uppercase tracking-[0.18em] text-slate-300">
+          <nav className="hidden md:flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-300">
             {[
               { label: 'Outcomes', id: 'outcomes' },
               { label: 'Capabilities', id: 'capabilities' },
               { label: 'Plans', id: 'plans' },
+              { label: 'Security', id: 'security' },
               { label: 'Contact', id: 'contact' },
             ].map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => scrollToSection(item.id)}
-                className="rounded-full px-3 py-2 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 min-h-10"
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-slate-200 hover:border-brand hover:text-white hover:bg-brand/10 transition"
               >
                 {item.label}
               </button>
             ))}
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-slate-200">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.18)]" />
+              Live
+            </div>
             <Link
               href="/login"
-              className="hidden sm:inline-flex items-center justify-center rounded-full border border-slate-700 px-3 py-2 text-[0.8rem] font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/50"
+              className="hidden sm:inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-3 py-2 text-[0.8rem] font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-brand hover:text-white transition"
             >
               Login
             </Link>
             <button
               type="button"
               onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
-              className="rounded-full bg-brand px-4 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60"
+              className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60"
             >
-              Check Elite availability
+              Check Elite availability <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -337,392 +363,245 @@ export default function Home() {
               { label: 'Outcomes', id: 'outcomes' },
               { label: 'Capabilities', id: 'capabilities' },
               { label: 'Plans', id: 'plans' },
+              { label: 'Security', id: 'security' },
               { label: 'Contact', id: 'contact' },
             ].map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => scrollToSection(item.id)}
-                className="rounded-full px-3 py-2 bg-slate-900/60 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-10"
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-200 hover:border-brand hover:text-white hover:bg-brand/10 transition"
               >
                 {item.label}
               </button>
             ))}
-            <Link
-              href="/login"
-              className="rounded-full px-3 py-2 bg-slate-900/60 text-slate-200 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-10"
-            >
-              Login
-            </Link>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-14 lg:py-18">
-        <section
-          id="hero"
-          className="grid gap-10 md:gap-14 md:grid-cols-[1.2fr_minmax(0,1fr)] items-start"
-        >
-          <div className="space-y-6">
-            <p className="inline-flex items-center gap-2 text-[0.7rem] uppercase tracking-[0.24em] text-brand-soft">
-              <span className="h-1 w-4 rounded-full bg-brand" />
-              Engineered to Destroy Egos.
-            </p>
-            <div className="space-y-3">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-slate-50">
-                Make the call everyone else wishes they had.
-              </h1>
-              <p className="text-base md:text-lg text-slate-300 leading-relaxed">
-                From the box to the headset in 10 seconds. Identify tendencies, predict the next call, and own
-                the money down before the offense even breaks the huddle.
-              </p>
+      <div className="max-w-6xl mx-auto px-4 py-10 space-y-14">
+        <SectionHeader
+          eyebrow="Live Game-Day Operating System"
+          title="Command every snap with BlitzIQ Pro"
+          description="Elite staffs keep booth, sideline, and command post aligned on one live surface."
+          badge="Command Center"
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Pill label="Live charting" tone="emerald" icon={<Sparkles className="h-3.5 w-3.5" />} />
+              <Pill label="Scouting OS" tone="cyan" icon={<Radar className="h-3.5 w-3.5" />} />
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
+          }
+        />
+
+        <GlassCard className="grid gap-6 md:grid-cols-[1.1fr,0.9fr] items-center">
+          <div className="space-y-4">
+            <p className="text-lg text-slate-200">Built for staffs that need clarity under pressure.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <StatBadge label="Explosive IDs" value="Live" tone="cyan" />
+              <StatBadge label="Call Sheet Sync" value="Real-time" tone="emerald" />
+              <StatBadge label="Deployments" value="500+ games" tone="amber" />
+            </div>
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
-                className="inline-flex items-center justify-center rounded-full bg-brand text-black text-xs md:text-sm font-semibold tracking-[0.14em] uppercase px-6 py-3 hover:bg-brand-soft transition-colors focus:outline-none focus:ring-2 focus:ring-brand/60"
+                onClick={() => setIntentAndScroll('demo_deck', selectedPlan)}
+                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
               >
-                Check Elite Availability
+                Get the demo deck
               </button>
               <button
                 type="button"
-                onClick={() => setIntentAndScroll('demo_deck', 'Standard')}
-                className="inline-flex items-center justify-center rounded-full border border-slate-700 text-xs md:text-sm font-semibold tracking-[0.14em] uppercase px-6 py-3 text-slate-200 hover:border-brand hover:text-brand transition-colors focus:outline-none focus:ring-2 focus:ring-brand/40"
+                onClick={() => setIntentAndScroll('call_request', selectedPlan)}
+                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white"
               >
-                See the Deck & Breakdown
+                Talk to a coach
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 text-[0.75rem] text-slate-200">
-              <span className="pill bg-slate-900/60 border-slate-800 text-slate-100">~10s per snap</span>
-              <span className="pill bg-slate-900/60 border-slate-800 text-slate-100">70%+ next-call confidence</span>
-              <span className="pill bg-slate-900/60 border-slate-800 text-slate-100">One Elite per region</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-[0.7rem] uppercase tracking-[0.18em] text-slate-400">
-              <span className="text-slate-500">Trusted by</span>
-              {['Region champions', 'State semifinalists', 'D2 staffs', 'Private powerhouses'].map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-slate-200"
-                >
-                  {item}
-                </span>
-              ))}
+            <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+              <Pill label="No student logins" tone="slate" icon={<Shield className="h-3 w-3" />} />
+              <Pill label="Multi-tenant" tone="cyan" icon={<Fingerprint className="h-3 w-3" />} />
             </div>
           </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-surface-muted/70 backdrop-blur-sm p-5 shadow-brand-card space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-100">BlitzIQ Gamefeed</p>
-                <p className="text-[0.7rem] text-slate-500">Sideline | Scouting | Live intel</p>
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-950/70 to-black/60 p-6 shadow-[0_25px_90px_-50px_rgba(0,0,0,0.8)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(59,130,246,0.18),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.16),transparent_40%)]" />
+            <div className="relative flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <Pill label="Live Ops" tone="emerald" />
+                <Pill label="AI Assist" tone="cyan" />
               </div>
-              <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[0.65rem] px-2 py-1 border border-emerald-500/30">
-                Live feed
-              </span>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3 text-sm text-slate-200">
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3 space-y-1">
-                <p className="text-slate-300 font-semibold">Predictive Intelligence</p>
-                <p className="text-[0.8rem] text-slate-300">3rd &amp; 6 | Right hash</p>
-                <p className="text-[0.75rem] text-slate-500">70%+ next-call confidence.</p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3 space-y-1">
-                <p className="text-slate-300 font-semibold">9s Charting Cadence</p>
-                <p className="text-[0.8rem] text-slate-300">Formation | Motion | Result</p>
-                <p className="text-[0.75rem] text-slate-500">Single-surface speed.</p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3 space-y-1">
-                <p className="text-slate-300 font-semibold">Counter in Sync</p>
-                <p className="text-[0.8rem] text-slate-300">3 live adjustments</p>
-                <p className="text-[0.75rem] text-slate-500">Coverage tags + front tweaks.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="outcomes" className="mt-16 space-y-3">
-          <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-500">Outcomes</p>
-          <h2 className="text-2xl font-semibold text-slate-50">Decide before the huddle</h2>
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              'Tag every snap from the box in about 10 seconds; sideline gets answers before 3rd-and-6.',
-              'Save 4-6 hours of Sunday breakdown per game; walk into Monday ahead.',
-              'Give the staff the same picture before Tuesday install.',
-              'Sideline gets call probabilities in time to adjust personnel and stress-beaters.',
-            ].map((item) => (
-              <div
-                key={item}
-                className="rounded-xl border border-slate-800 bg-black/30 px-4 py-3 text-slate-200 text-sm"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="capabilities" className="mt-16 space-y-3">
-          <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-500">Capabilities</p>
-          <h2 className="text-2xl font-semibold text-slate-50">Built for real football staffs</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {[
-              'In-game charting from the box to the sideline with hash, formation, personnel, and result—no re-entry.',
-              'Scouting ingest with down/distance/hash/formation filters; see next-call odds without re-tagging film.',
-              'Multi-team, multi-role control for HC/OC/DC/ST/Analyst with clean tenant isolation.',
-            ].map((item) => (
-              <div
-                key={item}
-                className="rounded-2xl border border-slate-800 bg-surface-muted/50 p-4 space-y-2"
-              >
-                <p className="text-sm text-slate-300 leading-relaxed">{item}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="plans" className="mt-16 space-y-3">
-          <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-500">Pick your plan</p>
-          <h2 className="text-2xl font-semibold text-slate-50">BlitzIQ Pro™ tiers built for football</h2>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {[
-              {
-                name: 'Plan: Elite Territory',
-                short: 'Elite',
-                tagline: 'Total regional lockdown. We sign one program per region—ensure it’s you, not your rival.',
-                bullets: [
-                  'Region-exclusive engagement for your season.',
-                  'Full BlitzIQ Pro engine with sideline and scouting; white-glove onboarding and weekly support.',
-                ],
-                bestFor: 'Varsity staffs that want a protected edge on every region opponent.',
-                pricingLine: 'Region-exclusive; typically about 2x Standard pricing plus a one-time setup fee.',
-                plan: 'Elite' as Plan,
-                ctaLabel: 'Check Elite availability',
-                featured: true,
-                badgeLabel: 'Region Exclusive',
-              },
-              {
-                name: 'Plan: Standard Corps',
-                short: 'Standard',
-                tagline: 'The full BlitzIQ engine for varsity programs ready to modernize. Analytics in the box, answers on the sideline.',
-                bullets: [
-                  'Complete sideline + scouting workflow with staff onboarding.',
-                  'Analytics in the box, synced to the sideline with unified terminology.',
-                ],
-                bestFor: 'Varsity programs ready to modernize and run unified analytics across the staff.',
-                pricingLine: 'No free trials. Annual or monthly billing available.',
-                ctaLabel: 'Get Standard details',
-                plan: 'Standard' as Plan,
-                featured: false,
-                badgeLabel: 'Founders',
-                badgeTone: 'muted',
-              },
-            ].map((plan) => (
-              <div
-                key={plan.short}
-                className={`rounded-2xl border ${
-                  plan.featured ? 'border-brand shadow-brand-card' : 'border-slate-800'
-                } bg-black/30 p-5 space-y-4`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{plan.short}</p>
-                    <h3 className="text-xl font-semibold text-slate-50">{plan.name}</h3>
-                    <p className="text-sm text-slate-400">{plan.tagline}</p>
-                  </div>
-                  {plan.badgeLabel ? (
-                    <span
-                      className={`rounded-full text-[0.65rem] px-3 py-1 border ${
-                        plan.badgeTone === 'muted'
-                          ? 'bg-slate-900/60 text-slate-200 border-slate-700'
-                          : 'bg-brand/15 text-brand border-brand/50'
-                      }`}
-                    >
-                      {plan.badgeLabel}
-                    </span>
-                  ) : null}
+              <div className="relative h-32 rounded-2xl border border-white/10 bg-slate-950/60 overflow-hidden">
+                <motion.div
+                  className="absolute inset-6 rounded-full bg-cyan-500/20 blur-3xl"
+                  variants={pulseVariants}
+                  animate="animate"
+                />
+                <motion.div
+                  className="absolute inset-y-6 left-6 right-1/3 rounded-full bg-emerald-500/10 blur-2xl"
+                  variants={pulseVariants}
+                  animate="animate"
+                  transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
+                />
+                <div className="absolute inset-0 grid grid-cols-6 gap-2 opacity-40">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <span key={idx} className="h-full w-px bg-gradient-to-b from-transparent via-white/40 to-transparent mx-auto" />
+                  ))}
                 </div>
-                <ul className="space-y-2 text-sm text-slate-200">
-                  {plan.bullets.map((b) => (
-                    <li key={b} className="flex gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
-                      <span>{b}</span>
+                <div className="absolute inset-0 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-200">
+                  <Sparkles className="h-4 w-4 text-brand" />
+                  Live call sheet sync
+                  <Sparkles className="h-4 w-4 text-brand" />
+                </div>
+              </div>
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                <p className="text-sm font-semibold text-slate-100">Explosive Probability</p>
+                <p className="text-xs text-slate-400">By hash, motion, personnel, and front.</p>
+                <div className="grid grid-cols-3 gap-2 text-xs text-slate-300">
+                  <GlassCard padding="md" className="text-center" tone="cyan">
+                    <p className="text-[0.7rem] uppercase tracking-[0.22em] text-white/70">Left Hash</p>
+                    <p className="text-xl font-semibold text-white tabular-nums">18%</p>
+                  </GlassCard>
+                  <GlassCard padding="md" className="text-center" tone="emerald">
+                    <p className="text-[0.7rem] uppercase tracking-[0.22em] text-white/70">Middle</p>
+                    <p className="text-xl font-semibold text-white tabular-nums">11%</p>
+                  </GlassCard>
+                  <GlassCard padding="md" className="text-center" tone="amber">
+                    <p className="text-[0.7rem] uppercase tracking-[0.22em] text-white/70">Right Hash</p>
+                    <p className="text-xl font-semibold text-white tabular-nums">22%</p>
+                  </GlassCard>
+                </div>
+              </div>
+              <GlassCard padding="md" className="flex items-center justify-between" tone="neutral">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Velocity</p>
+                  <p className="text-base font-semibold text-slate-50">2.4x faster decisions</p>
+                </div>
+                <Rocket className="h-6 w-6 text-brand" />
+              </GlassCard>
+            </div>
+          </div>
+        </GlassCard>
+
+        <section id="outcomes" className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Pill label="Outcomes" tone="emerald" icon={<Trophy className="h-4 w-4" />} />
+            <p className="text-sm text-slate-400">What staffs report after deploying BlitzIQ Pro.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {outcomes.map((item) => (
+              <GlassCard key={item.title} padding="md" interactive>
+                <div className="flex items-center gap-3">
+                  {item.icon}
+                  <h3 className="text-lg font-semibold text-slate-50">{item.title}</h3>
+                </div>
+                <p className="mt-2 text-sm text-slate-400">{item.description}</p>
+              </GlassCard>
+            ))}
+          </div>
+        </section>
+
+        <section id="capabilities" className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Pill label="Capabilities" tone="cyan" icon={<Sparkles className="h-4 w-4" />} />
+            <p className="text-sm text-slate-400">Command Center-grade tools for game day and scouting.</p>
+          </div>
+          <MotionList
+            items={capabilities}
+            getKey={(c) => c.title}
+            renderItem={(cap) => (
+              <GlassCard padding="md" interactive>
+                <div className="flex items-center gap-3">
+                  {cap.icon}
+                  <h3 className="text-lg font-semibold text-slate-50">{cap.title}</h3>
+                </div>
+                <p className="mt-1 text-sm text-slate-400">{cap.copy}</p>
+              </GlassCard>
+            )}
+          />
+        </section>
+
+        <section id="plans" className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Pill label="Plans" tone="slate" icon={<BadgeCheck className="h-4 w-4" />} />
+            <p className="text-sm text-slate-400">Choose Elite for white-glove or Standard for streamlined rollout.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {plans.map((plan) => (
+              <GlassCard key={plan.name} padding="md" interactive className={selectedPlan === plan.name ? 'border-brand/60' : ''}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">{plan.name}</p>
+                    <h3 className="text-2xl font-semibold text-slate-50">{plan.price}</h3>
+                  </div>
+                  <Pill label="Live" tone="emerald" />
+                </div>
+                <p className="mt-2 text-sm text-slate-300">{plan.summary}</p>
+                <ul className="mt-3 space-y-2 text-sm text-slate-300">
+                  {plan.highlights.map((h) => (
+                    <li key={h} className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-emerald-300" />
+                      {h}
                     </li>
                   ))}
                 </ul>
-                {plan.pricingLine && (
-                  <p className="text-xs text-slate-400">{plan.pricingLine}</p>
-                )}
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                  Best for: {plan.bestFor}
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setIntentAndScroll(plan.plan === 'Elite' ? 'elite_availability' : 'demo_deck', plan.plan)
-                  }
-                  className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] focus:outline-none focus:ring-2 ${
-                    plan.featured
-                      ? 'bg-brand text-black hover:bg-brand-soft focus:ring-brand/60'
-                      : 'border border-slate-700 text-slate-200 hover:border-brand hover:text-brand focus:ring-brand/40'
-                  }`}
-                >
-                  {plan.ctaLabel}
-                </button>
-              </div>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIntentAndScroll('elite_availability', plan.name as Plan)}
+                    className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft"
+                  >
+                    {plan.name === 'Elite' ? 'Check availability' : 'Start Standard'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntentAndScroll('demo_deck', plan.name as Plan)}
+                    className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white"
+                  >
+                    Demo deck
+                  </button>
+                </div>
+              </GlassCard>
             ))}
           </div>
         </section>
 
-        <section
-          id="billing"
-          className="mt-10 rounded-2xl border border-slate-800 bg-black/20 p-5 space-y-2 text-sm text-slate-200"
-        >
-          <h3 className="text-lg font-semibold text-slate-50">How billing works</h3>
-          <p>All plans are 1-year contracts.</p>
-          <p>Pay monthly, or pay the year up front and get 10% off the subscription.</p>
-          <p>No free trials.</p>
-        </section>
-
-        <section
-          id="exclusivity"
-          className="mt-14 rounded-2xl border border-slate-800 bg-black/20 p-5 space-y-3"
-        >
-          <h3 className="text-xl font-semibold text-slate-50">
-            What &ldquo;one Elite program per region&rdquo; means
-          </h3>
-          <p className="text-sm text-slate-300 leading-relaxed">
-            One Elite program per region. If you take the Elite slot, we won’t sign a rival in your territory
-            this season. Renew by the agreed date to keep your spot.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
-              className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-black focus:outline-none focus:ring-2 focus:ring-brand/60 hover:bg-brand-soft"
-            >
-              Check Elite availability in your region
-            </button>
-            <button
-              type="button"
-              onClick={() => setIntentAndScroll('demo_deck', 'Standard')}
-              className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
-            >
-              Get the demo deck & playbook
-            </button>
-            </div>
-          </section>
-
-        <section id="security" className="mt-16 grid gap-6 lg:grid-cols-[1.1fr_minmax(0,1fr)] items-start">
-          <div className="space-y-3">
-            <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-500">
-              Security, trust, and multi-tenant control
-            </p>
-            <h2 className="text-2xl font-semibold text-slate-50">Fort Knox for your Playbook.</h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              Bank-grade security ensures your game plans stay yours. Role-based access keeps the staff aligned and the data leaks at zero.
-            </p>
-            <div className="grid gap-2">
-              {[
-                'Per-team isolation with audited queries and exports.',
-                'Fine-grained roles for coordinators, analysts, and administrators.',
-                'SSO/SAML path, uptime targets, and support aligned to game weeks.',
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2 text-sm text-slate-200">
-                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
-                  <span>{item}</span>
+        <section id="security" className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Pill label="Security" tone="emerald" icon={<Fingerprint className="h-4 w-4" />} />
+            <p className="text-sm text-slate-400">Multi-tenant, policy-driven access with full auditability.</p>
+          </div>
+          <GlassCard>
+            <div className="grid gap-3 md:grid-cols-2">
+              {securityPoints.map((point) => (
+                <div key={point} className="flex items-center gap-3 text-sm text-slate-200">
+                  <Shield className="h-4 w-4 text-emerald-300" />
+                  {point}
                 </div>
               ))}
             </div>
-          </div>
-          <div
-            id="resources"
-            className="rounded-2xl border border-slate-800 bg-black/25 p-5 space-y-4"
-            aria-label="Self-education resources"
-          >
-            <p className="text-sm font-semibold text-slate-100">
-              Reconnaissance
-            </p>
-            <div className="space-y-2 text-sm text-slate-300">
-              <p>Skip the sales pitch. Get the raw intel.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setIntentAndScroll('demo_deck', 'Standard')}
-                className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-black focus:outline-none focus:ring-2 focus:ring-brand/60"
-              >
-                Get the demo deck & film breakdown sample
-              </button>
-              <button
-                type="button"
-                onClick={() => setIntentAndScroll('demo_deck', 'Standard')}
-                className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
-              >
-                Watch the 3-minute sideline walkthrough
-              </button>
-            </div>
-            <p className="text-xs text-slate-500">
-              Prefer a call? Request one and we&apos;ll schedule based on staff capacity.
-            </p>
-          </div>
+          </GlassCard>
         </section>
 
-        <section id="contact" className="mt-16 rounded-2xl border border-slate-800 bg-black/25 p-6 space-y-4">
-          <h2 className="text-2xl font-semibold text-slate-50">Check Elite availability</h2>
-          <p className="text-sm text-slate-300">
-            No free trials or calendar spam. Share the basics and we&apos;ll confirm Elite slots or send the deck and walkthrough for Standard.
-          </p>
-          {successIntent && (
-            <div
-              className="md:col-span-2 rounded-xl border border-emerald-600/40 bg-emerald-500/10 p-3 text-sm text-emerald-100"
-              role="status"
-              aria-live="polite"
-            >
-              {successCopy[successIntent]}
-            </div>
-          )}
-          {error && (
-            <div
-              id="contact-error"
-              className="md:col-span-2 rounded-xl border border-red-600/40 bg-red-500/10 p-3 text-sm text-red-100"
-              role="alert"
-              aria-live="assertive"
-            >
-              {error}
-            </div>
-          )}
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
-            {contactFields.map((field) => {
-              const descriptionId = `contact-${field.name}-description`
-              const hasFieldError = invalidField === field.name && Boolean(error)
-              const describedBy = [descriptionId, hasFieldError ? 'contact-error' : null]
-                .filter(Boolean)
-                .join(' ') || undefined
-              const inputClasses = [
-                'w-full rounded-lg border bg-black/40 px-3 py-2 text-sm text-slate-100 focus:ring-2 transition-colors min-h-[44px]',
-                hasFieldError
-                  ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
-                  : 'border-slate-800 focus:border-brand focus:ring-brand/30',
-              ].join(' ')
-
-              return (
+        <section id="contact" className="space-y-4">
+          <SectionHeader
+            eyebrow="Contact"
+            title="Set your staff up in minutes"
+            description="Tell us your role, classification, and goal. We respond fast during in-season."
+            badge="White glove"
+          />
+          <GlassCard>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
+              {contactFields.map((field) => (
                 <label key={field.name} className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em]">{field.label}</span>
+                  <span className="uppercase tracking-[0.2em] text-slate-300">{field.label}</span>
                   {field.type === 'select' ? (
                     <select
                       name={field.name}
                       required={field.required}
-                      aria-required={field.required}
-                      aria-invalid={hasFieldError}
-                      aria-errormessage={hasFieldError ? 'contact-error' : undefined}
-                      aria-describedby={describedBy}
-                      className={inputClasses}
-                      defaultValue=""
+                      aria-label={field.label}
+                      autoComplete={field.autoComplete}
+                      className={`w-full rounded-xl border ${invalidField === field.name ? 'border-amber-500' : 'border-white/10'} bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30`}
                     >
-                      <option value="" disabled>
-                        Select {field.label.toLowerCase()}
-                      </option>
+                      <option value="">Select</option>
                       {field.options?.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -734,74 +613,89 @@ export default function Home() {
                       type={field.type}
                       name={field.name}
                       required={field.required}
-                      aria-required={field.required}
-                      aria-invalid={hasFieldError}
-                      aria-errormessage={hasFieldError ? 'contact-error' : undefined}
-                      aria-describedby={describedBy}
+                      aria-label={field.label}
                       autoComplete={field.autoComplete}
-                      className={inputClasses}
+                      className={`w-full rounded-xl border ${invalidField === field.name ? 'border-amber-500' : 'border-white/10'} bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30`}
                     />
                   )}
-                  <span id={descriptionId} className="block text-[0.7rem] text-slate-500">
-                    {field.description}
-                  </span>
+                  <span className="block text-[0.7rem] text-slate-500">{field.description}</span>
                 </label>
-              )
-            })}
-            <label className="space-y-1 text-xs text-slate-400 md:col-span-2">
-              <span className="uppercase tracking-[0.2em]">Plan of interest</span>
-              <select
-                name="plan"
-                value={selectedPlan}
-                onChange={(e) => {
-                  const next = e.target.value as Plan
-                  planRef.current = next
-                  setSelectedPlan(next)
-                }}
-                aria-describedby="contact-plan-description"
-                aria-label="Select your plan of interest"
-                className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors"
-              >
-                <option value="Elite">Elite</option>
-                <option value="Standard">Standard</option>
-              </select>
-              <span id="contact-plan-description" className="block text-[0.7rem] text-slate-500">
-                {planFieldDescription}
-              </span>
-            </label>
-            <div className="md:col-span-2 flex flex-wrap gap-3">
-              <button
-                type="submit"
-                onClick={() => {
-                  intentRef.current = 'elite_availability'
-                  planRef.current = 'Elite'
-                  setSelectedPlan('Elite')
-                }}
-                disabled={submitting}
-                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60"
-              >
-                {submitting && intentRef.current === 'elite_availability'
-                  ? 'Sending...'
-                  : 'Check availability'}
-              </button>
-              <button
-                type="submit"
-                onClick={() => {
-                  intentRef.current = 'demo_deck'
-                }}
-                disabled={submitting}
-                className="rounded-full border border-slate-700 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
-              >
-                {submitting && intentRef.current === 'demo_deck'
-                  ? 'Sending...'
-                  : 'Get the demo deck & playbook'}
-              </button>
-            </div>
-          </form>
+              ))}
+              <label className="space-y-1 text-xs text-slate-400 md:col-span-2">
+                <span className="uppercase tracking-[0.2em]">Plan of interest</span>
+                <select
+                  name="plan"
+                  value={selectedPlan}
+                  onChange={(e) => {
+                    const next = e.target.value as Plan
+                    planRef.current = next
+                    setSelectedPlan(next)
+                  }}
+                  aria-label="Select your plan of interest"
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                >
+                  <option value="Elite">Elite</option>
+                  <option value="Standard">Standard</option>
+                </select>
+                <span className="block text-[0.7rem] text-slate-500">
+                  {selectedPlan === 'Elite'
+                    ? 'Elite unlocks AI velocity, concierge analyst, and premium support.'
+                    : 'Standard includes core live charting, scouting imports, and staff controls.'}
+                </span>
+              </label>
+              <div className="md:col-span-2 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  onClick={() => {
+                    intentRef.current = 'elite_availability'
+                    planRef.current = 'Elite'
+                    setSelectedPlan('Elite')
+                    setSelectedIntent('elite_availability')
+                  }}
+                  disabled={submitting}
+                  className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60 disabled:opacity-60"
+                >
+                  {submitting && intentRef.current === 'elite_availability' ? 'Sending...' : 'Check availability'}
+                </button>
+                <button
+                  type="submit"
+                  onClick={() => {
+                    intentRef.current = 'demo_deck'
+                    setSelectedIntent('demo_deck')
+                  }}
+                  disabled={submitting}
+                  className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+                >
+                  {submitting && intentRef.current === 'demo_deck' ? 'Sending...' : 'Get the demo deck'}
+                </button>
+                <button
+                  type="submit"
+                  onClick={() => {
+                    intentRef.current = 'call_request'
+                    setSelectedIntent('call_request')
+                  }}
+                  disabled={submitting}
+                  className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+                >
+                  {submitting && intentRef.current === 'call_request' ? 'Sending...' : 'Request a call'}
+                </button>
+              </div>
+              {error ? (
+                <div className="md:col-span-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  {error}
+                </div>
+              ) : null}
+              {successIntent ? (
+                <div className="md:col-span-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                  {successCopy[successIntent]}
+                </div>
+              ) : null}
+            </form>
+          </GlassCard>
         </section>
       </div>
 
-      <footer className="border-t border-slate-900/60 bg-black/70" aria-label="BlitzIQ Pro marketing footer">
+      <footer className="border-t border-white/10 bg-black/70" aria-label="BlitzIQ Pro marketing footer">
         <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-slate-400">
           <div className="text-center md:text-left">
             <p aria-label={`Copyright ${currentYear} BlitzIQ Pro`}>
@@ -829,20 +723,3 @@ export default function Home() {
     </main>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

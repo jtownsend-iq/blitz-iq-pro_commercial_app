@@ -6,6 +6,7 @@ import PlayerGrid from '@/components/players/PlayerGrid'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
+import { CTAButton } from '@/components/ui/CTAButton'
 import type { FC } from 'react'
 
 type PlayerRow = {
@@ -145,7 +146,14 @@ const PlayersPage: FC = async () => {
         title="Players & Development"
         description="Track availability, pitch counts, assignments, and development signals to make faster, better game-time decisions."
         badge="Command Center"
-        actions={<Pill label="Live roster" tone="emerald" icon={<Users className="h-3 w-3" />} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill label="Live roster" tone="emerald" icon={<Users className="h-3 w-3" />} />
+            <CTAButton href="/settings#roster" variant="primary" size="sm">
+              Manage roster
+            </CTAButton>
+          </div>
+        }
       />
 
       <GlassCard>

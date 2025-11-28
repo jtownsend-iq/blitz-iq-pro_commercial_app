@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
+import { CTAButton } from '@/components/ui/CTAButton'
 
 export default async function ScoutingPage() {
   const supabase = await createSupabaseServerClient()
@@ -93,7 +94,14 @@ export default async function ScoutingPage() {
         title="Opponent Intelligence"
         description="Upload CSV data, review errors, and pull live tendencies for game planning and in-game decisions."
         badge="Command Center"
-        actions={<Pill label="Analysis" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill label="Analysis" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
+            <CTAButton href="/settings#gameplay" variant="secondary" size="sm">
+              Configure defaults
+            </CTAButton>
+          </div>
+        }
       />
 
       {importsError ? (
