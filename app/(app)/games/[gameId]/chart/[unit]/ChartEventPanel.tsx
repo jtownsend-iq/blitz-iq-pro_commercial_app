@@ -435,7 +435,7 @@ export function ChartEventPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-900/70 bg-surface-raised p-6 space-y-3 shadow-card">
+      <div className="rounded-2xl border border-slate-900/70 bg-hero-radial bg-surface-raised/90 p-6 space-y-3 shadow-card">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-slate-100">Live charting | {unitLabel}</h2>

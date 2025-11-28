@@ -153,7 +153,7 @@ export default async function ChartUnitPage({
 
   return (
     <section className="container space-y-8 py-8">
-      <header className="flex flex-col gap-3 rounded-2xl border border-slate-900/60 bg-surface-raised/70 p-6 shadow-card">
+      <header className="flex flex-col gap-3 rounded-2xl border border-slate-900/60 bg-hero-radial bg-surface-raised/80 p-6 shadow-card">
         <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
           {game.season_label || 'Season'}
         </div>
