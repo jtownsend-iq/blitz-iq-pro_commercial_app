@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import {
@@ -809,7 +809,7 @@ export default async function SettingsPage({
                 teamBrandingRow?.name ? 'Team' : '',
               ]
                 .filter(Boolean)
-                .join(' · ')}`}
+                .join('  |  ')}`}
             </p>
           </div>
           <Pill
@@ -2954,5 +2954,6 @@ function SettingsCard({
     </GlassCard>
   )
 }
+
 
 

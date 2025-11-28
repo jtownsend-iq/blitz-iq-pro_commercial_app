@@ -223,14 +223,14 @@ export default async function DashboardPage() {
 
     let importsQuery = supabase
       .from('scout_imports')
-      .select('id, status, error_log, opponent, season')
+      .select('id, status, error_log, opponent_name, season')
       .eq('team_id', activeTeam.id)
-      .eq('opponent', opponentFilter)
+      .eq('opponent_name', opponentFilter)
     let playsQuery = supabase
       .from('scout_plays')
       .select('*', { count: 'exact', head: true })
       .eq('team_id', activeTeam.id)
-      .eq('opponent', opponentFilter)
+      .eq('opponent_name', opponentFilter)
 
     if (seasonYear) {
       importsQuery = importsQuery.eq('season', seasonYear)
