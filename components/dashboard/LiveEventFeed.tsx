@@ -55,7 +55,10 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
               explosive: incoming.explosive,
               turnover: incoming.turnover,
               created_at: incoming.created_at,
-              game_sessions: normalizeEventSession((incoming as any).game_sessions ?? null),
+              game_sessions: normalizeEventSession(
+                // incoming may not contain joined session; fallback to null
+                (incoming as Partial<EventSummary> | null)?.game_sessions ?? null
+              ),
             } as EventSummary)
 
           if (!isMounted) return

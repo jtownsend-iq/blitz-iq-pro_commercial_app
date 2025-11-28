@@ -195,7 +195,6 @@ const pulseVariants = {
 
 export default function MarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<Plan>('Elite')
-  const [selectedIntent, setSelectedIntent] = useState<Intent>('elite_availability')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successIntent, setSuccessIntent] = useState<Intent | null>(null)
@@ -216,7 +215,6 @@ export default function MarketingPage() {
       intentRef.current = nextIntent
       planRef.current = nextPlan
       setSelectedPlan(nextPlan)
-      setSelectedIntent(nextIntent)
       setSuccessIntent(null)
       scrollToSection('contact')
     },
@@ -314,10 +312,15 @@ export default function MarketingPage() {
         <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-60" />
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="relative h-9 w-14 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            <div className="relative h-10 w-16 overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur">
               <Image src="/blitziq-logo.png" alt="BlitzIQ Pro logo" fill className="object-contain" priority />
             </div>
-            <span className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</span>
+            <div className="leading-tight">
+              <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</div>
+              <div className="text-[0.7rem] uppercase tracking-[0.16em] text-brand-soft">
+                Command every snap.
+              </div>
+            </div>
           </div>
           <nav className="hidden md:flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-300">
             {[
@@ -338,10 +341,6 @@ export default function MarketingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-slate-200">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.18)]" />
-              Live
-            </div>
             <Link
               href="/login"
               className="hidden sm:inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-3 py-2 text-[0.8rem] font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-brand hover:text-white transition"
@@ -646,37 +645,34 @@ export default function MarketingPage() {
               <div className="md:col-span-2 flex flex-wrap gap-3">
                 <button
                   type="submit"
-                  onClick={() => {
-                    intentRef.current = 'elite_availability'
-                    planRef.current = 'Elite'
-                    setSelectedPlan('Elite')
-                    setSelectedIntent('elite_availability')
-                  }}
-                  disabled={submitting}
-                  className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60 disabled:opacity-60"
-                >
+                onClick={() => {
+                  intentRef.current = 'elite_availability'
+                  planRef.current = 'Elite'
+                  setSelectedPlan('Elite')
+                }}
+                disabled={submitting}
+                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60 disabled:opacity-60"
+              >
                   {submitting && intentRef.current === 'elite_availability' ? 'Sending...' : 'Check availability'}
                 </button>
                 <button
                   type="submit"
-                  onClick={() => {
-                    intentRef.current = 'demo_deck'
-                    setSelectedIntent('demo_deck')
-                  }}
-                  disabled={submitting}
-                  className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
-                >
+                onClick={() => {
+                  intentRef.current = 'demo_deck'
+                }}
+                disabled={submitting}
+                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+              >
                   {submitting && intentRef.current === 'demo_deck' ? 'Sending...' : 'Get the demo deck'}
                 </button>
                 <button
                   type="submit"
-                  onClick={() => {
-                    intentRef.current = 'call_request'
-                    setSelectedIntent('call_request')
-                  }}
-                  disabled={submitting}
-                  className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
-                >
+                onClick={() => {
+                  intentRef.current = 'call_request'
+                }}
+                disabled={submitting}
+                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+              >
                   {submitting && intentRef.current === 'call_request' ? 'Sending...' : 'Request a call'}
                 </button>
               </div>

@@ -40,7 +40,6 @@ export function AppShell({
   tenantTheme,
   shellConfig,
 }: AppShellProps) {
-  const pathname = usePathname()
   const mergedVariant = shellConfig?.variant ?? defaultShellConfig.variant
   const mergedNavItems = shellConfig?.navItems ?? navItems ?? []
   const mergedShowFooter =

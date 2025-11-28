@@ -5,7 +5,6 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Pill } from '@/components/ui/Pill'
 import { StatBadge } from '@/components/ui/StatBadge'
-import { MotionList } from '@/components/ui/MotionList'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { InputField } from '@/components/ui/InputField'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -53,10 +52,10 @@ type SessionRow = {
 export default async function GamesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; reason?: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
   const supabase = await createSupabaseServerClient()
-  const resolvedSearchParams = await searchParams
+  const resolvedSearchParams = (searchParams ? await searchParams : {}) ?? {}
 
   const {
     data: { user },
@@ -120,6 +119,13 @@ export default async function GamesPage({
     }
   }
 
+  const liveSessionsCount = Object.values(sessionsByGame)
+    .flat()
+    .filter((session) => session.status === 'active').length
+  const pendingSessionsCount = Object.values(sessionsByGame)
+    .flat()
+    .filter((session) => session.status === 'pending').length
+
   const formatKickoff = (value: string | null) => {
     if (!value) return 'Kickoff TBD'
     const date = new Date(value)
@@ -131,19 +137,29 @@ export default async function GamesPage({
     }).format(date)
   }
 
-  const renderErrorMessage = (code: string, reason?: string) => {
+  const nextKickoff = games
+    .map((game) => game.start_time)
+    .filter(Boolean)
+    .map((t) => new Date(t as string).getTime())
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b)[0]
+
+  const renderErrorMessage = (code: string | null, reason?: string | null) => {
     const map: Record<string, string> = {
       invalid_game: 'Please check all required fields and use a valid kickoff time.',
       create_failed: 'Could not create the game. Please try again or contact an admin.',
     }
-    if (reason) {
-      return `${map[code] || 'Unable to create game.'} (${reason})`
-    }
-    return map[code] || 'Unable to create game.'
+    const base = code && code in map ? map[code] : 'Unable to create game.'
+    if (reason) return `${base} (${reason})`
+    return base
   }
 
-  const errorCode = resolvedSearchParams?.error
-  const errorReason = resolvedSearchParams?.reason
+  const errorCode = Array.isArray(resolvedSearchParams.error)
+    ? resolvedSearchParams.error[0]
+    : resolvedSearchParams.error ?? null
+  const errorReason = Array.isArray(resolvedSearchParams.reason)
+    ? resolvedSearchParams.reason[0]
+    : resolvedSearchParams.reason ?? null
 
   return (
     <section className="space-y-8">
@@ -155,6 +171,9 @@ export default async function GamesPage({
           <div className="flex flex-wrap gap-2">
             <Pill label="Live sessions" tone="emerald" icon={<Radio className="h-3 w-3" />} />
             <Pill label="Schedule" tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
+            <CTAButton href="/onboarding/quickstart" variant="secondary" size="sm">
+              Quickstart
+            </CTAButton>
           </div>
         }
         badge="Command Center"
@@ -178,7 +197,7 @@ export default async function GamesPage({
           <div className="grid grid-cols-3 gap-2">
             <StatBadge label="Games scheduled" value={games.length} tone="cyan" />
             <StatBadge label="Active units" value={unitConfigs.length} tone="emerald" />
-            <StatBadge label="Live sessions" value={Object.keys(sessionsByGame).length} tone="amber" />
+            <StatBadge label="Live sessions" value={liveSessionsCount} tone="amber" />
           </div>
         </div>
         <form
@@ -242,6 +261,36 @@ export default async function GamesPage({
         </form>
       </GlassCard>
 
+      <GlassCard>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Operational status</p>
+            <h2 className="text-base font-semibold text-slate-50">Readiness snapshot</h2>
+            <p className="text-sm text-slate-400">
+              {liveSessionsCount} active | {pendingSessionsCount} pending | {games.length} games scheduled
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <StatBadge label="Pending sessions" value={pendingSessionsCount} tone="slate" />
+            <StatBadge
+              label="Next kickoff"
+              value={
+                nextKickoff
+                  ? new Intl.DateTimeFormat('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }).format(new Date(nextKickoff))
+                  : 'TBD'
+              }
+              tone="cyan"
+            />
+            <StatBadge label="Open slots" value={Math.max(unitConfigs.length - liveSessionsCount, 0)} tone="emerald" />
+          </div>
+        </div>
+      </GlassCard>
+
       {games.length === 0 ? (
         <EmptyState
           icon={<Gamepad2 className="h-10 w-10 text-slate-500" />}
@@ -255,82 +304,79 @@ export default async function GamesPage({
         />
       ) : (
         <div className="space-y-6">
-          <MotionList
-            items={games}
-            getKey={(game) => game.id}
-            renderItem={(game) => {
-              const sessions = sessionsByGame[game.id] ?? []
-              return (
-                <GlassCard className="space-y-6">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
-                      <Pill label={game.season_label || 'Season TBD'} tone="slate" />
-                      <Pill label={formatKickoff(game.start_time)} tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
-                    </div>
-                    <h2 className="text-2xl font-semibold text-slate-50">
-                      {game.opponent_name || 'Opponent TBD'}
-                    </h2>
-                    <p className="text-sm text-slate-400">
-                      {[
-                        formatKickoff(game.start_time),
-                        game.home_away ? game.home_away.toUpperCase() : null,
-                        game.location || 'Venue TBD',
-                      ]
-                        .filter(Boolean)
-                        .join(' | ')}
-                    </p>
-                    <p className="text-xs text-slate-400 flex items-center gap-2">
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                      Status: {game.status ? game.status.toUpperCase() : 'SCHEDULED'}
-                    </p>
+          {games.map((game) => {
+            const sessions = sessionsByGame[game.id] ?? []
+            return (
+              <GlassCard key={game.id} className="space-y-6">
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
+                    <Pill label={game.season_label || 'Season TBD'} tone="slate" />
+                    <Pill label={formatKickoff(game.start_time)} tone="cyan" icon={<CalendarClock className="h-3 w-3" />} />
                   </div>
+                  <h2 className="text-2xl font-semibold text-slate-50">
+                    {game.opponent_name || 'Opponent TBD'}
+                  </h2>
+                  <p className="text-sm text-slate-400">
+                    {[
+                      formatKickoff(game.start_time),
+                      game.home_away ? game.home_away.toUpperCase() : null,
+                      game.location || 'Venue TBD',
+                    ]
+                      .filter(Boolean)
+                      .join(' | ')}
+                  </p>
+                  <p className="text-xs text-slate-400 flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                    Status: {game.status ? game.status.toUpperCase() : 'SCHEDULED'}
+                  </p>
+                </div>
 
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {unitConfigs.map((unit) => {
-                      const activeSession = sessions.find(
-                        (session) =>
-                          session.unit === unit.key && session.status === 'active'
-                      )
-                      const pendingSession = sessions.find(
-                        (session) =>
-                          session.unit === unit.key && session.status === 'pending'
-                      )
-                      const disabled = Boolean(activeSession || pendingSession)
+                <div className="grid gap-4 md:grid-cols-3">
+                  {unitConfigs.map((unit) => {
+                    const activeSession = sessions.find(
+                      (session) =>
+                        session.unit === unit.key && session.status === 'active'
+                    )
+                    const pendingSession = sessions.find(
+                      (session) =>
+                        session.unit === unit.key && session.status === 'pending'
+                    )
+                    const disabled = Boolean(activeSession || pendingSession)
 
-                      return (
-                        <GlassCard key={unit.key} padding="md" className="flex flex-col gap-3" interactive>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
-                            <p className="text-xs text-slate-500">{unit.description}</p>
-                          </div>
+                    return (
+                      <GlassCard key={unit.key} padding="md" className="flex flex-col gap-3" interactive>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
+                          <p className="text-xs text-slate-500">{unit.description}</p>
+                        </div>
 
-                          {activeSession ? (
-                            <div className="space-y-3">
-                              <Pill
-                                label={`Active | Analyst ${activeSession.analyst_user_id ? activeSession.analyst_user_id.slice(0, 6) : 'Assigned'}`}
-                                tone="emerald"
-                                icon={<Play className="h-3.5 w-3.5" />}
-                              />
-                              <div className="flex gap-2">
+                        {activeSession ? (
+                          <div className="space-y-3">
+                            <Pill
+                              label={`Active | Analyst ${activeSession.analyst_user_id ? activeSession.analyst_user_id.slice(0, 6) : 'Assigned'}`}
+                              tone="emerald"
+                              icon={<Play className="h-3.5 w-3.5" />}
+                            />
+                            <div className="flex gap-2">
                               <a
                                 href={`/games/${game.id}/chart/${unit.key.toLowerCase()}`}
                                 className="flex-1 rounded-full bg-brand px-3 py-1.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-black"
                               >
                                 Open chart
                               </a>
-                                <form
-                                  action={async (formData) => {
-                                    'use server'
-                                    await closeGameSession(formData)
-                                    return
-                                  }}
-                                  className="flex-1"
-                                >
-                                  <input
-                                    type="hidden"
-                                    name="sessionId"
-                                    value={activeSession.id}
-                                  />
+                              <form
+                                action={async (formData) => {
+                                  'use server'
+                                  await closeGameSession(formData)
+                                  return
+                                }}
+                                className="flex-1"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="sessionId"
+                                  value={activeSession.id}
+                                />
                                 <CTAButton type="submit" variant="secondary" fullWidth size="sm">
                                   Close
                                 </CTAButton>
@@ -338,18 +384,18 @@ export default async function GamesPage({
                             </div>
                           </div>
                         ) : pendingSession ? (
-                            <Pill label="Pending session exists | resume from chart" tone="amber" icon={<PauseCircle className="h-3.5 w-3.5" />} />
-                          ) : (
-                            <form
-                              action={async (formData) => {
-                                'use server'
-                                await startGameSession(formData)
-                                return
-                              }}
-                              className="space-y-2"
-                            >
-                              <input type="hidden" name="gameId" value={game.id} />
-                              <input type="hidden" name="unit" value={unit.key} />
+                          <Pill label="Pending session exists | resume from chart" tone="amber" icon={<PauseCircle className="h-3.5 w-3.5" />} />
+                        ) : (
+                          <form
+                            action={async (formData) => {
+                              'use server'
+                              await startGameSession(formData)
+                              return
+                            }}
+                            className="space-y-2"
+                          >
+                            <input type="hidden" name="gameId" value={game.id} />
+                            <input type="hidden" name="unit" value={unit.key} />
                             <CTAButton type="submit" disabled={disabled} fullWidth size="sm">
                               Start session
                             </CTAButton>
@@ -358,11 +404,10 @@ export default async function GamesPage({
                       </GlassCard>
                     )
                   })}
-                  </div>
-                </GlassCard>
-              )
-            }}
-          />
+                </div>
+              </GlassCard>
+            )
+          })}
         </div>
       )}
     </section>
