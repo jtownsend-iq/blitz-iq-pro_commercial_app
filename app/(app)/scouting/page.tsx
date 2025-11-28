@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Clock3, Crosshair, FileWarning, ShieldAlert, Table2 } from 'lucide-react'
+import { Clock3, Crosshair, ShieldAlert, Table2 } from 'lucide-react'
 import ScoutingBoard from '@/components/scout/ScoutingBoard'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { SectionHeader } from '@/components/ui/SectionHeader'
@@ -250,15 +250,6 @@ export default async function ScoutingPage() {
           </ScoutingSection>
 
           <ScoutingSection id="imports" title="CSV imports">
-            {importsError ? (
-              <GlassCard tone="amber">
-                <div className="flex items-center gap-2 text-sm text-amber-100">
-                  <FileWarning className="h-4 w-4" />
-                  <span>Failed to load imports: {importsError.message}</span>
-                </div>
-              </GlassCard>
-            ) : null}
-
             <GlassCard className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -271,12 +262,16 @@ export default async function ScoutingPage() {
                 <Pill label="CSV" tone="cyan" icon={<Table2 className="h-3 w-3" />} />
               </div>
 
+              {importsError ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                  Failed to load imports: {importsError.message}
+                </div>
+              ) : null}
+
               {imports.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
                   <p className="text-sm font-semibold text-slate-200">No imports yet</p>
-                  <p className="text-xs text-slate-500">
-                    Upload scouting CSVs to power BlitzIQ&apos;s LLM analysis for pregame reports and in-game tendencies.
-                  </p>
+                  <p className="text-xs text-slate-500">Upload scouting CSVs to power BlitzIQ&apos;s LLM analysis for pregame reports and in-game tendencies.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -292,41 +287,44 @@ export default async function ScoutingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {imports.map((imp) => (
-                        <tr key={imp.id} className="border-t border-slate-900/50">
-                          <td className="px-3 py-2">{imp.opponent_name}</td>
-                          <td className="px-3 py-2">{imp.season || '--'}</td>
-                          <td className="px-3 py-2">{imp.original_filename || imp.file_hash || '--'}</td>
-                          <td className="px-3 py-2 text-slate-400">
-                            {new Date(imp.created_at).toLocaleString()}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                imp.status === 'completed'
-                                  ? 'bg-emerald-500/15 text-emerald-100'
-                                  : imp.status === 'failed'
-                                  ? 'bg-rose-500/15 text-rose-100'
-                                  : 'bg-amber-500/15 text-amber-100'
-                              }`}
-                            >
-                              {imp.status}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-slate-300">
-                            {imp.error_log ? (
-                              <details className="space-y-1 rounded border border-slate-800 bg-slate-900/60 px-3 py-2">
-                                <summary className="cursor-pointer text-amber-200">View log</summary>
-                                <pre className="whitespace-pre-wrap break-words text-[0.7rem] text-slate-200">
-                                  {JSON.stringify(imp.error_log, null, 2)}
-                                </pre>
-                              </details>
-                            ) : (
-                              <span className="text-slate-500">--</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {imports.map((imp) => {
+                        const hasError = imp.status === 'failed' || (imp.error_log && Object.keys(imp.error_log).length)
+                        return (
+                          <tr key={imp.id} className="border-t border-slate-900/50">
+                            <td className="px-3 py-2">{imp.opponent_name}</td>
+                            <td className="px-3 py-2">{imp.season || '--'}</td>
+                            <td className="px-3 py-2">{imp.original_filename || imp.file_hash || '--'}</td>
+                            <td className="px-3 py-2 text-slate-400">
+                              {new Date(imp.created_at).toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  imp.status === 'completed'
+                                    ? 'bg-emerald-500/15 text-emerald-100'
+                                    : imp.status === 'failed'
+                                    ? 'bg-rose-500/15 text-rose-100'
+                                    : 'bg-amber-500/15 text-amber-100'
+                                }`}
+                              >
+                                {imp.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-slate-300">
+                              {hasError ? (
+                                <details className="space-y-1 rounded border border-slate-800 bg-slate-900/60 px-3 py-2">
+                                  <summary className="cursor-pointer text-amber-200">View log</summary>
+                                  <pre className="whitespace-pre-wrap break-words text-[0.7rem] text-slate-200">
+                                    {JSON.stringify(imp.error_log, null, 2)}
+                                  </pre>
+                                </details>
+                              ) : (
+                                <span className="text-slate-500">--</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -335,26 +333,22 @@ export default async function ScoutingPage() {
           </ScoutingSection>
 
           <ScoutingSection id="workspace" title="Scouting workspace">
-            {importsError ? (
-              <GlassCard tone="amber">
-                <div className="flex items-center gap-2 text-sm text-amber-100">
-                  <FileWarning className="h-4 w-4" />
-                  <span>Imports failed to load. Retry after fixing the file or headers.</span>
-                </div>
-              </GlassCard>
-            ) : null}
             <GlassCard className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Workspace</p>
                   <h3 className="text-base font-semibold text-slate-100">Upload, map, clean, explore</h3>
                   <p className="text-sm text-slate-400">
-                    Select opponents, upload CSVs, map columns to BlitzIQ tags, resolve row errors, and explore tendencies.
-                    When imports are clean, AI reports and in-game charts treat that opponent as ready.
+                    Select opponents, upload CSVs, map columns to BlitzIQ tags, resolve row errors, and explore tendencies so data is ready for analysis.
                   </p>
                 </div>
                 <Pill label="Live data" tone="emerald" />
               </div>
+              {importsError ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                  Imports failed to load. Retry after fixing the file or headers.
+                </div>
+              ) : null}
               <GlassCard>
                 <ScoutingBoard teamId={activeTeamId} opponents={uniqueOpponentsList} imports={imports} />
               </GlassCard>
