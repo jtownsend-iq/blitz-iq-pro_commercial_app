@@ -112,6 +112,32 @@ select:focus-visible {
   box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.18);
 }
 
+input,
+textarea,
+select {
+  border-radius: var(--radius-xl);
+  padding: 0.75rem 1rem;
+  border: 1px solid #0f172a;
+  background: var(--surface-muted);
+  color: var(--foreground);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+button {
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Cards & surface helpers */
 .surface-shell {
   background: var(--surface);
