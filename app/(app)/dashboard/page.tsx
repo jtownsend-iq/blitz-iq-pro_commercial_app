@@ -1,74 +1,29 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
+import { Sparkles } from 'lucide-react'
+import { LiveEventFeed } from '@/components/dashboard/LiveEventFeed'
+import { LiveSessionList } from '@/components/dashboard/LiveSessionList'
+import { StatsGrid } from '@/components/dashboard/StatsGrid'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { DashboardRealtimeClient } from './RealtimeClient'
-import { setActiveTeam } from './actions'
 import { ActionButton } from './ActionButton'
-
-type TeamRow = {
-  id: string
-  name: string | null
-  level: string | null
-  school_name: string | null
-}
-
-type TeamMemberRow = {
-  team_id: string
-  role: string | null
-}
-
-type SessionSummary = {
-  id: string
-  unit: string
-  status: string
-  started_at: string | null
-  game_id: string
-  games: SessionSummaryGame | null
-}
-
-type SessionSummaryGame = {
-  opponent_name: string | null
-  start_time: string | null
-}
-
-type SessionRow = {
-  id: string
-  unit: string
-  status: string
-  started_at: string | null
-  game_id: string
-  games: SessionSummaryGame | SessionSummaryGame[] | null
-}
-
-type EventSummary = {
-  id: string
-  sequence: number
-  play_call: string | null
-  result: string | null
-  gained_yards: number | null
-  explosive: boolean | null
-  turnover: boolean | null
-  created_at: string | null
-  game_sessions: EventSummarySession | null
-}
-
-type EventSummarySession = {
-  unit: string | null
-  game_id: string | null
-}
-
-type EventRow = {
-  id: string
-  sequence: number
-  play_call: string | null
-  result: string | null
-  gained_yards: number | null
-  explosive: boolean | null
-  turnover: boolean | null
-  created_at: string | null
-  game_sessions: EventSummarySession | EventSummarySession[] | null
-}
+import { setActiveTeam } from './actions'
+import {
+  buildExplosiveSparkline,
+  buildVolumeSparkline,
+  normalizeEventSession,
+  normalizeSessionGame,
+} from './utils'
+import {
+  DashboardCounts,
+  EventRow,
+  EventSummary,
+  SessionRow,
+  SessionSummary,
+  TeamMemberRow,
+  TeamRow,
+} from './types'
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
@@ -150,13 +105,7 @@ export default async function DashboardPage() {
   let turnovers = 0
 
   if (activeTeam) {
-    const [
-      sessionsRes,
-      eventsRes,
-      totalPlaysRes,
-      explosiveRes,
-      turnoverRes,
-    ] = await Promise.all([
+    const [sessionsRes, eventsRes, totalPlaysRes, explosiveRes, turnoverRes] = await Promise.all([
       supabase
         .from('game_sessions')
         .select('id, unit, status, started_at, game_id, games ( opponent_name, start_time )')
@@ -170,7 +119,7 @@ export default async function DashboardPage() {
         )
         .eq('team_id', activeTeam.id)
         .order('created_at', { ascending: false })
-        .limit(12),
+        .limit(14),
       supabase
         .from('chart_events')
         .select('*', { count: 'exact', head: true })
@@ -210,85 +159,90 @@ export default async function DashboardPage() {
     totalPlays = totalPlaysRes.count ?? 0
     explosivePlays = explosiveRes.count ?? 0
     turnovers = turnoverRes.count ?? 0
-
   }
 
   const activeRole =
     memberships.find((m) => m.team_id === activeTeamId)?.role || memberships[0]?.role || 'Coach'
 
-  const stats = [
-    { label: 'Total plays logged', value: totalPlays.toLocaleString(), helper: 'All-time snaps' },
-    { label: 'Explosive plays', value: explosivePlays.toString(), helper: 'Tagged explosive' },
-    { label: 'Turnovers recorded', value: turnovers.toString(), helper: 'Fumbles & INTs' },
-    {
-      label: 'Active sessions',
-      value: sessionSummaries.filter((s) => s.status === 'active').length.toString(),
-      helper: 'Analysts charting now',
-    },
-  ]
+  const statsCounts: DashboardCounts = {
+    totalPlays,
+    explosivePlays,
+    turnovers,
+    activeSessions: sessionSummaries.filter((s) => s.status === 'active').length,
+  }
+
+  const volumeSparkline = buildVolumeSparkline(recentEvents)
+  const explosiveSparkline = buildExplosiveSparkline(recentEvents)
 
   return (
     <section className="container space-y-8 py-6">
-      <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-900/60 bg-black/60 px-4 py-3 backdrop-blur-md shadow-card">
-        <div className="flex flex-wrap items-center gap-2 text-[0.75rem] text-slate-200">
-          <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">Role: {activeRole || 'Coach'}</span>
-          {activeTeam && (
-            <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
-              Team: {activeTeam.name || 'Unnamed'}
-            </span>
-          )}
-          <span className="pill bg-emerald-500/10 border-emerald-700/40 text-emerald-300">Live updates</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/games" className="btn-primary text-[0.75rem] tracking-[0.2em]">
-            Go to Games
-          </Link>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-900/60 bg-surface-muted/70 p-5 shadow-card">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <h1 className="font-display text-3xl md:text-4xl font-semibold text-slate-50">Command Center</h1>
-            <p className="text-sm text-slate-400">
-              {activeRole || 'Coach'} | {activeTeam ? activeTeam.name || 'Unnamed Team' : 'No team'}{' '}
-              {activeTeam?.school_name ? `| ${activeTeam.school_name}` : ''}{' '}
-              {activeTeam?.level ? `| ${activeTeam.level}` : ''} | Live updates on
-            </p>
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/70 to-black/60 p-6 shadow-[0_25px_80px_-40px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(52,211,153,0.12),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.12),transparent_30%)]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-[0.26em] text-emerald-100">
+              <Sparkles className="h-4 w-4" />
+              Command Center
+            </div>
+            <div>
+              <h1 className="font-display text-3xl font-semibold text-slate-50 md:text-4xl">
+                Game day intelligence
+              </h1>
+              <p className="text-sm text-slate-300">
+                {activeRole || 'Coach'} | {activeTeam ? activeTeam.name || 'Unnamed Team' : 'No team'}{' '}
+                {activeTeam?.school_name ? `| ${activeTeam.school_name}` : ''}{' '}
+                {activeTeam?.level ? `| ${activeTeam.level}` : ''} | Live updates enabled
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[0.75rem] text-slate-200">
+              <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
+                Role: {activeRole || 'Coach'}
+              </span>
+              {activeTeam && (
+                <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
+                  Team: {activeTeam.name || 'Unnamed'}
+                </span>
+              )}
+              <span className="pill bg-emerald-500/10 border-emerald-700/40 text-emerald-300">
+                Live updates
+              </span>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col items-start gap-3 lg:items-end">
             <Link href="/games" className="btn-primary text-[0.75rem] tracking-[0.2em]">
               Go to Games
             </Link>
+            {teams.length > 0 && (
+              <form
+                action={async (formData) => {
+                  'use server'
+                  await setActiveTeam(formData)
+                }}
+                className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-black/50 px-3 py-2 text-sm backdrop-blur"
+              >
+                <label htmlFor="teamId" className="text-slate-400">
+                  Team
+                </label>
+                <select
+                  id="teamId"
+                  name="teamId"
+                  defaultValue={activeTeam?.id}
+                  className="rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                >
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name || 'Unnamed Team'}
+                    </option>
+                  ))}
+                </select>
+                <ActionButton label="Switch" pendingLabel="Switching..." />
+              </form>
+            )}
           </div>
         </div>
-        {teams.length > 0 && (
-          <form
-            action={async (formData) => {
-              'use server'
-              await setActiveTeam(formData)
-            }}
-            className="mt-4 flex flex-wrap items-center gap-2 text-sm"
-          >
-            <label htmlFor="teamId" className="text-slate-400">
-              Team
-            </label>
-            <select
-              id="teamId"
-              name="teamId"
-              defaultValue={activeTeam?.id}
-              className="rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-            >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name || 'Unnamed Team'}
-                </option>
-              ))}
-            </select>
-            <ActionButton label="Switch" pendingLabel="Switching..." />
-          </form>
-        )}
       </div>
+
+      <StatsGrid totals={statsCounts} volumeTrend={volumeSparkline} explosiveTrend={explosiveSparkline} />
 
       <Suspense
         fallback={
@@ -299,211 +253,48 @@ export default async function DashboardPage() {
           </div>
         }
       >
-        <DashboardRealtimeClient teamId={activeTeam.id} />
+        <DashboardRealtimeClient
+          key={activeTeam.id}
+          teamId={activeTeam.id}
+          initialCounts={statsCounts}
+          initialSessions={sessionSummaries}
+        />
       </Suspense>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-slate-900/60 bg-surface-muted/70 p-4 shadow-card space-y-2"
-          >
-            <p className="text-[0.7rem] uppercase tracking-[0.24em] text-slate-500">{stat.label}</p>
-            <p className="text-3xl font-semibold text-slate-50">{stat.value}</p>
-            <p className="text-xs text-slate-400">{stat.helper}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-900/70 bg-surface-raised/80 p-6 space-y-4 shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-100">Live sessions</h2>
-                <p className="text-sm text-slate-500">
-                  Jump into active charting or review recent sessions.
-                </p>
-              </div>
-            </div>
-            {sessionSummaries.length === 0 ? (
-              <div className="empty-state text-sm">
-                <p>No sessions yet. Start offense, defense, or special teams from Games.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sessionSummaries.map((session, idx) => (
-                  <div
-                    key={session.id}
-                    className={`rounded-2xl border border-slate-900/70 p-4 flex flex-col gap-1 shadow-card ${
-                      idx % 2 === 0 ? 'bg-surface-muted/70' : 'bg-slate-950/40'
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-100">
-                        {formatUnitLabel(session.unit)}
-                      </div>
-                      <span
-                        className={`text-[0.65rem] uppercase tracking-[0.3em] ${
-                          session.status === 'active' ? 'text-emerald-300' : 'text-slate-500'
-                        }`}
-                      >
-                        {session.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      vs {session.games?.opponent_name || 'Opponent TBD'} |{' '}
-                      {formatDateShort(session.games?.start_time ?? null)}
-                    </p>
-                    <div className="flex flex-wrap gap-2 pt-2 text-xs">
-                      <Link
-                      href={`/games/${session.game_id}/chart/${(session.unit || '')
-                        .toLowerCase()
-                        .replace('_', '-')}`}
-                        className="btn-primary text-[0.75rem]"
-                      >
-                        Open chart
-                      </Link>
-                      <span className="rounded-full border border-slate-800 px-3 py-1 text-slate-400">
-                        Started {formatRelativeTime(session.started_at)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-slate-900/70 bg-black/25 p-6 space-y-4 shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-100">Recent plays logged</h2>
-                <p className="text-sm text-slate-500">
-                  Live feed of the latest charted plays across your sessions.
-                </p>
-              </div>
-            </div>
-            {recentEvents.length === 0 ? (
-              <div className="empty-state text-sm">
-                <p>No plays yet. Start a session in Games to see the live feed.</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                {recentEvents.map((event, idx) => (
-                  <div
-                    key={event.id}
-                    className={`rounded-2xl border border-slate-900/60 px-4 py-3 text-sm text-slate-200 shadow-card ${
-                      idx % 2 === 0 ? 'bg-surface-muted/60' : 'bg-slate-950/50'
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                      <span>{formatUnitLabel(event.game_sessions?.unit)}</span>
-                      <span>
-                        Seq {event.sequence} | {formatEventTimestamp(event.created_at)}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-semibold text-slate-100">
-                      {event.play_call || 'Play call TBD'}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {event.result || 'Result TBD'} | Yardage:{' '}
-                      {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
-                    </div>
-                    <div className="text-[0.65rem] text-slate-500">
-                      {event.explosive ? 'Explosive | ' : ''}
-                      {event.turnover ? 'Turnover | ' : ''}
-                      {event.game_sessions?.unit
-                        ? `Session ${event.game_sessions.unit.toLowerCase()}`
-                        : ''}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {teams.length > 1 && (
-            <div className="rounded-2xl border border-slate-900/70 bg-black/30 p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
-              <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                {teams.map((team) => {
-                  const membership = memberships.find((m) => m.team_id === team.id)
-                  return (
-                    <li
-                      key={team.id}
-                      className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/30 px-3 py-2"
-                    >
-                      <div>
-                        <p className="font-semibold text-slate-100">
-                          {team.name || 'Unnamed Team'}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {team.school_name || 'School TBD'}
-                          {team.level && ` | ${team.level}`}
-                        </p>
-                      </div>
-                      {membership?.role && (
-                        <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                          {membership.role}
-                        </span>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
-        </div>
+        <LiveSessionList sessions={sessionSummaries} />
+        <LiveEventFeed key={activeTeam.id} teamId={activeTeam.id} initialEvents={recentEvents} />
       </div>
+
+      {teams.length > 1 && (
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-6 shadow-[0_25px_80px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+          <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {teams.map((team) => {
+              const membership = memberships.find((m) => m.team_id === team.id)
+              return (
+                <li
+                  key={team.id}
+                  className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-100">{team.name || 'Unnamed Team'}</p>
+                    <p className="text-xs text-slate-500">
+                      {team.school_name || 'School TBD'}
+                      {team.level && ` | ${team.level}`}
+                    </p>
+                  </div>
+                  {membership?.role && (
+                    <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
+                      {membership.role}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
     </section>
   )
-}
-
-function normalizeSessionGame(games: SessionRow['games']): SessionSummaryGame | null {
-  if (!games) return null
-  return Array.isArray(games) ? games[0] ?? null : games
-}
-
-function normalizeEventSession(
-  gameSessions: EventRow['game_sessions']
-): EventSummarySession | null {
-  if (!gameSessions) return null
-  return Array.isArray(gameSessions) ? gameSessions[0] ?? null : gameSessions
-}
-
-function formatUnitLabel(unit?: string | null) {
-  if (!unit) return 'Unknown unit'
-  const lower = unit.toLowerCase()
-  if (lower === 'special_teams') return 'Special Teams'
-  return lower.charAt(0).toUpperCase() + lower.slice(1)
-}
-
-function formatDateShort(value: string | null) {
-  if (!value) return 'TBD'
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
-}
-
-function formatRelativeTime(value: string | null) {
-  if (!value) return 'unknown'
-  const delta = Date.now() - new Date(value).getTime()
-  const minutes = Math.floor(delta / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
-function formatEventTimestamp(value: string | null) {
-  if (!value) return 'just now'
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
 }
