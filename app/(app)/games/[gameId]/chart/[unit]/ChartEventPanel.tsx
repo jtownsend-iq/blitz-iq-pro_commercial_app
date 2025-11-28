@@ -461,133 +461,140 @@ export function ChartEventPanel({
       <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-5">
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
-              Situation (Quarter / Clock / Down & Distance / Ball)
-            </h3>
-            <div className="flex flex-wrap gap-3">
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Quarter</span>
-                <select
-                  name="quarter"
-                  value={quarterValue}
-                  onChange={(e) => setQuarterValue(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+            <section className="space-y-3">
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Situation</h3>
+              <p className="text-xs text-slate-400">Quarter, clock, down & distance, ball, hash, drive</p>
+              <div className="flex flex-wrap gap-3">
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Quarter</span>
+                  <select
+                    name="quarter"
+                    value={quarterValue}
+                    onChange={(e) => setQuarterValue(e.target.value)}
+                    className="w-28 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  >
+                    <option value="">--</option>
+                    {quarterOptions.map((q) => (
+                      <option key={q} value={q}>
+                        {q}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Clock (MM:SS)</span>
+                  <input
+                    name="clock"
+                    placeholder="12:34"
+                    pattern="[0-5]?[0-9]:[0-5][0-9]"
+                    className="w-28 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Down</span>
+                  <select
+                    name="down"
+                    className="w-24 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  >
+                    {downOptions.map((option) => (
+                      <option key={option.label} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Distance</span>
+                  <input
+                    name="distance"
+                    type="number"
+                    min={1}
+                    className="w-24 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Ball on</span>
+                  <input
+                    name="ballOn"
+                    value={ballOnValue}
+                    onChange={(e) => setBallOnValue(e.target.value)}
+                    placeholder="O35"
+                    className="w-28 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Hash</span>
+                  <select
+                    name="hashMark"
+                    value={hashValue}
+                    onChange={(e) => setHashValue(e.target.value)}
+                    className="w-28 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  >
+                    {hashOptions.map((option) => (
+                      <option key={option.label} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Drive #</span>
+                  <input
+                    name="driveNumber"
+                    type="number"
+                    min={1}
+                    className="w-28 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="space-y-3 border-t border-slate-900/70 pt-4">
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Call setup</h3>
+              <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-surface-muted p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RUN')}
+                  className={`rounded-full px-3 py-1 ${
+                    playFamily === 'RUN' ? 'bg-brand text-black' : 'text-slate-300'
+                  }`}
                 >
-                  <option value="">--</option>
-                  {quarterOptions.map((q) => (
-                    <option key={q} value={q}>
-                      {q}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Clock (MM:SS)</span>
-                <input
-                  name="clock"
-                  placeholder="12:34"
-                  pattern="[0-5]?[0-9]:[0-5][0-9]"
-                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
-                />
-              </label>
-
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Down</span>
-                <select
-                  name="down"
-                  className="w-24 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  Run
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS')}
+                  className={`rounded-full px-3 py-1 ${
+                    playFamily === 'PASS' ? 'bg-brand text-black' : 'text-slate-300'
+                  }`}
                 >
-                  {downOptions.map((option) => (
-                    <option key={option.label} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Distance</span>
-                <input
-                  name="distance"
-                  type="number"
-                  min={1}
-                  className="w-24 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
-                />
-              </label>
-
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Ball on</span>
-                <input
-                  name="ballOn"
-                  value={ballOnValue}
-                  onChange={(e) => setBallOnValue(e.target.value)}
-                  placeholder="O35"
-                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
-                />
-              </label>
-
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Hash</span>
-                <select
-                  name="hashMark"
-                  value={hashValue}
-                  onChange={(e) => setHashValue(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  Pass
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RPO')}
+                  className={`rounded-full px-3 py-1 ${
+                    playFamily === 'RPO' ? 'bg-brand text-black' : 'text-slate-300'
+                  }`}
                 >
-                  {hashOptions.map((option) => (
-                    <option key={option.label} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
-              Call family (Run / Pass / RPO / ST)
-            </h3>
-            <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-surface-muted p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RUN')}
-                className={`rounded-full px-3 py-1 ${
-                  playFamily === 'RUN' ? 'bg-brand text-black' : 'text-slate-300'
-                }`}
-              >
-                Run
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS')}
-                className={`rounded-full px-3 py-1 ${
-                  playFamily === 'PASS' ? 'bg-brand text-black' : 'text-slate-300'
-                }`}
-              >
-                Pass
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RPO')}
-                className={`rounded-full px-3 py-1 ${
-                  playFamily === 'RPO' ? 'bg-brand text-black' : 'text-slate-300'
-                }`}
-              >
-                RPO
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlayFamily('SPECIAL_TEAMS')}
-                className={`rounded-full px-3 py-1 ${
-                  playFamily === 'SPECIAL_TEAMS' ? 'bg-brand text-black' : 'text-slate-300'
-                }`}
-            >
-              ST
-            </button>
-            </div>
+                  RPO
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlayFamily('SPECIAL_TEAMS')}
+                  className={`rounded-full px-3 py-1 ${
+                    playFamily === 'SPECIAL_TEAMS' ? 'bg-brand text-black' : 'text-slate-300'
+                  }`}
+                >
+                  ST
+                </button>
+              </div>
           </section>
 
           <section className="space-y-2">
@@ -601,7 +608,7 @@ export function ChartEventPanel({
                   ? 'Tag front, structure and coverage so BlitzIQ can see how you answered this look.'
                   : 'Tag kick type, variant and return yardage for special teams analytics.'}
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="space-y-3">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
                 const prettify = (opt: string) =>
                   opt
@@ -647,8 +654,8 @@ export function ChartEventPanel({
                   if (field.name === 'backfield_code') setSelectedBackfield(String(value))
                 }
                 return (
-                  <label key={field.name} className="space-y-1 text-xs text-slate-200 min-w-40">
-                    <span className="uppercase tracking-[0.18em]">{field.label}</span>
+                  <label key={field.name} className="space-y-1 text-xs text-slate-200 block">
+                    <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">{field.label}</span>
                     {field.type === 'select' && (
                       <select
                         name={field.name}
@@ -701,42 +708,42 @@ export function ChartEventPanel({
             </div>
           </section>
 
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">Result & yardage</h3>
-            <div className="flex flex-wrap gap-3">
-              <label className="space-y-1 text-xs text-slate-200 flex-1 min-w-55">
-                <span className="uppercase tracking-[0.18em]">Play call</span>
+          <section className="space-y-3 border-t border-slate-900/70 pt-4">
+            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Result</h3>
+            <div className="space-y-3">
+              <label className="space-y-1 block">
+                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Play call</span>
                 <input
                   name="playCall"
                   placeholder="Trips Right 92 Mesh"
-                  className="w-full rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
                   required
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Result (quick)</span>
+              <label className="space-y-1 block">
+                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Result (quick)</span>
                 <input
                   name="result"
                   placeholder="Complete, +8"
-                  className="w-40 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Yards gained</span>
+              <label className="space-y-1 block">
+                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Yards gained</span>
                 <input
                   name="gainedYards"
                   type="number"
                   min={-99}
                   max={99}
-                  className={`w-28 rounded-lg border px-3 py-2 text-sm ${
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${
                     gainedError
                       ? 'border-red-500 bg-red-950/30 text-red-50'
                       : gainedWarning
                       ? 'border-amber-500 bg-amber-950/30 text-amber-50'
                       : 'border-slate-800 bg-surface-muted text-slate-100'
-                  } hover:border-slate-700 focus:border-brand/60 focus:outline-none`}
+                  } hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand`}
                 />
                 {gainedError && (
                   <p className="text-[0.7rem] text-red-300">{gainedError}</p>
@@ -746,14 +753,14 @@ export function ChartEventPanel({
                 )}
               </label>
 
-              <label className="space-y-1 text-xs text-slate-200">
-                <span className="uppercase tracking-[0.18em]">Pass result</span>
+              <label className="space-y-1 block">
+                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Pass result</span>
                 <select
                   name="pass_result"
                   value={passResult}
                   onChange={(e) => setPassResult(e.target.value)}
                   disabled={playFamily === 'RUN' || playFamily === 'SPECIAL_TEAMS'}
-                  className="w-36 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none disabled:opacity-50"
+                  className="w-full rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand disabled:opacity-50"
                 >
                   <option value="">--</option>
                   {passResultOptions.map((opt) => (
@@ -766,17 +773,15 @@ export function ChartEventPanel({
             </div>
           </section>
 
-          <section className="space-y-3">
+          <section className="space-y-3 border-t border-slate-900/70 pt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Optional tags (motion, drive, notes)
-              </h3>
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Tags (optional)</h3>
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((prev) => !prev)}
                 className="text-xs text-slate-300 underline"
               >
-                {advancedOpen ? 'Collapse' : 'Expand'}
+                {advancedOpen ? 'Hide tags' : 'Show tags'}
               </button>
             </div>
             {advancedOpen && (
