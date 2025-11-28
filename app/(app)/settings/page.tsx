@@ -223,34 +223,42 @@ export default async function SettingsPage({
   const renewalText = 'Renews monthly unless changed in billing.'
 
   return (
-    <section className="space-y-10">
-      <SectionHeader
-        eyebrow="Settings"
-        title="Account, billing, and security"
-        description="Update your profile, billing details, and account security for BlitzIQ Pro."
-        actions={
-          <div className="flex flex-wrap gap-2 text-xs text-slate-300">
-            <Pill label={activeTeamName} tone="cyan" icon={<LayoutDashboard className="h-3 w-3" />} />
-            <Pill label={formatRoleLabel(activeTeamRole)} tone="emerald" icon={<ShieldCheck className="h-3 w-3" />} />
-          </div>
-        }
-      />
+    <section className="space-y-8">
+      <GlassCard className="overflow-hidden border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-black">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <SectionHeader
+            eyebrow="Settings"
+            title="Account, billing, and security"
+            description="Keep your profile up to date, manage billing, and stay secure."
+            actions={
+              <div className="flex flex-wrap gap-2 text-xs text-slate-200">
+                <Pill label={activeTeamName} tone="cyan" icon={<LayoutDashboard className="h-3 w-3" />} />
+                <Pill label={formatRoleLabel(activeTeamRole)} tone="emerald" icon={<ShieldCheck className="h-3 w-3" />} />
+              </div>
+            }
+          />
+        </div>
+      </GlassCard>
 
-      <GlassCard>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-100">{activeTeamName}</p>
-            <p className="text-xs text-slate-400">
+      <GlassCard className="relative overflow-hidden border border-white/10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(52,211,153,0.08),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.08),transparent_30%)]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Program overview</p>
+            <p className="text-lg font-semibold text-slate-50">{activeTeamName}</p>
+            <p className="text-sm text-slate-300">
               {teamBrandingRow?.level || 'Team level not set'} · Season {seasonLabel || seasonYear}
             </p>
             <p className="text-xs text-slate-500">Signed in as {profileDisplayName}</p>
           </div>
-          <a
-            href="/team"
-            className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
-          >
-            Manage team, roster, and staff
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/team"
+              className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-lg shadow-brand/30"
+            >
+              Manage team, roster, and staff
+            </a>
+          </div>
         </div>
       </GlassCard>
 
@@ -283,7 +291,7 @@ export default async function SettingsPage({
           </GlassCard>
         </aside>
 
-        <div className="space-y-12">
+        <div className="space-y-10">
           <SettingsSection id="profile" title="Profile">
             <SettingsCard
               title="Your details"
@@ -334,7 +342,7 @@ export default async function SettingsPage({
                 <div className="md:col-span-3 flex justify-end">
                   <button
                     type="submit"
-                    className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                    className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-md shadow-brand/30"
                   >
                     Save profile
                   </button>
@@ -361,7 +369,7 @@ export default async function SettingsPage({
                   {notificationRows.map((row) => (
                     <div
                       key={row.id}
-                      className="rounded-2xl border border-slate-800 bg-black/30 p-4 space-y-2"
+                      className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-950/80 to-slate-900/60 p-4 space-y-3"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div>
@@ -394,7 +402,7 @@ export default async function SettingsPage({
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                    className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-md shadow-brand/30"
                   >
                     Save notifications
                   </button>
@@ -408,27 +416,30 @@ export default async function SettingsPage({
               title="Plan"
               description="Your billing is handled through Stripe. You can update it anytime."
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-slate-400">{planLabel}</p>
-                  <p className="text-lg font-semibold text-slate-50">
-                    {currentPlanName} — {currentPlanPrice}
+              <div className="grid gap-4 sm:grid-cols-[1.2fr,1fr]">
+                <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-950/90 to-slate-900/70 p-4 space-y-2">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{planLabel}</p>
+                  <p className="text-xl font-semibold text-slate-50">
+                    {currentPlanName} · {currentPlanPrice}
                   </p>
-                  <p className="text-xs text-slate-500">{renewalText}</p>
+                  <p className="text-sm text-slate-400">{renewalText}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href="/billing"
-                    className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
-                  >
-                    Manage billing
-                  </a>
-                  <a
-                    href="/contact"
-                    className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-slate-500"
-                  >
-                    Talk to sales about Elite
-                  </a>
+                <div className="rounded-2xl border border-slate-800 bg-black/40 p-4 space-y-3">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Actions</p>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href="/billing"
+                      className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-md shadow-brand/30"
+                    >
+                      Manage billing
+                    </a>
+                    <a
+                      href="/contact"
+                      className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-slate-500"
+                    >
+                      Talk to sales about Elite
+                    </a>
+                  </div>
                 </div>
               </div>
             </SettingsCard>
@@ -439,14 +450,14 @@ export default async function SettingsPage({
               title="Keep your account secure"
               description="Update your password or sign out of devices you no longer use."
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1 text-sm text-slate-300">
+              <div className="grid gap-4 sm:grid-cols-[1.2fr,1fr]">
+                <div className="space-y-2 text-sm text-slate-300">
                   <p>Use a strong password and enable multi-factor authentication if available.</p>
                   <p className="text-xs text-slate-500">
-                    If you suspect unusual activity, sign out and reset your password from the login screen.
+                    If you ever see something off, sign out everywhere and reset your password from the login screen.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs">
+                <div className="flex flex-wrap gap-2 text-xs sm:justify-end">
                   <a
                     href="/login?reset=true"
                     className="rounded-full border border-slate-700 px-4 py-2 font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-slate-500"
