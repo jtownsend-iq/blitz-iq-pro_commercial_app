@@ -33,15 +33,15 @@ const contactFields: ContactField[] = [
     type: 'text',
     required: true,
     autoComplete: 'name',
-    description: 'Full name so we know who to follow up with.',
+    description: 'Full name for follow-up.',
   },
   {
-    label: 'Role',
+    label: 'Command Post',
     name: 'role',
     type: 'select',
     required: true,
     autoComplete: 'organization-title',
-    description: 'Your current role (HC, OC, DC, Analyst, AD, etc.).',
+    description: 'Your current post (HC, OC, DC, Analyst, AD, etc.).',
     options: [
       { label: 'Head Coach', value: 'Head Coach' },
       { label: 'Offensive Coordinator', value: 'Offensive Coordinator' },
@@ -59,7 +59,7 @@ const contactFields: ContactField[] = [
     type: 'text',
     required: true,
     autoComplete: 'organization',
-    description: 'Program or school name to align regional coverage.',
+    description: 'Program or school name.',
   },
   {
     label: 'State',
@@ -152,19 +152,19 @@ const contactFields: ContactField[] = [
     ],
   },
   {
-    label: 'Region',
+    label: 'Territory / District',
     name: 'region',
     type: 'text',
     required: true,
-    description: 'Region or district so we can verify Elite exclusivity.',
+    description: 'Territory or district so we can verify Elite exclusivity.',
   },
   {
-    label: 'Email',
+    label: 'Official Team Email',
     name: 'email',
     type: 'email',
     required: true,
     autoComplete: 'email',
-    description: 'Work email for the deck, breakdown, and confirmations.',
+    description: 'Team email for the deck, breakdown, and confirmations.',
   },
 ]
 
@@ -303,15 +303,13 @@ export default function Home() {
               { label: 'Outcomes', id: 'outcomes' },
               { label: 'Capabilities', id: 'capabilities' },
               { label: 'Plans', id: 'plans' },
-              { label: 'Exclusivity', id: 'exclusivity' },
-              { label: 'Security', id: 'security' },
               { label: 'Contact', id: 'contact' },
             ].map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => scrollToSection(item.id)}
-                className="rounded-full px-3 py-2 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 min-h-[40px]"
+                className="rounded-full px-3 py-2 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 min-h-10"
               >
                 {item.label}
               </button>
@@ -339,22 +337,20 @@ export default function Home() {
               { label: 'Outcomes', id: 'outcomes' },
               { label: 'Capabilities', id: 'capabilities' },
               { label: 'Plans', id: 'plans' },
-              { label: 'Exclusivity', id: 'exclusivity' },
-              { label: 'Security', id: 'security' },
               { label: 'Contact', id: 'contact' },
             ].map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => scrollToSection(item.id)}
-                className="rounded-full px-3 py-2 bg-slate-900/60 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-[40px]"
+                className="rounded-full px-3 py-2 bg-slate-900/60 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-10"
               >
                 {item.label}
               </button>
             ))}
             <Link
               href="/login"
-              className="rounded-full px-3 py-2 bg-slate-900/60 text-slate-200 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-[40px]"
+              className="rounded-full px-3 py-2 bg-slate-900/60 text-slate-200 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40 whitespace-nowrap min-h-10"
             >
               Login
             </Link>
@@ -377,9 +373,8 @@ export default function Home() {
                 Make the call everyone else wishes they had.
               </h1>
               <p className="text-base md:text-lg text-slate-300 leading-relaxed">
-                Analyst in the box tags each snap in ~10 seconds and feeds the sideline before money downs.
-                See next-call odds before they break the huddle, and keep the staff aligned from Friday
-                through Tuesday install. Elite Sideline is one per region; Standard covers everyone else.
+                From the box to the headset in 10 seconds. Identify tendencies, predict the next call, and own
+                the money down before the offense even breaks the huddle.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -388,97 +383,61 @@ export default function Home() {
                 onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
                 className="inline-flex items-center justify-center rounded-full bg-brand text-black text-xs md:text-sm font-semibold tracking-[0.14em] uppercase px-6 py-3 hover:bg-brand-soft transition-colors focus:outline-none focus:ring-2 focus:ring-brand/60"
               >
-                Check Elite availability in your region
+                Check Elite Availability
               </button>
               <button
                 type="button"
                 onClick={() => setIntentAndScroll('demo_deck', 'Standard')}
                 className="inline-flex items-center justify-center rounded-full border border-slate-700 text-xs md:text-sm font-semibold tracking-[0.14em] uppercase px-6 py-3 text-slate-200 hover:border-brand hover:text-brand transition-colors focus:outline-none focus:ring-2 focus:ring-brand/40"
               >
-                Get the demo deck & film breakdown sample
+                See the Deck & Breakdown
               </button>
             </div>
-            <div className="grid gap-3 text-sm text-slate-400">
-              <div className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
-                <span>Tag every snap in ~10 seconds from the box; no re-entering data on Sunday.</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
-                <span>See next-call probabilities and stress-beaters before the opponent adjusts.</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
-                <span>Run game plans, season trends, and player notes from one place across the staff.</span>
-              </div>
+            <div className="flex flex-wrap gap-2 text-[0.75rem] text-slate-200">
+              <span className="pill bg-slate-900/60 border-slate-800 text-slate-100">~10s per snap</span>
+              <span className="pill bg-slate-900/60 border-slate-800 text-slate-100">70%+ next-call confidence</span>
+              <span className="pill bg-slate-900/60 border-slate-800 text-slate-100">One Elite per region</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[0.7rem] uppercase tracking-[0.18em] text-slate-400">
+              <span className="text-slate-500">Trusted by</span>
+              {['Region champions', 'State semifinalists', 'D2 staffs', 'Private powerhouses'].map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-slate-200"
+                >
+                  {item}
+                </span>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-surface-muted/70 backdrop-blur-sm p-5 shadow-brand-card">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="relative h-10 w-14">
-                  <Image
-                    src="/blitziq-logo.png"
-                    alt="BlitzIQ Pro logo"
-                    fill
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-100">BlitzIQ Pro</p>
-                  <p className="text-[0.7rem] text-slate-500">Sideline + Scouting preview</p>
-                </div>
+          <div className="rounded-2xl border border-slate-800 bg-surface-muted/70 backdrop-blur-sm p-5 shadow-brand-card space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-100">BlitzIQ Gamefeed</p>
+                <p className="text-[0.7rem] text-slate-500">Sideline | Scouting | Live intel</p>
               </div>
               <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[0.65rem] px-2 py-1 border border-emerald-500/30">
-                High-trust
+                Live feed
               </span>
             </div>
 
-            <div className="space-y-4 text-sm text-slate-200">
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
-              <p className="text-[0.8rem] text-slate-300 mb-1.5">
-                Live call probability: 3rd &amp; 6, right hash
-              </p>
-              <p className="text-sm font-semibold text-slate-50">
-                Likely call: Field flood concept (70% confidence)
-              </p>
-              <p className="text-[0.75rem] text-slate-500 mt-1">
-                Weighted by last 40 snaps, formation, personnel, down/distance.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-[0.8rem]">
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
-                <p className="text-slate-300 mb-1">Charting tempo</p>
-                <p className="text-slate-100 font-semibold">~9s per snap</p>
-                <p className="text-slate-500 mt-1">Tag formation, motion, family, and result from one surface.</p>
+            <div className="grid gap-3 md:grid-cols-3 text-sm text-slate-200">
+              <div className="rounded-xl border border-slate-800 bg-black/40 p-3 space-y-1">
+                <p className="text-slate-300 font-semibold">Predictive Intelligence</p>
+                <p className="text-[0.8rem] text-slate-300">3rd &amp; 6 | Right hash</p>
+                <p className="text-[0.75rem] text-slate-500">70%+ next-call confidence.</p>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
-                <p className="text-slate-300 mb-1">Adjustment cues</p>
-                <p className="text-slate-100 font-semibold">3 live recommendations</p>
-                <p className="text-slate-500 mt-1">
-                  Coverage tags, front tweaks, and likely opponent counters.
-                </p>
+              <div className="rounded-xl border border-slate-800 bg-black/40 p-3 space-y-1">
+                <p className="text-slate-300 font-semibold">9s Charting Cadence</p>
+                <p className="text-[0.8rem] text-slate-300">Formation | Motion | Result</p>
+                <p className="text-[0.75rem] text-slate-500">Single-surface speed.</p>
               </div>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-black/40 p-3.5">
-              <p className="text-[0.8rem] text-slate-300 mb-1">Season context</p>
-              <p className="text-[0.8rem] text-slate-500">
-                Keep game plans, tendencies, and player notes synced from camp installs through playoffs.
-              </p>
-            </div>
-          </div>
-
-            <div className="mt-5 flex items-center justify-between border-t border-slate-800 pt-3.5 text-[0.8rem] text-slate-500">
-              <p>Built for staffs moving between Hudl, spreadsheets, and whiteboards today.</p>
-              <button
-                type="button"
-                onClick={() => setIntentAndScroll('demo_deck', 'Standard')}
-                className="text-[0.75rem] font-semibold text-brand hover:text-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/40 rounded-full px-2"
-              >
-                Get the deck
-              </button>
+              <div className="rounded-xl border border-slate-800 bg-black/40 p-3 space-y-1">
+                <p className="text-slate-300 font-semibold">Counter in Sync</p>
+                <p className="text-[0.8rem] text-slate-300">3 live adjustments</p>
+                <p className="text-[0.75rem] text-slate-500">Coverage tags + front tweaks.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -508,10 +467,9 @@ export default function Home() {
           <h2 className="text-2xl font-semibold text-slate-50">Built for real football staffs</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {[
-              'In-game charting from the box feeding the sideline with hash, field/boundary, formation, personnel, result.',
-              'Scouting ingest with filters for down/distance/hash/formation/personnel; see next-call odds without re-entering film.',
-              'Player availability, pitch counts, tags, and notes so everyone knows who is ready.',
-              'Multi-team, multi-role control for HC/OC/DC/ST/Analyst/AD with clean tenant isolation.',
+              'In-game charting from the box to the sideline with hash, formation, personnel, and result—no re-entry.',
+              'Scouting ingest with down/distance/hash/formation filters; see next-call odds without re-tagging film.',
+              'Multi-team, multi-role control for HC/OC/DC/ST/Analyst with clean tenant isolation.',
             ].map((item) => (
               <div
                 key={item}
@@ -529,32 +487,30 @@ export default function Home() {
           <div className="grid gap-4 lg:grid-cols-2">
             {[
               {
-                name: 'BlitzIQ Pro: Elite Sideline',
+                name: 'Plan: Elite Territory',
                 short: 'Elite',
-                tagline: 'Region-exclusive sideline + scouting for the season.',
+                tagline: 'Total regional lockdown. We sign one program per region—ensure it’s you, not your rival.',
                 bullets: [
                   'Region-exclusive engagement for your season.',
                   'Full BlitzIQ Pro engine with sideline and scouting; white-glove onboarding and weekly support.',
                 ],
                 bestFor: 'Varsity staffs that want a protected edge on every region opponent.',
-                pricingLine:
-                  'Region-exclusive; typically about 2x Standard pricing plus a one-time setup fee. Single-digit-thousand line item for the year.',
+                pricingLine: 'Region-exclusive; typically about 2x Standard pricing plus a one-time setup fee.',
                 plan: 'Elite' as Plan,
                 ctaLabel: 'Check Elite availability',
                 featured: true,
                 badgeLabel: 'Region Exclusive',
               },
               {
-                name: 'BlitzIQ Pro: Standard',
+                name: 'Plan: Standard Corps',
                 short: 'Standard',
-                tagline: 'Full BlitzIQ Pro engine for most varsity staffs.',
+                tagline: 'The full BlitzIQ engine for varsity programs ready to modernize. Analytics in the box, answers on the sideline.',
                 bullets: [
-                  'Founders: $99 now, then $199/mo for 12 months. March access.',
-                  'Standard launch: $249/mo for 12 months starting with June access.',
-                  '1-year contract. 10% off subscription if prepaid (not on the $99).',
+                  'Complete sideline + scouting workflow with staff onboarding.',
+                  'Analytics in the box, synced to the sideline with unified terminology.',
                 ],
-                bestFor: 'Varsity programs ready to bring analytics to the box and sideline.',
-                pricingLine: 'No free trials. Monthly or annual with 10% subscription savings when prepaid.',
+                bestFor: 'Varsity programs ready to modernize and run unified analytics across the staff.',
+                pricingLine: 'No free trials. Annual or monthly billing available.',
                 ctaLabel: 'Get Standard details',
                 plan: 'Standard' as Plan,
                 featured: false,
@@ -624,9 +580,7 @@ export default function Home() {
         >
           <h3 className="text-lg font-semibold text-slate-50">How billing works</h3>
           <p>All plans are 1-year contracts.</p>
-          <p>Pay monthly, or pay the year up front and get 10% off the subscription (not the $99 Founders payment).</p>
-          <p>Founders (Standard): $99 now, then $199/mo for 12 months; access starts in March.</p>
-          <p>Standard launch: $249/mo for 12 months if you start at June launch or later.</p>
+          <p>Pay monthly, or pay the year up front and get 10% off the subscription.</p>
           <p>No free trials.</p>
         </section>
 
@@ -638,9 +592,8 @@ export default function Home() {
             What &ldquo;one Elite program per region&rdquo; means
           </h3>
           <p className="text-sm text-slate-300 leading-relaxed">
-            If your staff signs BlitzIQ Pro: Elite Sideline, we will not sign another Elite school in your
-            region this season. Standard remains available; exclusivity applies only to Elite. Renew by the
-            agreed date to keep the Elite spot for next season.
+            One Elite program per region. If you take the Elite slot, we won’t sign a rival in your territory
+            this season. Renew by the agreed date to keep your spot.
           </p>
           <div className="flex flex-wrap gap-3">
             <button
@@ -665,17 +618,15 @@ export default function Home() {
             <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-500">
               Security, trust, and multi-tenant control
             </p>
-            <h2 className="text-2xl font-semibold text-slate-50">Built for HC/OC/DC/ST/Analyst</h2>
+            <h2 className="text-2xl font-semibold text-slate-50">Fort Knox for your Playbook.</h2>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Tenant isolation with RLS, role-based access for HC/OC/DC/ST/Analyst, audited actions,
-              backup/export paths, and SSO/SAML on deck. Uptime SLAs and support match your season calendar.
+              Bank-grade security ensures your game plans stay yours. Role-based access keeps the staff aligned and the data leaks at zero.
             </p>
             <div className="grid gap-2">
               {[
                 'Per-team isolation with audited queries and exports.',
                 'Fine-grained roles for coordinators, analysts, and administrators.',
                 'SSO/SAML path, uptime targets, and support aligned to game weeks.',
-                'Data stays portable: exports, CSV templates, and controlled sharing.',
               ].map((item) => (
                 <div key={item} className="flex items-start gap-2 text-sm text-slate-200">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" />
@@ -690,10 +641,10 @@ export default function Home() {
             aria-label="Self-education resources"
           >
             <p className="text-sm font-semibold text-slate-100">
-              Self-educate without booking a call
+              Reconnaissance
             </p>
             <div className="space-y-2 text-sm text-slate-300">
-              <p>Skip the call. Grab the demo deck, sample film breakdown, and a 3-minute sideline walkthrough.</p>
+              <p>Skip the sales pitch. Get the raw intel.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -720,8 +671,7 @@ export default function Home() {
         <section id="contact" className="mt-16 rounded-2xl border border-slate-800 bg-black/25 p-6 space-y-4">
           <h2 className="text-2xl font-semibold text-slate-50">Check Elite availability</h2>
           <p className="text-sm text-slate-300">
-            No free trials or calendar spam. Share the basics and we&apos;ll confirm Elite slots or send the deck
-            and walkthrough for Standard.
+            No free trials or calendar spam. Share the basics and we&apos;ll confirm Elite slots or send the deck and walkthrough for Standard.
           </p>
           {successIntent && (
             <div
@@ -846,18 +796,6 @@ export default function Home() {
                   ? 'Sending...'
                   : 'Get the demo deck & playbook'}
               </button>
-              <button
-                type="submit"
-                onClick={() => {
-                  intentRef.current = 'call_request'
-                }}
-                disabled={submitting}
-                className="text-xs font-semibold text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand/30 rounded-full px-3"
-              >
-                {submitting && intentRef.current === 'call_request'
-                  ? 'Sending...'
-                  : 'Request a call with our team'}
-              </button>
             </div>
           </form>
         </section>
@@ -891,6 +829,12 @@ export default function Home() {
     </main>
   )
 }
+
+
+
+
+
+
 
 
 
