@@ -51,7 +51,6 @@ import {
 const navItems = [
   { id: 'profile', label: 'Profile' },
   { id: 'team', label: 'Team' },
-  { id: 'roster', label: 'Roster' },
   { id: 'gameplay', label: 'Gameplay' },
   { id: 'billing', label: 'Billing' },
   { id: 'security', label: 'Security' },
@@ -428,7 +427,11 @@ type ChartingDefaultsRow = {
   success_4th_pct: number | null
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}) {
   const supabase = await createSupabaseServerClient()
 
   const {
@@ -703,6 +706,68 @@ export default async function SettingsPage() {
     success3rd: chartingDefaults?.success_3rd_pct ?? DEFAULT_SUCCESS_THRESHOLDS.thirdDownPct,
     success4th: chartingDefaults?.success_4th_pct ?? DEFAULT_SUCCESS_THRESHOLDS.fourthDownPct,
   }
+
+  const playerSearchTerm =
+    typeof searchParams?.player_search === 'string'
+      ? searchParams.player_search.trim().toLowerCase()
+      : ''
+  const playerUnitFilter =
+    typeof searchParams?.player_unit === 'string' ? searchParams.player_unit.trim() : ''
+  const playerPositionFilter =
+    typeof searchParams?.player_position === 'string'
+      ? searchParams.player_position.trim()
+      : ''
+  const playerClassFilter =
+    typeof searchParams?.player_class === 'string' ? searchParams.player_class.trim() : ''
+
+  const rosterUnitOptions = Array.from(
+    new Set(
+      rosterPlayers
+        .map((player) => (player.unit || '').trim())
+        .filter((value) => Boolean(value))
+    )
+  ).sort()
+
+  const rosterPositionOptions = Array.from(
+    new Set(
+      rosterPlayers
+        .map((player) => (player.position || '').trim())
+        .filter((value) => Boolean(value))
+    )
+  ).sort()
+
+  const rosterClassOptions = Array.from(
+    new Set(
+      rosterPlayers
+        .map((player) => (player.class_year ? String(player.class_year) : ''))
+        .filter((value) => Boolean(value))
+    )
+  ).sort()
+
+  const filteredRosterPlayers = rosterPlayers.filter((player) => {
+    const searchBlob = [
+      player.first_name || '',
+      player.last_name || '',
+      player.jersey_number || '',
+      player.position || '',
+      player.unit || '',
+    ]
+      .join(' ')
+      .toLowerCase()
+
+    const matchesSearch = playerSearchTerm ? searchBlob.includes(playerSearchTerm) : true
+    const matchesUnit = playerUnitFilter
+      ? (player.unit || '').toLowerCase() === playerUnitFilter.toLowerCase()
+      : true
+    const matchesPosition = playerPositionFilter
+      ? (player.position || '').toLowerCase() === playerPositionFilter.toLowerCase()
+      : true
+    const matchesClass = playerClassFilter
+      ? String(player.class_year ?? '').startsWith(playerClassFilter)
+      : true
+
+    return matchesSearch && matchesUnit && matchesPosition && matchesClass
+  })
 
   const staffRoleSelectOptions = STAFF_ROLE_OPTIONS
 
@@ -1705,14 +1770,134 @@ export default async function SettingsPage() {
 
           <SettingsSection id="roster" title="Roster & Staff Settings">
             <SettingsCard
-              title="Roster"
-              description="Keep players current without double-entry."
+              title="Players"
+              description="Search, filter, and update your roster without double-entry."
             >
               <div className="space-y-6">
-                {rosterPlayers.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    No players have been added yet. Use the form below to start building your roster.
-                  </p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      Players overview
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      Showing {filteredRosterPlayers.length} of {rosterPlayers.length} players
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href="#csv-import"
+                      className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 hover:border-slate-500"
+                    >
+                      Import CSV
+                    </a>
+                    <a
+                      href="#add-player-form"
+                      className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                    >
+                      Add player
+                    </a>
+                  </div>
+                </div>
+
+                <form
+                  method="get"
+                  className="grid gap-2 rounded-2xl border border-slate-900/60 bg-black/20 p-4 text-sm text-slate-300 lg:grid-cols-[2fr_repeat(3,minmax(0,1fr))_auto]"
+                >
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">
+                      Search
+                    </span>
+                    <input
+                      type="search"
+                      name="player_search"
+                      defaultValue={
+                        typeof searchParams?.player_search === 'string'
+                          ? searchParams.player_search
+                          : ''
+                      }
+                      placeholder="Name, jersey, or position"
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">
+                      Unit
+                    </span>
+                    <select
+                      name="player_unit"
+                      defaultValue={playerUnitFilter}
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    >
+                      <option value="">All units</option>
+                      {rosterUnitOptions.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">
+                      Position
+                    </span>
+                    <select
+                      name="player_position"
+                      defaultValue={playerPositionFilter}
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    >
+                      <option value="">All positions</option>
+                      {rosterPositionOptions.map((position) => (
+                        <option key={position} value={position}>
+                          {position}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">
+                      Class
+                    </span>
+                    <select
+                      name="player_class"
+                      defaultValue={playerClassFilter}
+                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    >
+                      <option value="">All years</option>
+                      {rosterClassOptions.map((classYear) => (
+                        <option key={classYear} value={classYear}>
+                          {classYear}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex items-end gap-2">
+                    <button
+                      type="submit"
+                      className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-900"
+                    >
+                      Apply
+                    </button>
+                    <a
+                      href="/settings#roster"
+                      className="rounded-full border border-slate-800 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 hover:border-slate-600"
+                    >
+                      Clear
+                    </a>
+                  </div>
+                </form>
+
+                {filteredRosterPlayers.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-800 bg-black/30 p-4">
+                    <p className="text-sm text-slate-400">
+                      No players found
+                      {playerSearchTerm ||
+                      playerUnitFilter ||
+                      playerPositionFilter ||
+                      playerClassFilter
+                        ? ' with the current search or filters.'
+                        : '. Add your first player below or import a CSV.'}
+                    </p>
+                  </div>
                 ) : (
                   <div className="overflow-hidden rounded-2xl border border-slate-800">
                     <table className="min-w-full text-sm text-slate-300">
@@ -1726,13 +1911,16 @@ export default async function SettingsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rosterPlayers.map((player) => (
+                        {filteredRosterPlayers.map((player) => (
                           <tr key={player.id} className="border-t border-slate-900/40">
                             <td className="px-4 py-3">
                               <div className="font-semibold text-slate-100">
                                 {player.jersey_number ? `#${player.jersey_number} ` : ''}
                                 {player.first_name} {player.last_name}
                               </div>
+                              <p className="text-xs text-slate-500">
+                                {(player.position || 'Position TBD') + ' \u2022 ' + (player.unit || 'Unit TBD')}
+                              </p>
                             </td>
                             <td className="px-4 py-3 text-slate-400">
                               {player.position || '--'}
@@ -1742,18 +1930,94 @@ export default async function SettingsPage() {
                               {player.class_year ?? '--'}
                             </td>
                             <td className="px-4 py-3">
-                              <form
-                                action={async (formData) => {
-                                  'use server'
-                                  await removeRosterPlayer(formData)
-                                  return
-                                }}
-                              >
-                                <input type="hidden" name="player_id" value={player.id} />
-                                <button className="text-xs font-semibold text-red-400">
-                                  Remove
-                                </button>
-                              </form>
+                              <div className="flex flex-col gap-2 text-xs">
+                                <details className="group rounded-lg border border-slate-800 bg-black/30 p-2">
+                                  <summary className="cursor-pointer text-brand outline-none">
+                                    Edit
+                                  </summary>
+                                  <form
+                                    action={async (formData) => {
+                                      'use server'
+                                      const result = await addRosterPlayer(formData)
+                                      if (
+                                        result &&
+                                        typeof result === 'object' &&
+                                        'success' in result &&
+                                        result.success
+                                      ) {
+                                        await removeRosterPlayer(formData)
+                                      }
+                                      return
+                                    }}
+                                    className="mt-2 space-y-2"
+                                  >
+                                    <input type="hidden" name="player_id" value={player.id} />
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <input
+                                        type="text"
+                                        name="first_name"
+                                        required
+                                        defaultValue={player.first_name ?? ''}
+                                        className="w-full rounded-md border border-slate-800 bg-black/40 px-2 py-1.5 text-xs text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                      />
+                                      <input
+                                        type="text"
+                                        name="last_name"
+                                        required
+                                        defaultValue={player.last_name ?? ''}
+                                        className="w-full rounded-md border border-slate-800 bg-black/40 px-2 py-1.5 text-xs text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                      />
+                                      <input
+                                        type="text"
+                                        name="jersey_number"
+                                        defaultValue={player.jersey_number ?? ''}
+                                        placeholder="#"
+                                        className="w-full rounded-md border border-slate-800 bg-black/40 px-2 py-1.5 text-xs text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                      />
+                                      <input
+                                        type="text"
+                                        name="position"
+                                        defaultValue={player.position ?? ''}
+                                        placeholder="QB"
+                                        className="w-full rounded-md border border-slate-800 bg-black/40 px-2 py-1.5 text-xs text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                      />
+                                      <input
+                                        type="text"
+                                        name="unit"
+                                        defaultValue={player.unit ?? ''}
+                                        placeholder="Offense"
+                                        className="w-full rounded-md border border-slate-800 bg-black/40 px-2 py-1.5 text-xs text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                      />
+                                      <input
+                                        type="number"
+                                        name="class_year"
+                                        min={1990}
+                                        max={2100}
+                                        defaultValue={player.class_year ?? ''}
+                                        className="w-full rounded-md border border-slate-800 bg-black/40 px-2 py-1.5 text-xs text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                      />
+                                    </div>
+                                    <button
+                                      type="submit"
+                                      className="w-full rounded-full bg-brand px-3 py-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-black"
+                                    >
+                                      Save changes
+                                    </button>
+                                  </form>
+                                </details>
+                                <form
+                                  action={async (formData) => {
+                                    'use server'
+                                    await removeRosterPlayer(formData)
+                                    return
+                                  }}
+                                >
+                                  <input type="hidden" name="player_id" value={player.id} />
+                                  <button className="text-[0.75rem] font-semibold text-red-400 hover:text-red-300">
+                                    Remove
+                                  </button>
+                                </form>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1762,78 +2026,136 @@ export default async function SettingsPage() {
                   </div>
                 )}
 
-                <form
-                  action={async (formData) => {
-                    'use server'
-                    await addRosterPlayer(formData)
-                    return
-                  }}
-                  className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))]"
-                >
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">First name</span>
-                    <input
-                      type="text"
-                      name="first_name"
-                      required
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                <div className="grid gap-4 xl:grid-cols-[1.6fr,1fr]">
+                  <form
+                    id="add-player-form"
+                    action={async (formData) => {
+                      'use server'
+                      await addRosterPlayer(formData)
+                      return
+                    }}
+                    className="grid gap-4 rounded-2xl border border-slate-800 bg-black/30 p-4 md:grid-cols-[repeat(3,minmax(0,1fr))]"
+                  >
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.2em]">First name</span>
+                      <input
+                        type="text"
+                        name="first_name"
+                        required
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.2em]">Last name</span>
+                      <input
+                        type="text"
+                        name="last_name"
+                        required
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.2em]">Jersey #</span>
+                      <input
+                        type="text"
+                        name="jersey_number"
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.2em]">Position</span>
+                      <input
+                        type="text"
+                        name="position"
+                        placeholder="QB, CB, etc."
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.2em]">Unit / Group</span>
+                      <input
+                        type="text"
+                        name="unit"
+                        placeholder="Offense, DL, Specialists"
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-400">
+                      <span className="uppercase tracking-[0.2em]">Class year</span>
+                      <input
+                        type="number"
+                        name="class_year"
+                        min={1990}
+                        max={2100}
+                        placeholder="2026"
+                        className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <div className="md:col-span-3 flex justify-end">
+                      <button
+                        type="submit"
+                        className="rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand"
+                      >
+                        Add player
+                      </button>
+                    </div>
+                  </form>
+
+                  <form
+                    id="csv-import"
+                    action={async (formData) => {
+                      'use server'
+                      const csv = formData.get('roster_csv')
+                      if (!csv || typeof csv !== 'string') {
+                        return
+                      }
+                      const rows = csv
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean)
+                      for (const row of rows) {
+                        const [firstName, lastName, jersey, position, unit, classYear] = row
+                          .split(',')
+                          .map((part) => part.trim())
+                        if (!firstName || !lastName) continue
+                        const rowForm = new FormData()
+                        rowForm.set('first_name', firstName)
+                        rowForm.set('last_name', lastName)
+                        if (jersey) rowForm.set('jersey_number', jersey)
+                        if (position) rowForm.set('position', position)
+                        if (unit) rowForm.set('unit', unit)
+                        if (classYear) rowForm.set('class_year', classYear)
+                        await addRosterPlayer(rowForm)
+                      }
+                      return
+                    }}
+                    className="space-y-3 rounded-2xl border border-slate-800 bg-black/30 p-4 text-sm text-slate-300"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-100">Quick CSV import</p>
+                      <span className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">
+                        Paste rows
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      One row per player: First,Last,Jersey,Position,Unit,ClassYear. Uses the same
+                      add handler as the form.
+                    </p>
+                    <textarea
+                      name="roster_csv"
+                      placeholder="Jane,Doe,12,QB,Offense,2026"
+                      className="min-h-[120px] w-full rounded-lg border border-slate-800 bg-black/20 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
                     />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Last name</span>
-                    <input
-                      type="text"
-                      name="last_name"
-                      required
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Jersey #</span>
-                    <input
-                      type="text"
-                      name="jersey_number"
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Position</span>
-                    <input
-                      type="text"
-                      name="position"
-                      placeholder="QB, CB, etc."
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Unit / Group</span>
-                    <input
-                      type="text"
-                      name="unit"
-                      placeholder="Offense, DL, Specialists"
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-400">
-                    <span className="uppercase tracking-[0.2em]">Class year</span>
-                    <input
-                      type="number"
-                      name="class_year"
-                      min={1990}
-                      max={2100}
-                      placeholder="2026"
-                      className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <div className="md:col-span-3 flex justify-end">
-                    <button
-                      type="submit"
-                      className="rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand"
-                    >
-                      Add player
-                    </button>
-                  </div>
-                </form>
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-900"
+                      >
+                        Import CSV
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </SettingsCard>
 
@@ -1894,95 +2216,432 @@ export default async function SettingsPage() {
             </SettingsCard>
 
             <SettingsCard
-              title="Default Charting Tags"
-              description="Analysts can move faster when tags match your language."
+              title="Staff"
+              description="See current staff, adjust roles, and keep invites moving."
+            >
+              <div className="space-y-6">
+                <div className="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
+                  <div className="space-y-3">
+                    {staffList.length === 0 ? (
+                      <p className="text-sm text-slate-500">
+                        No staff members found. Invite your coaches and analysts on the right.
+                      </p>
+                    ) : (
+                      <div className="overflow-hidden rounded-2xl border border-slate-800">
+                        <table className="min-w-full text-sm text-slate-300">
+                          <thead className="bg-black/40 text-slate-400">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-medium">Name</th>
+                              <th className="px-4 py-3 font-medium">Email</th>
+                              <th className="px-4 py-3 font-medium">Role</th>
+                              <th className="px-4 py-3 font-medium">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {staffList.map((member) => {
+                              const canEdit = member.role && member.role !== 'OWNER'
+                              const email = member.users?.email ?? 'Unknown email'
+                              const displayName = member.users?.full_name || email || 'Pending user'
+                              return (
+                                <tr key={member.user_id} className="border-t border-slate-900/40">
+                                  <td className="px-4 py-3">
+                                    <p className="font-semibold text-slate-100">{displayName}</p>
+                                    <p className="text-xs text-slate-500">Member</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-400">{email}</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="rounded-full border border-slate-800 bg-black/30 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-slate-200">
+                                        {formatRoleLabel(member.role)}
+                                      </span>
+                                      {canEdit && (
+                                        <form
+                                          action={async (formData) => {
+                                            'use server'
+                                            await updateStaffRole(formData)
+                                            return
+                                          }}
+                                          className="flex items-center gap-2"
+                                        >
+                                          <input
+                                            type="hidden"
+                                            name="member_user_id"
+                                            value={member.user_id}
+                                          />
+                                          <select
+                                            name="role"
+                                            defaultValue={member.role ?? 'ANALYST'}
+                                            className="rounded-lg border border-slate-800 bg-black/40 px-2 py-1 text-xs text-slate-200 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                                          >
+                                            {staffRoleSelectOptions.map((option) => (
+                                              <option key={option.value} value={option.value}>
+                                                {option.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <button
+                                            type="submit"
+                                            className="text-[0.75rem] font-semibold text-brand"
+                                          >
+                                            Save
+                                          </button>
+                                        </form>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {canEdit ? (
+                                      <form
+                                        action={async (formData) => {
+                                          'use server'
+                                          await removeStaffMember(formData)
+                                          return
+                                        }}
+                                      >
+                                        <input
+                                          type="hidden"
+                                          name="member_user_id"
+                                          value={member.user_id}
+                                        />
+                                        <button className="text-xs font-semibold text-red-400 hover:text-red-300">
+                                          Remove
+                                        </button>
+                                      </form>
+                                    ) : (
+                                      <span className="text-xs text-slate-600">Protected</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    {pendingInvites.length > 0 && (
+                      <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-amber-200 uppercase tracking-[0.2em]">
+                            Pending invites
+                          </p>
+                          <span className="text-[0.75rem] text-amber-200/80">
+                            {pendingInvites.length} open
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {pendingInvites.map((invite) => (
+                            <div
+                              key={invite.id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3"
+                            >
+                              <div>
+                                <p className="font-semibold text-amber-100">{invite.email}</p>
+                                <p className="text-xs text-amber-200/80">
+                                  {formatRoleLabel(invite.role)} {'\u2022'} Sent{' '}
+                                  {invite.created_at ? formatDate(invite.created_at) : 'Recently'}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-3 text-xs font-semibold">
+                                <form
+                                  action={async (formData) => {
+                                    'use server'
+                                    await cancelStaffInvite(formData)
+                                    const resendForm = new FormData()
+                                    resendForm.set(
+                                      'invite_email',
+                                      (formData.get('invite_email') as string) || ''
+                                    )
+                                    resendForm.set(
+                                      'invite_role',
+                                      (formData.get('invite_role') as string) || 'ANALYST'
+                                    )
+                                    await inviteStaffMember(resendForm)
+                                    return
+                                  }}
+                                  className="flex items-center gap-1"
+                                >
+                                  <input type="hidden" name="invite_id" value={invite.id} />
+                                  <input
+                                    type="hidden"
+                                    name="invite_email"
+                                    value={invite.email ?? ''}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="invite_role"
+                                    value={invite.role ?? 'ANALYST'}
+                                  />
+                                  <button className="text-amber-100 hover:text-amber-50">
+                                    Resend
+                                  </button>
+                                </form>
+                                <form
+                                  action={async (formData) => {
+                                    'use server'
+                                    await cancelStaffInvite(formData)
+                                    return
+                                  }}
+                                  className="flex items-center gap-1"
+                                >
+                                  <input type="hidden" name="invite_id" value={invite.id} />
+                                  <button className="text-amber-200/80 hover:text-amber-50">
+                                    Revoke
+                                  </button>
+                                </form>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <form
+                      action={async (formData) => {
+                        'use server'
+                        await inviteStaffMember(formData)
+                        return
+                      }}
+                      className="grid gap-3 rounded-2xl border border-slate-800 bg-black/30 p-4 md:grid-cols-[2fr_1fr_auto]"
+                    >
+                      <label className="space-y-1 text-xs text-slate-400">
+                        <span className="uppercase tracking-[0.2em]">Email</span>
+                        <input
+                          type="email"
+                          name="invite_email"
+                          required
+                          placeholder="coach@yourprogram.com"
+                          className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-slate-400">
+                        <span className="uppercase tracking-[0.2em]">Role</span>
+                        <select
+                          name="invite_role"
+                          className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                          defaultValue="COORDINATOR"
+                        >
+                          {staffRoleSelectOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="flex items-end">
+                        <button
+                          type="submit"
+                          className="w-full rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
+                        >
+                          Send invite
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </SettingsCard>
+          </SettingsSection>
+
+          <SettingsSection id="gameplay" title="Gameplay & Data Preferences">
+            <SettingsCard
+              title="Gameplay Defaults"
+              description="Standardize how charting, tags, and AI summaries interpret your data."
             >
               <form
                 action={async (formData) => {
                   'use server'
                   await saveDefaultChartTags(formData)
+                  await saveChartingThresholds(formData)
                   return
                 }}
                 className="space-y-6"
               >
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2 text-sm text-slate-300">
-                    <div className="flex items-center justify-between">
+                <div className="grid gap-4 lg:grid-cols-[1.1fr,1fr]">
+                  <div className="space-y-4 rounded-2xl border border-slate-800 bg-black/30 p-4">
+                    <div className="space-y-1">
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        Personnel (Offense)
+                        Charting thresholds
                       </p>
-                      <span className="text-[0.65rem] text-slate-500">Comma or new line</span>
+                      <p className="text-sm text-slate-400">
+                        Explosive and success thresholds shape AI summaries and dashboards without
+                        blocking data entry.
+                      </p>
                     </div>
-                    <textarea
-                      name="personnel_offense"
-                      defaultValue={personnelOffense.join(', ')}
-                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <p className="text-[0.75rem] text-slate-500">
-                      Examples: 11, 12, 20, 21, 10
-                    </p>
-                  </label>
-                  <label className="space-y-2 text-sm text-slate-300">
-                    <div className="flex items-center justify-between">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="space-y-1 text-sm text-slate-300">
+                        <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                          Explosive run (yds)
+                        </span>
+                        <input
+                          type="number"
+                          name="explosive_run_threshold"
+                          min={0}
+                          max={120}
+                          defaultValue={chartingThresholds.explosiveRun}
+                          className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                      </label>
+                      <label className="space-y-1 text-sm text-slate-300">
+                        <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                          Explosive pass (yds)
+                        </span>
+                        <input
+                          type="number"
+                          name="explosive_pass_threshold"
+                          min={0}
+                          max={120}
+                          defaultValue={chartingThresholds.explosivePass}
+                          className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                      </label>
+                      <div className="space-y-2 md:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Success by down
+                          </p>
+                          <span className="text-[0.7rem] text-slate-500">
+                            1st yds / 2nd-4th %
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          <input
+                            type="number"
+                            name="success_1st_yards"
+                            min={0}
+                            max={20}
+                            defaultValue={chartingThresholds.success1st}
+                            className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                            placeholder="Yds"
+                          />
+                          <input
+                            type="number"
+                            name="success_2nd_pct"
+                            min={0}
+                            max={100}
+                            defaultValue={chartingThresholds.success2nd}
+                            className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                            placeholder="%"
+                          />
+                          <input
+                            type="number"
+                            name="success_3rd_pct"
+                            min={0}
+                            max={100}
+                            defaultValue={chartingThresholds.success3rd}
+                            className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                            placeholder="%"
+                          />
+                          <input
+                            type="number"
+                            name="success_4th_pct"
+                            min={0}
+                            max={100}
+                            defaultValue={chartingThresholds.success4th}
+                            className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                            placeholder="%"
+                          />
+                        </div>
+                        <p className="text-[0.75rem] text-slate-500">
+                          Defaults: 4 yds, 70%, 60%, 60%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-2xl border border-slate-800 bg-black/30 p-4">
+                    <div className="space-y-1">
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        Personnel (Defense)
+                        Default tags
                       </p>
-                      <span className="text-[0.65rem] text-slate-500">Optional</span>
-                    </div>
-                    <textarea
-                      name="personnel_defense"
-                      defaultValue={personnelDefense.join(', ')}
-                      placeholder="Base, Nickel, Dime"
-                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <p className="text-[0.75rem] text-slate-500">Helps defensive cut-ups.</p>
-                  </label>
-                  <label className="space-y-2 text-sm text-slate-300">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        Formations (Offense)
+                      <p className="text-sm text-slate-400">
+                        Offense, defense, and custom tags preload charting so analysts stay aligned
+                        on terminology.
                       </p>
-                      <span className="text-[0.65rem] text-slate-500">Comma or new line</span>
                     </div>
-                    <textarea
-                      name="formations_offense"
-                      defaultValue={formationsOffense.join(', ')}
-                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <p className="text-[0.75rem] text-slate-500">
-                      Examples: Trips Right, Trey Left, Bunch, Empty
-                    </p>
-                  </label>
-                  <label className="space-y-2 text-sm text-slate-300">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        Formations (Defense)
-                      </p>
-                      <span className="text-[0.65rem] text-slate-500">Optional</span>
+                    <div className="space-y-3">
+                      <label className="space-y-2 text-sm text-slate-300">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Personnel (Offense)
+                          </p>
+                          <span className="text-[0.65rem] text-slate-500">Comma or new line</span>
+                        </div>
+                        <textarea
+                          name="personnel_offense"
+                          defaultValue={personnelOffense.join(', ')}
+                          className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                        <p className="text-[0.75rem] text-slate-500">
+                          Examples: 11, 12, 20, 21, 10
+                        </p>
+                      </label>
+                      <label className="space-y-2 text-sm text-slate-300">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Personnel (Defense)
+                          </p>
+                          <span className="text-[0.65rem] text-slate-500">Optional</span>
+                        </div>
+                        <textarea
+                          name="personnel_defense"
+                          defaultValue={personnelDefense.join(', ')}
+                          placeholder="Base, Nickel, Dime"
+                          className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                        <p className="text-[0.75rem] text-slate-500">Helps defensive cut-ups.</p>
+                      </label>
+                      <label className="space-y-2 text-sm text-slate-300">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Formations (Offense)
+                          </p>
+                          <span className="text-[0.65rem] text-slate-500">Comma or new line</span>
+                        </div>
+                        <textarea
+                          name="formations_offense"
+                          defaultValue={formationsOffense.join(', ')}
+                          className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                        <p className="text-[0.75rem] text-slate-500">
+                          Examples: Trips Right, Trey Left, Bunch, Empty
+                        </p>
+                      </label>
+                      <label className="space-y-2 text-sm text-slate-300">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Formations (Defense)
+                          </p>
+                          <span className="text-[0.65rem] text-slate-500">Optional</span>
+                        </div>
+                        <textarea
+                          name="formations_defense"
+                          defaultValue={formationsDefense.join(', ')}
+                          placeholder="Over, Under, Tite, Mint"
+                          className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                        <p className="text-[0.75rem] text-slate-500">Useful for defensive charting.</p>
+                      </label>
+                      <label className="space-y-2 text-sm text-slate-300">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Custom Tags
+                          </p>
+                          <span className="text-[0.65rem] text-slate-500">Optional</span>
+                        </div>
+                        <textarea
+                          name="custom_tags"
+                          defaultValue={customDefaults.join(', ')}
+                          placeholder="Motions, pressures, game-plan specific tags"
+                          className="min-h-[72px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                        />
+                      </label>
                     </div>
-                    <textarea
-                      name="formations_defense"
-                      defaultValue={formationsDefense.join(', ')}
-                      placeholder="Over, Under, Tite, Mint"
-                      className="min-h-[88px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <p className="text-[0.75rem] text-slate-500">Useful for defensive charting.</p>
-                  </label>
-                  <label className="space-y-2 text-sm text-slate-300 md:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        Custom Tags
-                      </p>
-                      <span className="text-[0.65rem] text-slate-500">Optional</span>
-                    </div>
-                    <textarea
-                      name="custom_tags"
-                      defaultValue={customDefaults.join(', ')}
-                      placeholder="Motions, pressures, game-plan specific tags"
-                      className="min-h-[72px] w-full rounded-xl border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
+                  </div>
                 </div>
+
                 <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="submit"
@@ -1996,125 +2655,12 @@ export default async function SettingsPage() {
                     type="submit"
                     className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
                   >
-                    Save tags
+                    Save gameplay defaults
                   </button>
                 </div>
               </form>
-
-              <div className="border-t border-slate-900/60 pt-6 mt-6 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Explosive + Success Criteria
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      AI summaries and dashboards use these thresholds; they will not block data
-                      entry.
-                    </p>
-                  </div>
-                </div>
-                <form
-                  action={async (formData) => {
-                    'use server'
-                    await saveChartingThresholds(formData)
-                    return
-                  }}
-                  className="grid gap-3 md:grid-cols-3"
-                >
-                  <label className="space-y-1 text-sm text-slate-300">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Explosive run (yds)
-                    </span>
-                    <input
-                      type="number"
-                      name="explosive_run_threshold"
-                      min={0}
-                      max={120}
-                      defaultValue={chartingThresholds.explosiveRun}
-                      className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <label className="space-y-1 text-sm text-slate-300">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Explosive pass (yds)
-                    </span>
-                    <input
-                      type="number"
-                      name="explosive_pass_threshold"
-                      min={0}
-                      max={120}
-                      defaultValue={chartingThresholds.explosivePass}
-                      className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                  <div className="space-y-1 text-sm text-slate-300">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Success (1st/2nd/3rd/4th)
-                    </span>
-                    <div className="grid grid-cols-4 gap-2">
-                      <input
-                        type="number"
-                        name="success_1st_yards"
-                        min={0}
-                        max={20}
-                        defaultValue={chartingThresholds.success1st}
-                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                        placeholder="Yds"
-                      />
-                      <input
-                        type="number"
-                        name="success_2nd_pct"
-                        min={0}
-                        max={100}
-                        defaultValue={chartingThresholds.success2nd}
-                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                        placeholder="%"
-                      />
-                      <input
-                        type="number"
-                        name="success_3rd_pct"
-                        min={0}
-                        max={100}
-                        defaultValue={chartingThresholds.success3rd}
-                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                        placeholder="%"
-                      />
-                      <input
-                        type="number"
-                        name="success_4th_pct"
-                        min={0}
-                        max={100}
-                        defaultValue={chartingThresholds.success4th}
-                        className="w-full rounded-lg border border-slate-800 bg-black/30 px-2 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                        placeholder="%"
-                      />
-                    </div>
-                    <p className="text-[0.75rem] text-slate-500">
-                      Defaults: 4 yds, 70%, 60%, 60%
-                    </p>
-                  </div>
-                  <div className="md:col-span-3 flex flex-wrap justify-end gap-2">
-                    <button
-                      type="submit"
-                      name="mode"
-                      value="restore"
-                      className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 hover:border-slate-500 hover:text-slate-100 transition"
-                    >
-                      Restore defaults
-                    </button>
-                    <button
-                      type="submit"
-                      className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black"
-                    >
-                      Save thresholds
-                    </button>
-                  </div>
-                </form>
-              </div>
             </SettingsCard>
-          </SettingsSection>
 
-          <SettingsSection id="gameplay" title="Gameplay & Data Preferences">
             <SettingsCard
               title="AI Recommendation Profile"
               description="Tune how aggressive the AI should be by situation."
