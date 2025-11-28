@@ -127,6 +127,166 @@ button {
   border-radius: 9999px;
 }
 
+/* Typography ramp */
+h1 {
+  font-family: var(--font-space, var(--font-sans));
+  font-size: 2.25rem;
+  line-height: 2.6rem;
+  font-weight: 700;
+}
+
+h2 {
+  font-family: var(--font-space, var(--font-sans));
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+}
+
+h3 {
+  font-family: var(--font-space, var(--font-sans));
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+}
+
+h4 {
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  line-height: 1.85rem;
+  font-weight: 600;
+}
+
+h5 {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+
+h6 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6rem;
+  font-weight: 600;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.6rem;
+  font-weight: 400;
+}
+
+small {
+  font-size: 0.875rem;
+  line-height: 1.4rem;
+  color: #94a3b8;
+}
+
+/* Component primitives */
+.btn-primary {
+  border-radius: 9999px;
+  background: var(--brand);
+  color: #020617;
+  padding: 0.65rem 1.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: background-color 220ms cubic-bezier(0.4, 0.14, 0.3, 1), box-shadow 220ms cubic-bezier(0.4, 0.14, 0.3, 1), transform 120ms ease;
+}
+
+.btn-primary:hover {
+  background: var(--brand-soft);
+}
+
+.btn-primary:active {
+  transform: translateY(0.5px) scale(0.995);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.18);
+}
+
+.btn-secondary {
+  border-radius: 9999px;
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid #1f2937;
+  padding: 0.65rem 1.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  transition: background-color 220ms cubic-bezier(0.4, 0.14, 0.3, 1), border-color 220ms cubic-bezier(0.4, 0.14, 0.3, 1), color 220ms cubic-bezier(0.4, 0.14, 0.3, 1), transform 120ms ease;
+}
+
+.btn-secondary:hover {
+  border-color: #334155;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.btn-secondary:active {
+  transform: translateY(0.5px) scale(0.995);
+}
+
+.btn-secondary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.18);
+}
+
+.pill {
+  border-radius: 9999px;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #1f2937;
+  background: var(--surface-muted);
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+
+.card {
+  border-radius: var(--radius-2xl);
+  background: var(--surface-raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  border: 1px solid #0f172a;
+}
+
+.card-popover {
+  border-radius: var(--radius-xl);
+  background: var(--surface-muted);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.5);
+  border: 1px solid #0f172a;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.75rem;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.empty-state {
+  border-radius: var(--radius-xl);
+  border: 1px dashed #1f2937;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 1.5rem;
+  text-align: center;
+  color: #cbd5e1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
