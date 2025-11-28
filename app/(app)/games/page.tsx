@@ -6,7 +6,6 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Pill } from '@/components/ui/Pill'
 import { StatBadge } from '@/components/ui/StatBadge'
 import { CTAButton } from '@/components/ui/CTAButton'
-import { InputField } from '@/components/ui/InputField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { closeGameSession, startGameSession } from './chart-actions'
 import { createGame } from './actions'
@@ -160,13 +159,52 @@ export default async function GamesPage({
   const errorReason = Array.isArray(resolvedSearchParams.reason)
     ? resolvedSearchParams.reason[0]
     : resolvedSearchParams.reason ?? null
+  const formDefaults = {
+    opponent_name:
+      (Array.isArray(resolvedSearchParams.opponent_name)
+        ? resolvedSearchParams.opponent_name[0]
+        : resolvedSearchParams.opponent_name) || '',
+    start_time:
+      (Array.isArray(resolvedSearchParams.start_time)
+        ? resolvedSearchParams.start_time[0]
+        : resolvedSearchParams.start_time) || '',
+    home_away:
+      (Array.isArray(resolvedSearchParams.home_away)
+        ? resolvedSearchParams.home_away[0]
+        : resolvedSearchParams.home_away) || '',
+    location:
+      (Array.isArray(resolvedSearchParams.location)
+        ? resolvedSearchParams.location[0]
+        : resolvedSearchParams.location) || '',
+    season_label:
+      (Array.isArray(resolvedSearchParams.season_label)
+        ? resolvedSearchParams.season_label[0]
+        : resolvedSearchParams.season_label) || '',
+  }
+
+  const upcomingGamesByStart = [...games].sort((a, b) => {
+    const aTime = a.start_time ? new Date(a.start_time).getTime() : Number.MAX_SAFE_INTEGER
+    const bTime = b.start_time ? new Date(b.start_time).getTime() : Number.MAX_SAFE_INTEGER
+    return aTime - bTime
+  })
+  const nextGame = upcomingGamesByStart[0] ?? null
+  const nextGameSessions = nextGame ? sessionsByGame[nextGame.id] ?? [] : []
+  const unitStatus = (unitKey: string) => {
+    const session = nextGameSessions.find((s) => s.unit === unitKey) || null
+    const status = session?.status?.toLowerCase() || 'none'
+    return { session, status }
+  }
+  const formatHomeAway = (value: string | null) => {
+    if (!value) return 'Home/Away'
+    return value.toUpperCase() === 'HOME' ? 'Home' : 'Away'
+  }
 
   return (
     <section className="space-y-8">
       <SectionHeader
-        eyebrow="Games & Charting"
+        eyebrow="Games & charting"
         title="Game-day control"
-        description="Schedule matchups, open live charting, and keep sessions synchronized across units."
+        description="Schedule matchups and manage unit sessions so charting is one click away."
         actions={
           <div className="flex flex-wrap gap-2">
             <Pill label="Live sessions" tone="emerald" icon={<Radio className="h-3 w-3" />} />
@@ -179,117 +217,227 @@ export default async function GamesPage({
         badge="Command Center"
       />
 
-      {errorCode ? (
-        <GlassCard tone="amber" className="border-amber-500/40">
-          <p className="text-sm text-amber-100">{renderErrorMessage(errorCode, errorReason)}</p>
-        </GlassCard>
-      ) : null}
-
-      <GlassCard>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Add a game</p>
-            <h2 className="text-lg font-semibold text-slate-50">Schedule a matchup</h2>
-            <p className="text-sm text-slate-400">
-              Create a game to enable charting sessions for offense, defense, and special teams.
-            </p>
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <GlassCard>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Add a game</p>
+              <h2 className="text-lg font-semibold text-slate-50">Schedule a matchup</h2>
+              <p className="text-sm text-slate-400">
+                Set opponent and kickoff so offense, defense, and special teams can chart instantly.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <StatBadge label="Games scheduled" value={games.length} tone="cyan" />
+              <StatBadge label="Units" value={unitConfigs.length} tone="emerald" />
+              <StatBadge label="Live sessions" value={liveSessionsCount} tone="amber" />
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <StatBadge label="Games scheduled" value={games.length} tone="cyan" />
-            <StatBadge label="Active units" value={unitConfigs.length} tone="emerald" />
-            <StatBadge label="Live sessions" value={liveSessionsCount} tone="amber" />
-          </div>
-        </div>
-        <form
-          action={async (formData) => {
-            'use server'
-            await createGame(formData)
-            return
-          }}
-          className="grid gap-3 md:grid-cols-2 mt-4"
-        >
-          <InputField
-            label="Opponent"
-            name="opponent_name"
-            required
-            placeholder="Springfield Prep"
-            description="Team you are facing."
-          />
-          <InputField
-            label="Kickoff"
-            name="start_time"
-            required
-            type="datetime-local"
-            description="Local date/time."
-          />
-          <InputField
-            as="select"
-            label="Home / Away"
-            name="home_away"
-            required
-            options={[
-              { label: 'Home', value: 'HOME' },
-              { label: 'Away', value: 'AWAY' },
-            ]}
-            description="Venue context."
-          />
-          <label className="space-y-1 text-xs text-slate-400">
-            <span className="uppercase tracking-[0.2em] text-slate-300">Location</span>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
-              <MapPin className="h-4 w-4 text-slate-500" />
+          {errorCode ? (
+            <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+              {renderErrorMessage(errorCode, errorReason)}
+            </div>
+          ) : null}
+          <form
+            action={async (formData) => {
+              'use server'
+              await createGame(formData)
+              return
+            }}
+            className="grid gap-3 md:grid-cols-2 mt-4"
+          >
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em] text-slate-300">Opponent</span>
               <input
                 type="text"
-                name="location"
-                placeholder="Stadium or Venue"
-                className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none"
+                name="opponent_name"
+                required
+                defaultValue={formDefaults.opponent_name}
+                placeholder="Springfield Prep"
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-brand focus:ring-2 focus:ring-brand/30"
               />
+              <span className="block text-[0.7rem] text-slate-500">Team you are facing.</span>
+            </label>
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em] text-slate-300">Kickoff</span>
+              <input
+                type="datetime-local"
+                name="start_time"
+                required
+                defaultValue={formDefaults.start_time}
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+              <span className="block text-[0.7rem] text-slate-500">Local date/time.</span>
+            </label>
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em] text-slate-300">Home / Away</span>
+              <select
+                name="home_away"
+                required
+                defaultValue={formDefaults.home_away}
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              >
+                <option value="">Select</option>
+                <option value="HOME">Home</option>
+                <option value="AWAY">Away</option>
+              </select>
+              <span className="block text-[0.7rem] text-slate-500">Venue context.</span>
+            </label>
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em] text-slate-300">Location</span>
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
+                <MapPin className="h-4 w-4 text-slate-500" />
+                <input
+                  type="text"
+                  name="location"
+                  defaultValue={formDefaults.location}
+                  placeholder="Stadium or Venue"
+                  className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none"
+                />
+              </div>
+              <span className="block text-[0.7rem] text-slate-500">Venue or facility name.</span>
+            </label>
+            <label className="space-y-1 text-xs text-slate-400">
+              <span className="uppercase tracking-[0.2em] text-slate-300">Season label</span>
+              <input
+                type="text"
+                name="season_label"
+                defaultValue={formDefaults.season_label}
+                placeholder="2025 Season"
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+              <span className="block text-[0.7rem] text-slate-500">Optional season tag.</span>
+            </label>
+            <div className="md:col-span-2 flex justify-end pt-2">
+              <CTAButton type="submit" variant="primary">
+                Create game
+              </CTAButton>
             </div>
-            <span className="block text-[0.7rem] text-slate-500">Venue or facility name.</span>
-          </label>
-          <InputField
-            label="Season label"
-            name="season_label"
-            placeholder="2025 Season"
-            description="Optional season tag."
-            required={false}
-            />
-          <div className="md:col-span-2 flex justify-end">
-            <CTAButton type="submit" variant="primary">
-              Create game
-            </CTAButton>
-          </div>
-        </form>
-      </GlassCard>
+          </form>
+        </GlassCard>
 
-      <GlassCard>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Operational status</p>
-            <h2 className="text-base font-semibold text-slate-50">Readiness snapshot</h2>
-            <p className="text-sm text-slate-400">
-              {liveSessionsCount} active | {pendingSessionsCount} pending | {games.length} games scheduled
-            </p>
+        <GlassCard>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Operational status</p>
+              <h2 className="text-base font-semibold text-slate-50">Readiness snapshot</h2>
+              {nextGame ? (
+                <p className="text-sm text-slate-400">
+                  {nextGame.opponent_name || 'Opponent TBD'} | {formatKickoff(nextGame.start_time)} |{' '}
+                  {formatHomeAway(nextGame.home_away)} | {nextGame.location || 'Venue TBD'}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400">No upcoming game yet. Schedule to unlock sessions.</p>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <StatBadge label="Pending sessions" value={pendingSessionsCount} tone="slate" />
+              <StatBadge
+                label="Next kickoff"
+                value={
+                  nextKickoff
+                    ? new Intl.DateTimeFormat('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      }).format(new Date(nextKickoff))
+                    : 'TBD'
+                }
+                tone="cyan"
+              />
+              <StatBadge label="Open slots" value={Math.max(unitConfigs.length - liveSessionsCount, 0)} tone="emerald" />
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <StatBadge label="Pending sessions" value={pendingSessionsCount} tone="slate" />
-            <StatBadge
-              label="Next kickoff"
-              value={
-                nextKickoff
-                  ? new Intl.DateTimeFormat('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    }).format(new Date(nextKickoff))
-                  : 'TBD'
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {unitConfigs.map((unit) => {
+              const { status } = unitStatus(unit.key)
+              const unitSlug = unit.key.toLowerCase()
+              if (!nextGame) {
+                return (
+                  <GlassCard key={unit.key} padding="md" className="space-y-2 bg-slate-950/60">
+                    <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
+                    <p className="text-xs text-slate-500">Schedule a game to start.</p>
+                  </GlassCard>
+                )
               }
-              tone="cyan"
-            />
-            <StatBadge label="Open slots" value={Math.max(unitConfigs.length - liveSessionsCount, 0)} tone="emerald" />
+
+              const statusLabel =
+                status === 'active'
+                  ? 'Live'
+                  : status === 'pending'
+                  ? 'Pending'
+                  : status === 'closed' || status === 'final'
+                  ? 'Final'
+                  : 'No session'
+
+              const renderCta = () => {
+                if (status === 'active') {
+                  return (
+                    <CTAButton href={`/games/${nextGame.id}/chart/${unitSlug}`} size="sm" fullWidth>
+                      Open chart
+                    </CTAButton>
+                  )
+                }
+                if (status === 'pending') {
+                  return (
+                    <CTAButton href={`/games/${nextGame.id}/chart/${unitSlug}`} size="sm" fullWidth variant="secondary">
+                      Resume chart
+                    </CTAButton>
+                  )
+                }
+                if (status === 'closed' || status === 'final') {
+                  return (
+                    <CTAButton href={`/games/${nextGame.id}/chart/${unitSlug}`} size="sm" fullWidth variant="secondary">
+                      View report
+                    </CTAButton>
+                  )
+                }
+                return (
+                  <form
+                    action={async (formData) => {
+                      'use server'
+                      await startGameSession(formData)
+                      return
+                    }}
+                  >
+                    <input type="hidden" name="gameId" value={nextGame.id} />
+                    <input type="hidden" name="unit" value={unit.key} />
+                    <CTAButton type="submit" size="sm" fullWidth>
+                      Start
+                    </CTAButton>
+                  </form>
+                )
+              }
+
+              return (
+                <GlassCard key={unit.key} padding="md" className="space-y-3 bg-slate-950/60">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">{unit.label}</p>
+                      <p className="text-xs text-slate-500">{unit.description}</p>
+                    </div>
+                    <Pill
+                      label={statusLabel}
+                      tone={
+                        status === 'active'
+                          ? 'emerald'
+                          : status === 'pending'
+                          ? 'amber'
+                          : status === 'closed' || status === 'final'
+                          ? 'slate'
+                          : 'slate'
+                      }
+                      icon={status === 'active' ? <Play className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
+                    />
+                  </div>
+                  {renderCta()}
+                </GlassCard>
+              )
+            })}
           </div>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      </div>
 
       {games.length === 0 ? (
         <EmptyState
