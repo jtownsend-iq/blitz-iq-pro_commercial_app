@@ -868,7 +868,7 @@ export function ChartEventPanel({
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-full bg-brand px-6 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-black transition duration-base ease-smooth hover:bg-brand-soft focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-40"
+              className="btn-primary disabled:opacity-40"
             >
               {isPending ? 'Saving...' : 'Log play'}
             </button>
@@ -885,7 +885,9 @@ export function ChartEventPanel({
           </div>
           <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
             {events.length === 0 ? (
-              <p className="text-sm text-slate-300">No plays logged yet for this game.</p>
+              <div className="empty-state">
+                <div className="text-sm">No plays logged yet for this game.</div>
+              </div>
             ) : (
               events.map((event) => (
                 <div

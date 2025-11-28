@@ -169,13 +169,16 @@ export default async function ChartUnitPage({
           {formatKickoffLabel(game)} | Session started {formatDate(session.started_at)}
         </p>
         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-          <Link href="/games" className="text-brand underline transition duration-base ease-smooth hover:text-brand-soft focus-visible:shadow-focus focus-visible:outline-none">
+          <Link
+            href="/games"
+            className="btn-secondary text-xs font-semibold uppercase tracking-[0.18em]"
+          >
             Back to games
           </Link>
           {session.status === 'active' && (
             <form action={closeSession}>
               <input type="hidden" name="sessionId" value={session.id} />
-              <button className="rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-300 transition duration-base ease-smooth hover:border-slate-400 focus-visible:shadow-focus focus-visible:outline-none">
+              <button className="btn-secondary text-xs font-semibold uppercase tracking-[0.18em]">
                 Close session
               </button>
             </form>
