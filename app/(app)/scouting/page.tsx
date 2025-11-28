@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
 import { StatBadge } from '@/components/ui/StatBadge'
 import { ScoutingNav } from '@/components/scout/ScoutingNav'
+import { CTAButton } from '@/components/ui/CTAButton'
 
 type ImportRow = {
   id: string
@@ -121,6 +122,14 @@ export default async function ScoutingPage() {
   const plays = (playsData as PlayRow[] | null) ?? []
   const imports = (importsData as ImportRow[] | null) ?? []
 
+  const { data: upcomingGameData } = await supabase
+    .from('games')
+    .select('opponent_name, start_time, season_label')
+    .eq('team_id', activeTeamId)
+    .gte('start_time', new Date().toISOString())
+    .order('start_time', { ascending: true })
+    .limit(1)
+
   const lastSuccess = imports.find((imp) => imp.status === 'completed')
   const lastSuccessTs = lastSuccess?.created_at ?? null
 
@@ -141,8 +150,16 @@ export default async function ScoutingPage() {
     imports.find((imp) => imp.status === 'pending') ??
     null
 
-  const upcomingOpponent = upcomingImport?.opponent_name || plays[0]?.opponent_name || ''
-  const upcomingSeason = upcomingImport?.season || plays[0]?.season || ''
+  const upcomingOpponent =
+    upcomingGameData?.[0]?.opponent_name ||
+    upcomingImport?.opponent_name ||
+    plays[0]?.opponent_name ||
+    ''
+  const upcomingSeason =
+    upcomingGameData?.[0]?.season_label ||
+    upcomingImport?.season ||
+    plays[0]?.season ||
+    ''
 
   const playsForUpcoming = plays.filter(
     (p) =>
@@ -151,7 +168,7 @@ export default async function ScoutingPage() {
   )
 
   const summaryStats = computeSummaryStats(imports, plays)
-  const tendencyPanels = buildTendencyPanels(playsForUpcoming)
+  const tendencyPanels = buildTendencyPanels(playsForUpcoming, upcomingOpponent, upcomingSeason)
 
   return (
     <main className="mx-auto max-w-7xl space-y-10 px-4 py-10">
@@ -184,12 +201,12 @@ export default async function ScoutingPage() {
       <GlassCard>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent</p>
+            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent tendencies</p>
             <h2 className="text-xl font-semibold text-slate-100">
-              {upcomingOpponent || 'Set your next opponent'}
+              {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
             </h2>
             <p className="text-sm text-slate-400">
-              Fast reads for offense, defense, and special teams based on your latest scouting CSVs.
+              Quick reads for offense, defense, and special teams pulled from your latest scouting CSVs.
             </p>
           </div>
           <Pill label="Tendencies" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
@@ -363,15 +380,15 @@ export default async function ScoutingPage() {
                 down/distance, personnel, formation, front, coverage, pressure, and special teams situations.
               </p>
               <p className="text-sm text-slate-300">
-                Use the reports and exports you already run from the scouting workspace to open pregame packets and game-ready
-                cutups in one click for the upcoming opponent.
+                Use your existing reports and exports to open pregame packets and game-ready cutups in one click for the upcoming opponent.
               </p>
-              <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Pregame tendency report</span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Down & distance</span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Front & coverage</span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Pressure & stunts</span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Special teams looks</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <CTAButton href="#workspace" size="sm" variant="primary">
+                  Open workspace
+                </CTAButton>
+                <CTAButton href="#imports" size="sm" variant="secondary">
+                  View imports
+                </CTAButton>
               </div>
             </GlassCard>
           </ScoutingSection>
@@ -379,13 +396,10 @@ export default async function ScoutingPage() {
           <ScoutingSection id="help" title="How it works">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Export scouting CSVs from your film or analytics tools. Upload them here, map columns, and clear any
-                errors. Once clean, every tendency panel, pregame report, and in-game recommendation uses this data across
-                BlitzIQ. Repeat each week for your next opponent - the flow stays the same, so your staff stays fast.
+                Export scouting CSVs from your film or analytics tools. Upload them here, map columns, and clear any errors. Once clean, every tendency panel, pregame report, and in-game recommendation uses this data across BlitzIQ. Repeat each week for your next opponent.
               </p>
               <p className="text-sm text-slate-300">
-                Clean data in means trusted reports out. If an import fails, open the log, fix headers or tags, and reupload.
-                When the import is green, you can trust the AI summaries and live charts.
+                If an import fails, open the log, fix headers or tags, and reupload. When the import is clean, you can trust the AI summaries and live charts.
               </p>
             </GlassCard>
           </ScoutingSection>
@@ -439,24 +453,31 @@ function computeSummaryStats(imports: ImportRow[], plays: PlayRow[]) {
   }
 }
 
-function buildTendencyPanels(plays: PlayRow[]) {
+function buildTendencyPanels(plays: PlayRow[], opponent: string, season: string | null) {
   const offense = plays.filter((p) => (p.phase || '').toUpperCase() === 'OFFENSE')
   const defense = plays.filter((p) => (p.phase || '').toUpperCase() === 'DEFENSE')
   const special = plays.filter((p) => (p.phase || '').toUpperCase().includes('SPECIAL'))
 
   return [
-    buildPanel('Offense', offense, 'Open scouting workspace for more offense detail'),
-    buildPanel('Defense', defense, 'Open scouting workspace for more defense detail'),
-    buildPanel('Special teams', special, 'Open scouting workspace for special teams detail'),
+    buildPanel('Offense', offense, opponent, season, 'Open scouting workspace for offense detail'),
+    buildPanel('Defense', defense, opponent, season, 'Open scouting workspace for defense detail'),
+    buildPanel('Special teams', special, opponent, season, 'Open scouting workspace for special teams detail'),
   ]
 }
 
-function buildPanel(label: string, plays: PlayRow[], cta: string) {
+function buildPanel(label: string, plays: PlayRow[], opponent: string, season: string | null, cta: string) {
   const total = plays.length || 1
   const runPlays = plays.filter((p) => includesAny(p, ['run']))
   const passPlays = plays.filter((p) => includesAny(p, ['pass']))
   const runRate = Math.round((runPlays.length / total) * 100)
   const passRate = Math.round((passPlays.length / total) * 100)
+
+  const earlyDown = plays.filter((p) => p.down === 1 || p.down === 2)
+  const earlyRun = earlyDown.filter((p) => includesAny(p, ['run']))
+  const earlyRunRate = earlyDown.length ? Math.round((earlyRun.length / earlyDown.length) * 100) : 0
+  const thirdMedium = plays.filter((p) => p.down === 3 && (p.distance || 0) >= 4 && (p.distance || 0) <= 7)
+  const thirdPass = thirdMedium.filter((p) => includesAny(p, ['pass']))
+  const thirdPassRate = thirdMedium.length ? Math.round((thirdPass.length / thirdMedium.length) * 100) : 0
 
   const topFormation = topValue(plays.map((p) => p.formation))
   const topPersonnel = topValue(plays.map((p) => p.personnel))
@@ -464,14 +485,22 @@ function buildPanel(label: string, plays: PlayRow[], cta: string) {
   const blitzPlays = plays.filter((p) => includesAny(p, ['blitz', 'pressure']))
   const blitzRate = Math.round((blitzPlays.length / total) * 100)
 
-  const split = label === 'Offense' ? `${runRate}% run / ${passRate}% pass` : `${blitzRate}% pressure looks`
+  const split =
+    label === 'Offense'
+      ? `${runRate}% run / ${passRate}% pass`
+      : label === 'Defense'
+      ? `${blitzRate}% pressure looks`
+      : `${runRate}% left / ${passRate}% right`
 
   const callouts: string[] = []
   if (topFormation) callouts.push(`Most used formation: ${topFormation}`)
   if (topPersonnel) callouts.push(`Top personnel: ${topPersonnel}`)
-  if (topPlayFamily) callouts.push(`Leaning on: ${topPlayFamily}`)
-  if (label !== 'Offense' && blitzPlays.length) callouts.push(`Pressure rate: ${blitzRate}%`)
-  if (callouts.length === 0) callouts.push('Add CSVs to see tendencies.')
+  if (label === 'Offense' && earlyDown.length) callouts.push(`Early downs: ${earlyRunRate}% run`)
+  if (label === 'Offense' && thirdMedium.length) callouts.push(`3rd & medium: ${thirdPassRate}% pass`)
+  if (label === 'Defense' && blitzPlays.length) callouts.push(`Pressure rate: ${blitzRate}%`)
+  if (label === 'Defense' && topPlayFamily) callouts.push(`Common look: ${topPlayFamily}`)
+  if (label === 'Special teams' && topPlayFamily) callouts.push(`Tendency: ${topPlayFamily}`)
+  if (callouts.length === 0) callouts.push(`Add CSVs for ${opponent || 'opponent'} ${season || ''}`.trim())
 
   return {
     label,
