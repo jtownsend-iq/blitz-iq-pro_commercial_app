@@ -433,38 +433,44 @@ export function ChartEventPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-900/70 bg-black/30 p-6 space-y-3">
+      <div className="rounded-3xl border border-slate-900/70 bg-slate-950/70 p-6 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-slate-100">Rapid chart - {unitLabel}</h2>
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-slate-300">
               Ten-second workflow: tab through primaries, Ctrl/Cmd+Enter to save, Alt+O/D/S switches unit routes.
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1 text-xs text-slate-300">
               {situationLabel}
+            </div>
+            <div className="text-xs text-slate-300">
+              ALT+O = Offense · ALT+D = Defense · ALT+S = ST · CTRL/CMD+Enter = Save play
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100">
               {unit}
             </span>
-            <span className="text-[0.75rem] text-slate-400">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
+            <span className="text-[0.75rem] text-slate-200">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
           </div>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-900/70 bg-black/30 p-6 space-y-5">
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+      <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="rounded-3xl border border-slate-900/70 bg-slate-950/70 p-6 space-y-5">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Primary inputs</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+              Situation (Quarter / Clock / Down & Distance / Ball)
+            </h3>
             <div className="flex flex-wrap gap-3">
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Quarter</span>
                 <select
                   name="quarter"
                   value={quarterValue}
                   onChange={(e) => setQuarterValue(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 >
                   <option value="">--</option>
                   {quarterOptions.map((q) => (
@@ -475,21 +481,21 @@ export function ChartEventPanel({
                 </select>
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Clock (MM:SS)</span>
                 <input
                   name="clock"
                   placeholder="12:34"
                   pattern="[0-5]?[0-9]:[0-5][0-9]"
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Down</span>
                 <select
                   name="down"
-                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 >
                   {downOptions.map((option) => (
                     <option key={option.label} value={option.value}>
@@ -499,34 +505,34 @@ export function ChartEventPanel({
                 </select>
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Distance</span>
                 <input
                   name="distance"
                   type="number"
                   min={1}
-                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Ball on</span>
                 <input
                   name="ballOn"
                   value={ballOnValue}
                   onChange={(e) => setBallOnValue(e.target.value)}
                   placeholder="O35"
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Hash</span>
                 <select
                   name="hashMark"
                   value={hashValue}
                   onChange={(e) => setHashValue(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 >
                   {hashOptions.map((option) => (
                     <option key={option.label} value={option.value}>
@@ -539,7 +545,9 @@ export function ChartEventPanel({
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Play family</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+              Call family (Run / Pass / RPO / ST)
+            </h3>
             <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-slate-950/70 p-1 text-xs">
               <button
                 type="button"
@@ -581,7 +589,9 @@ export function ChartEventPanel({
           </section>
 
           <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dynamic fields</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Formation & Structure (based on unit)
+              </h3>
               <div className="flex flex-wrap gap-3">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
                 const prettify = (opt: string) =>
@@ -628,14 +638,14 @@ export function ChartEventPanel({
                   if (field.name === 'backfield_code') setSelectedBackfield(String(value))
                 }
                 return (
-                  <label key={field.name} className="space-y-1 text-xs text-slate-400 min-w-40">
+                  <label key={field.name} className="space-y-1 text-xs text-slate-200 min-w-40">
                     <span className="uppercase tracking-[0.18em]">{field.label}</span>
                     {field.type === 'select' && (
                       <select
                         name={field.name}
                         value={(formData[field.name] as string) ?? ''}
                         onChange={(e) => handleChange(e.target.value)}
-                        className={baseInputClass}
+                        className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none`}
                       >
                         <option value="">Select</option>
                         {baseOptions.map((opt) => (
@@ -651,7 +661,7 @@ export function ChartEventPanel({
                         name={field.name}
                         value={(formData[field.name] as string) ?? ''}
                         onChange={(e) => handleChange(e.target.value)}
-                        className={baseInputClass}
+                        className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none`}
                       />
                     )}
                     {field.type === 'checkbox' && (
@@ -669,7 +679,7 @@ export function ChartEventPanel({
                         name={field.name}
                         value={(formData[field.name] as string) ?? ''}
                         onChange={(e) => handleChange(e.target.value)}
-                        className={baseInputClass}
+                        className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none`}
                       />
                     )}
                     {error && <p className="text-[0.7rem] text-red-300">{error}</p>}
@@ -683,28 +693,28 @@ export function ChartEventPanel({
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quick outcome</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">Result & yardage</h3>
             <div className="flex flex-wrap gap-3">
-              <label className="space-y-1 text-xs text-slate-400 flex-1 min-w-[220px]">
+              <label className="space-y-1 text-xs text-slate-200 flex-1 min-w-55">
                 <span className="uppercase tracking-[0.18em]">Play call</span>
                 <input
                   name="playCall"
                   placeholder="Trips Right 92 Mesh"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                   required
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Result (quick)</span>
                 <input
                   name="result"
                   placeholder="Complete, +8"
-                  className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                  className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Yards gained</span>
                 <input
                   name="gainedYards"
@@ -717,7 +727,7 @@ export function ChartEventPanel({
                       : gainedWarning
                       ? 'border-amber-500 bg-amber-950/30 text-amber-50'
                       : 'border-slate-800 bg-black/40 text-slate-100'
-                  }`}
+                  } hover:border-slate-700 focus:border-brand/60 focus:outline-none`}
                 />
                 {gainedError && (
                   <p className="text-[0.7rem] text-red-300">{gainedError}</p>
@@ -727,14 +737,14 @@ export function ChartEventPanel({
                 )}
               </label>
 
-              <label className="space-y-1 text-xs text-slate-400">
+              <label className="space-y-1 text-xs text-slate-200">
                 <span className="uppercase tracking-[0.18em]">Pass result</span>
                 <select
                   name="pass_result"
                   value={passResult}
                   onChange={(e) => setPassResult(e.target.value)}
                   disabled={playFamily === 'RUN' || playFamily === 'SPECIAL_TEAMS'}
-                  className="w-36 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
+                  className="w-36 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none disabled:opacity-50"
                 >
                   <option value="">--</option>
                   {passResultOptions.map((opt) => (
@@ -749,7 +759,9 @@ export function ChartEventPanel({
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Advanced tags</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Optional tags (motion, drive, notes)
+              </h3>
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((prev) => !prev)}
@@ -762,7 +774,7 @@ export function ChartEventPanel({
               <div className="space-y-3">
                 {unit === 'OFFENSE' && (
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="space-y-1 text-xs text-slate-400">
+                    <label className="space-y-1 text-xs text-slate-200">
                       <span className="uppercase tracking-[0.18em]">Motion</span>
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-2">
@@ -775,13 +787,13 @@ export function ChartEventPanel({
                           <span>Has motion</span>
                         </label>
                         {hasMotion && (
-                          <select
-                            name="motion_type"
-                            value={motionType}
-                            onChange={(e) => setMotionType(e.target.value)}
-                            className="rounded-lg border border-slate-800 bg-black/40 px-2 py-1 text-xs text-slate-100"
-                          >
-                            <option value="JET">Jet</option>
+                            <select
+                              name="motion_type"
+                              value={motionType}
+                              onChange={(e) => setMotionType(e.target.value)}
+                              className="rounded-lg border border-slate-800 bg-black/40 px-2 py-1 text-xs text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                            >
+                              <option value="JET">Jet</option>
                             <option value="ORBIT">Orbit</option>
                             <option value="YOYO">Yo-Yo</option>
                             <option value="ACROSS">Across</option>
@@ -793,7 +805,7 @@ export function ChartEventPanel({
                       </div>
                     </label>
 
-                    <label className="space-y-1 text-xs text-slate-400">
+                    <label className="space-y-1 text-xs text-slate-200">
                       <span className="uppercase tracking-[0.18em]">QB alignment</span>
                       <input
                         name="qb_alignment"
@@ -805,22 +817,22 @@ export function ChartEventPanel({
                   </div>
                 )}
 
-                <label className="space-y-1 text-xs text-slate-400">
+                <label className="space-y-1 text-xs text-slate-200">
                   <span className="uppercase tracking-[0.18em]">Drive #</span>
                   <input
                     name="driveNumber"
                     type="number"
                     min={1}
-                    className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                   />
                 </label>
 
-                <label className="space-y-1 text-xs text-slate-400 block">
+                <label className="space-y-1 text-xs text-slate-200 block">
                   <span className="uppercase tracking-[0.18em]">Notes</span>
                   <textarea
                     name="notes"
                     rows={2}
-                    className="w-full rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100"
+                    className="w-full rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                     placeholder="Coverage bust, pressure from boundary..."
                   />
                 </label>
@@ -848,48 +860,49 @@ export function ChartEventPanel({
               {isPending ? 'Saving...' : 'Log play'}
             </button>
           </div>
-        </form>
-      </div>
-
-      <div className="rounded-3xl border border-slate-900/70 bg-black/20 p-6 space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
-          <p className="text-sm text-slate-500">
-            Shows the latest entries, including optimistic ones while the network request finishes.
-          </p>
+          </form>
         </div>
-        <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-          {events.length === 0 ? (
-            <p className="text-sm text-slate-500">No plays logged yet. Start charting to populate this list.</p>
-          ) : (
-            events.map((event) => (
-              <div
-                key={event.id}
-                className="rounded-2xl border border-slate-900/60 bg-slate-950/50 px-4 py-3 text-sm text-slate-200"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                  <span>
-                    Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)}
-                  </span>
-                  <span>Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}</span>
+
+        <div className="rounded-3xl border border-slate-900/70 bg-slate-950/70 p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
+            <p className="text-sm text-slate-300">
+              Shows the latest entries, including optimistic ones while the network request finishes.
+            </p>
+          </div>
+          <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+            {events.length === 0 ? (
+              <p className="text-sm text-slate-300">No plays logged yet. Start charting to populate this list.</p>
+            ) : (
+              events.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-2xl border border-slate-900/60 bg-slate-950/50 px-4 py-3 text-sm text-slate-200"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                    <span>
+                      Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)}
+                    </span>
+                    <span>Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}</span>
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-100">{event.play_call || 'Play call TBD'}</div>
+                  <div className="text-xs text-slate-200">
+                    {event.result || 'Result TBD'} | Yardage:{' '}
+                    {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
+                  </div>
+                  <div className="text-[0.7rem] text-slate-300">
+                    Logged{' '}
+                    {event.created_at
+                      ? new Intl.DateTimeFormat('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        }).format(new Date(event.created_at))
+                      : 'Pending...'}
+                  </div>
                 </div>
-                <div className="mt-1 font-semibold text-slate-100">{event.play_call || 'Play call TBD'}</div>
-                <div className="text-xs text-slate-400">
-                  {event.result || 'Result TBD'} | Yardage:{' '}
-                  {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
-                </div>
-                <div className="text-[0.7rem] text-slate-500">
-                  Logged{' '}
-                  {event.created_at
-                    ? new Intl.DateTimeFormat('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      }).format(new Date(event.created_at))
-                    : 'Pending...'}
-                </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -183,33 +183,33 @@ export default async function ChartUnitPage({
         </div>
       </header>
 
-      <div className="rounded-3xl border border-slate-900/70 bg-black/30 p-4 text-slate-100">
-        <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6 text-sm">
-          <div>
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Plays</div>
-            <div className="text-lg font-semibold">{totalPlays}</div>
+      <div className="rounded-3xl border border-slate-900/70 bg-slate-900/50 p-4 text-slate-50">
+        <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-6 text-sm md:divide-x md:divide-slate-800">
+          <div className="px-1 md:px-3">
+            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Plays</div>
+            <div className="text-2xl font-semibold text-slate-50">{totalPlays}</div>
           </div>
-          <div>
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Yards / YPP</div>
-            <div className="text-lg font-semibold">
+          <div className="px-1 md:px-3">
+            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Yards / YPP</div>
+            <div className="text-2xl font-semibold text-slate-50">
               {totalYards} / {ypp.toFixed(1)}
             </div>
           </div>
-          <div>
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Explosives</div>
-            <div className="text-lg font-semibold">{explosives}</div>
+          <div className="px-1 md:px-3">
+            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Explosives</div>
+            <div className="text-2xl font-semibold text-slate-50">{explosives}</div>
           </div>
-          <div>
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Turnovers</div>
-            <div className="text-lg font-semibold">{turnovers}</div>
+          <div className="px-1 md:px-3">
+            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Turnovers</div>
+            <div className="text-2xl font-semibold text-slate-50">{turnovers}</div>
           </div>
-          <div>
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Drive</div>
-            <div className="text-lg font-semibold">{currentDrive ?? '--'}</div>
+          <div className="px-1 md:px-3">
+            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Drive</div>
+            <div className="text-2xl font-semibold text-slate-50">{currentDrive ?? '--'}</div>
           </div>
-          <div>
-            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Last result</div>
-            <div className="text-lg font-semibold truncate">{lastResult}</div>
+          <div className="px-1 md:px-3">
+            <div className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">Last result</div>
+            <div className="text-2xl font-semibold text-slate-50 truncate">{lastResult}</div>
           </div>
         </div>
       </div>
