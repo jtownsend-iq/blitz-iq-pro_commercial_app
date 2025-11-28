@@ -17,9 +17,9 @@ const config: Config = {
           dark: '#0891B2'
         },
         surface: {
-          DEFAULT: '#020617', // near-black background
-          muted: '#020617',
-          raised: '#020617'
+          DEFAULT: '#05070f', // base canvas
+          muted: '#0c1324', // subtle cards/inputs
+          raised: '#111b33' // elevated cards
         }
       },
       boxShadow: {

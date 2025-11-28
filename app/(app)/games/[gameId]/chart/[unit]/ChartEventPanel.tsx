@@ -25,6 +25,8 @@ type EventRow = {
   result: string | null
   gained_yards: number | null
   created_at: string | null
+  explosive?: boolean | null
+  turnover?: boolean | null
 }
 
 type ChartEventPanelProps = {
@@ -433,14 +435,14 @@ export function ChartEventPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-900/70 bg-slate-950/70 p-6 space-y-3">
+      <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-slate-100">Rapid chart - {unitLabel}</h2>
             <div className="text-sm text-slate-300">
               Ten-second workflow: tab through primaries, Ctrl/Cmd+Enter to save, Alt+O/D/S switches unit routes.
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1 text-xs text-slate-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-xs text-slate-300">
               {situationLabel}
             </div>
             <div className="text-xs text-slate-300">
@@ -448,7 +450,7 @@ export function ChartEventPanel({
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100">
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-surface-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100">
               {unit}
             </span>
             <span className="text-[0.75rem] text-slate-200">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
@@ -457,7 +459,7 @@ export function ChartEventPanel({
       </div>
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="rounded-3xl border border-slate-900/70 bg-slate-950/70 p-6 space-y-5">
+        <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-5">
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
@@ -470,7 +472,7 @@ export function ChartEventPanel({
                   name="quarter"
                   value={quarterValue}
                   onChange={(e) => setQuarterValue(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 >
                   <option value="">--</option>
                   {quarterOptions.map((q) => (
@@ -487,7 +489,7 @@ export function ChartEventPanel({
                   name="clock"
                   placeholder="12:34"
                   pattern="[0-5]?[0-9]:[0-5][0-9]"
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
@@ -495,7 +497,7 @@ export function ChartEventPanel({
                 <span className="uppercase tracking-[0.18em]">Down</span>
                 <select
                   name="down"
-                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-24 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 >
                   {downOptions.map((option) => (
                     <option key={option.label} value={option.value}>
@@ -511,7 +513,7 @@ export function ChartEventPanel({
                   name="distance"
                   type="number"
                   min={1}
-                  className="w-24 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-24 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
@@ -522,7 +524,7 @@ export function ChartEventPanel({
                   value={ballOnValue}
                   onChange={(e) => setBallOnValue(e.target.value)}
                   placeholder="O35"
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
@@ -532,7 +534,7 @@ export function ChartEventPanel({
                   name="hashMark"
                   value={hashValue}
                   onChange={(e) => setHashValue(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 >
                   {hashOptions.map((option) => (
                     <option key={option.label} value={option.value}>
@@ -548,7 +550,7 @@ export function ChartEventPanel({
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
               Call family (Run / Pass / RPO / ST)
             </h3>
-            <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-slate-950/70 p-1 text-xs">
+            <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-surface-muted p-1 text-xs">
               <button
                 type="button"
                 onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RUN')}
@@ -592,6 +594,13 @@ export function ChartEventPanel({
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Formation & Structure (based on unit)
               </h3>
+              <p className="text-xs text-slate-300">
+                {unit === 'OFFENSE'
+                  ? 'Tag personnel, formation, backfield and concepts so BlitzIQ can see your offensive DNA.'
+                  : unit === 'DEFENSE'
+                  ? 'Tag front, structure and coverage so BlitzIQ can see how you answered this look.'
+                  : 'Tag kick type, variant and return yardage for special teams analytics.'}
+              </p>
               <div className="flex flex-wrap gap-3">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
                 const prettify = (opt: string) =>
@@ -631,7 +640,7 @@ export function ChartEventPanel({
                     ? 'border-red-500 bg-red-950/30 text-red-50'
                     : warning
                     ? 'border-amber-500 bg-amber-950/30 text-amber-50'
-                    : 'border-slate-800 bg-black/40 text-slate-100')
+                    : 'border-slate-800 bg-surface-muted text-slate-100')
                 const handleChange = (value: string | boolean) => {
                   setFormData((prev) => ({ ...prev, [field.name]: value }))
                   if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
@@ -700,7 +709,7 @@ export function ChartEventPanel({
                 <input
                   name="playCall"
                   placeholder="Trips Right 92 Mesh"
-                  className="w-full rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                   required
                 />
               </label>
@@ -710,7 +719,7 @@ export function ChartEventPanel({
                 <input
                   name="result"
                   placeholder="Complete, +8"
-                  className="w-40 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                  className="w-40 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                 />
               </label>
 
@@ -726,7 +735,7 @@ export function ChartEventPanel({
                       ? 'border-red-500 bg-red-950/30 text-red-50'
                       : gainedWarning
                       ? 'border-amber-500 bg-amber-950/30 text-amber-50'
-                      : 'border-slate-800 bg-black/40 text-slate-100'
+                      : 'border-slate-800 bg-surface-muted text-slate-100'
                   } hover:border-slate-700 focus:border-brand/60 focus:outline-none`}
                 />
                 {gainedError && (
@@ -744,7 +753,7 @@ export function ChartEventPanel({
                   value={passResult}
                   onChange={(e) => setPassResult(e.target.value)}
                   disabled={playFamily === 'RUN' || playFamily === 'SPECIAL_TEAMS'}
-                  className="w-36 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none disabled:opacity-50"
+                  className="w-36 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none disabled:opacity-50"
                 >
                   <option value="">--</option>
                   {passResultOptions.map((opt) => (
@@ -791,7 +800,7 @@ export function ChartEventPanel({
                               name="motion_type"
                               value={motionType}
                               onChange={(e) => setMotionType(e.target.value)}
-                              className="rounded-lg border border-slate-800 bg-black/40 px-2 py-1 text-xs text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                              className="rounded-lg border border-slate-800 bg-surface-muted px-2 py-1 text-xs text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                             >
                               <option value="JET">Jet</option>
                             <option value="ORBIT">Orbit</option>
@@ -811,7 +820,7 @@ export function ChartEventPanel({
                         name="qb_alignment"
                         value={qbAlignmentValue}
                         readOnly
-                        className="w-36 rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                        className="w-36 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100"
                       />
                     </label>
                   </div>
@@ -823,7 +832,7 @@ export function ChartEventPanel({
                     name="driveNumber"
                     type="number"
                     min={1}
-                    className="w-28 rounded-lg border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                    className="w-28 rounded-lg border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                   />
                 </label>
 
@@ -832,7 +841,7 @@ export function ChartEventPanel({
                   <textarea
                     name="notes"
                     rows={2}
-                    className="w-full rounded-xl border border-slate-800 bg-black/40 px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-800 bg-surface-muted px-3 py-2 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none"
                     placeholder="Coverage bust, pressure from boundary..."
                   />
                 </label>
@@ -863,7 +872,7 @@ export function ChartEventPanel({
           </form>
         </div>
 
-        <div className="rounded-3xl border border-slate-900/70 bg-slate-950/70 p-6 space-y-4">
+        <div className="rounded-3xl border border-slate-900/70 bg-surface-raised p-6 space-y-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
             <p className="text-sm text-slate-300">
@@ -877,7 +886,7 @@ export function ChartEventPanel({
               events.map((event) => (
                 <div
                   key={event.id}
-                  className="rounded-2xl border border-slate-900/60 bg-slate-950/50 px-4 py-3 text-sm text-slate-200"
+                  className="rounded-2xl border border-slate-900/60 bg-surface-muted px-4 py-3 text-sm text-slate-200"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                     <span>
@@ -885,12 +894,26 @@ export function ChartEventPanel({
                     </span>
                     <span>Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}</span>
                   </div>
-                  <div className="mt-1 font-semibold text-slate-100">{event.play_call || 'Play call TBD'}</div>
-                  <div className="text-xs text-slate-200">
-                    {event.result || 'Result TBD'} | Yardage:{' '}
-                    {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
+                  <div className="mt-1 text-base font-semibold text-slate-50">{event.play_call || 'Play call TBD'}</div>
+                  <div className="text-xs text-slate-200 flex items-center gap-2">
+                    <span>
+                      {event.result || 'Result TBD'} | Yardage:{' '}
+                      {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
+                    </span>
+                    {(event.explosive || (event.gained_yards ?? 0) >= 20) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.7rem] text-amber-300">
+                        • Explosive
+                      </span>
+                    )}
+                    {(event.turnover ||
+                      (event.result || '').toLowerCase().includes('int') ||
+                      (event.result || '').toLowerCase().includes('fumble')) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[0.7rem] text-red-300">
+                        • Turnover
+                      </span>
+                    )}
                   </div>
-                  <div className="text-[0.7rem] text-slate-300">
+                  <div className="text-[0.7rem] text-slate-400">
                     Logged{' '}
                     {event.created_at
                       ? new Intl.DateTimeFormat('en-US', {
