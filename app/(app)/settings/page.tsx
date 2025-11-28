@@ -707,6 +707,10 @@ export default async function SettingsPage({
     success4th: chartingDefaults?.success_4th_pct ?? DEFAULT_SUCCESS_THRESHOLDS.fourthDownPct,
   }
 
+  const currentPlanName = 'Premium'
+  const currentPlanPrice = '$299/mo'
+  const primaryBillingContact = billingContacts[0] ?? null
+
   const playerSearchTerm =
     typeof searchParams?.player_search === 'string'
       ? searchParams.player_search.trim().toLowerCase()
@@ -2719,99 +2723,87 @@ export default async function SettingsPage({
 
           <SettingsSection id="billing" title="Billing & Subscription">
             <SettingsCard
-              title="Premium Plan ($299/mo)"
-              description="Pricing and plan visibility with a frictionless upgrade flow."
+              title="Plan & Billing Contact"
+              description="Review your current subscription and who owns billing communications."
               actions={
-                <button className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-black">
-                  Upgrade to Premium
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="/billing"
+                    className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-black"
+                  >
+                    Update payment method
+                  </a>
+                  <a
+                    href="/contact"
+                    className="rounded-full border border-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500"
+                  >
+                    Contact sales for Enterprise
+                  </a>
+                </div>
               }
             >
               <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <Crown className="h-4 w-4 text-amber-200" />
-                    <p className="text-sm font-semibold text-slate-100">
-                      UI polish, power features, perfect UX
-                    </p>
-                  </div>
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    <li>Inline locks + previews in advanced controls to show value before paywall.</li>
-                    <li>Plan badge visible in header and billing; guided upgrade CTA inside settings.</li>
-                    <li>Priority support, audit visibility, and performance guarantees included.</li>
-                  </ul>
-                </div>
-                <div className="space-y-3 rounded-2xl border border-slate-800 bg-black/30 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Compare</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                    <div className="rounded-xl border border-slate-800 bg-black/30 p-3">
-                      <p className="text-sm font-semibold text-slate-100">Core</p>
-                      <p className="text-slate-500">$0 / tenant</p>
-                      <p className="mt-1 text-slate-500">Roster, basic settings, and exports.</p>
-                    </div>
-                    <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3">
-                      <p className="text-sm font-semibold text-emerald-100">Premium</p>
-                      <p className="text-emerald-200">$299 / mo</p>
-                      <p className="mt-1 text-emerald-100/80">Advanced controls, audit, priority support.</p>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">{currentPlanName} plan</p>
+                      <p className="text-xs text-slate-400">{currentPlanPrice}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    {'Upgrade flow: review -> confirm billing contact -> success toast + plan badge update.'}
-                  </p>
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Plan Overview"
-              description="Usage applies across the Iron Ridge tenant."
-              actions={
-                <button className="rounded-full border border-brand px-4 py-1.5 text-xs font-semibold text-brand">
-                  Manage plan
-                </button>
-              }
-            >
-              <div className="grid gap-4 md:grid-cols-3 text-sm">
-                {usageStats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-2xl border border-slate-800 bg-black/20 p-4"
-                  >
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      {stat.label}
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-slate-100">{stat.value}</p>
-                  </div>
-                ))}
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Payment & Invoices"
-              description="Billing contacts control the subscription."
-            >
-              <div className="grid gap-6 lg:grid-cols-[1fr,1.2fr]">
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-slate-800 bg-black/30 p-4 space-y-2 text-sm">
-                    <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-                      Payment method
-                    </p>
-                    <p className="font-semibold text-slate-100">Visa |||| 4242</p>
-                    <p className="text-xs text-slate-500">Expires 04/27</p>
-                    <button className="text-xs font-semibold text-brand">Update card</button>
-                  </div>
-                  <div className="rounded-2xl border border-slate-800 bg-black/30 p-4 space-y-3 text-sm text-slate-300">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Contacts</p>
-                    {billingContacts.map((contact) => (
-                      <div key={contact.email}>
-                        <p className="font-semibold text-slate-100">{contact.name}</p>
+                  <div className="rounded-2xl border border-slate-800 bg-black/30 p-3 text-sm text-slate-300">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Billing contact</p>
+                    {primaryBillingContact ? (
+                      <div className="mt-1">
+                        <p className="font-semibold text-slate-100">{primaryBillingContact.name}</p>
                         <p className="text-xs text-slate-500">
-                          {contact.email} | {contact.role}
+                          {primaryBillingContact.email} | {primaryBillingContact.role}
                         </p>
                       </div>
-                    ))}
-                    <button className="text-xs font-semibold text-brand">Add contact</button>
+                    ) : (
+                      <p className="text-xs text-slate-500">Add a billing contact to stay in sync.</p>
+                    )}
                   </div>
+                  <div className="grid gap-2 sm:grid-cols-3 text-xs">
+                    {usageStats.map((stat, idx) => (
+                      <StatBadge
+                        key={stat.label}
+                        label={stat.label}
+                        value={stat.value}
+                        tone={idx === 0 ? 'cyan' : idx === 1 ? 'amber' : 'emerald'}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-2xl border border-slate-800 bg-black/30 p-4 text-sm text-slate-300">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Payment method</p>
+                  <p className="font-semibold text-slate-100">Visa |||| 4242</p>
+                  <p className="text-xs text-slate-500">Expires 04/27</p>
+                  <a className="text-xs font-semibold text-brand" href="/billing">
+                    Update card
+                  </a>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Billing History"
+              description="Recent invoices for this tenant."
+            >
+              <div className="grid gap-6 lg:grid-cols-[1fr,1.2fr]">
+                <div className="rounded-2xl border border-slate-800 bg-black/30 p-4 space-y-3 text-sm text-slate-300">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Contacts</p>
+                  {billingContacts.map((contact) => (
+                    <div key={contact.email}>
+                      <p className="font-semibold text-slate-100">{contact.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {contact.email} | {contact.role}
+                      </p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500">
+                    Need to add or change billing contacts? Visit the billing page.
+                  </p>
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-slate-800">
@@ -2848,73 +2840,54 @@ export default async function SettingsPage({
 
           <SettingsSection id="security" title="Security & Access">
             <SettingsCard
-              title="Security & Trust Story"
-              description="Highlight roles/permissions, MFA prompts, activity logs, and data residency controls."
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-800 bg-black/30 p-3">
-                  <p className="text-sm font-semibold text-slate-100">Governance</p>
-                  <ul className="mt-2 space-y-2 text-xs text-slate-400">
-                    <li>Roles + permissions surfaced beside staff table and invites with edit protections.</li>
-                    <li>Activity log snippet inline with link to full audit history.</li>
-                    <li>Data residency and compliance note near billing and API keys.</li>
-                  </ul>
-                </div>
-                <div className="rounded-2xl border border-slate-800 bg-black/30 p-3">
-                  <p className="text-sm font-semibold text-slate-100">MFA & API hygiene</p>
-                  <ul className="mt-2 space-y-2 text-xs text-slate-400">
-                    <li>MFA prompt CTA plus enforcement toggle for tenant owners.</li>
-                    <li>Scoped API keys with last-used visibility and revoke actions.</li>
-                    <li>Audit and alerting for billing changes and roster imports.</li>
-                  </ul>
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
               title="Multi-factor Authentication"
               description="Recommended for all staff roles."
-              actions={
-                <button className="rounded-full bg-brand text-black px-4 py-1.5 text-xs font-semibold">
-                  Enable MFA
-                </button>
-              }
             >
-              <p className="text-sm text-slate-400">
-                MFA is currently optional for this tenant. Enforcing MFA will prompt staff to enroll
-                during next sign-in.
-              </p>
-            </SettingsCard>
-
-            <SettingsCard
-              title="API Keys"
-              description="Secure integrations powered by scoped keys."
-            >
-              <div className="space-y-3">
-                {apiKeys.map((key) => (
-                  <div
-                    key={key.name}
-                    className="rounded-2xl border border-slate-800 bg-black/30 p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-100">{key.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {key.scope} | Last used {key.lastUsed}
-                      </p>
-                    </div>
-                    <button className="text-xs font-semibold text-brand">Revoke</button>
-                  </div>
-                ))}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-slate-300">
+                    Status: Optional. Encourage staff to enable MFA in their profile.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Enforcement is off. Turn it on in your identity provider if required.
+                  </p>
+                </div>
+                <span className="rounded-full border border-slate-700 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-slate-300">
+                  Not enforced
+                </span>
               </div>
             </SettingsCard>
 
+            {apiKeys.length > 0 && (
+              <SettingsCard
+                title="API Keys"
+                description="Existing keys for integrations."
+              >
+                <div className="space-y-3">
+                  {apiKeys.map((key) => (
+                    <div
+                      key={key.name}
+                      className="rounded-2xl border border-slate-800 bg-black/30 p-4 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">{key.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {key.scope} | Last used {key.lastUsed}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-slate-400">{key.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </SettingsCard>
+            )}
+
             <SettingsCard
-              title="Audit Log"
-              description="Trace actions across users, settings, and data."
-              actions={<button className="text-xs font-semibold text-brand">View full history</button>}
+              title="Audit Log Preview"
+              description="Recent security-related activity."
             >
               <div className="space-y-3 text-sm text-slate-300">
-                {auditLog.map((entry) => (
+                {auditLog.slice(0, 4).map((entry) => (
                   <div
                     key={`${entry.action}-${entry.timestamp}`}
                     className="rounded-2xl border border-slate-900/60 bg-black/20 p-4"
@@ -2925,6 +2898,9 @@ export default async function SettingsPage({
                     </p>
                   </div>
                 ))}
+                {auditLog.length === 0 && (
+                  <p className="text-xs text-slate-500">No recent events.</p>
+                )}
               </div>
             </SettingsCard>
           </SettingsSection>
