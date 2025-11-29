@@ -7,6 +7,8 @@ import { Pill } from '@/components/ui/Pill'
 import { StatBadge } from '@/components/ui/StatBadge'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { sendServerTelemetry } from '@/utils/telemetry.server'
 import { startGameSession } from './chart-actions'
 import { createGame } from './actions'
 
@@ -53,6 +55,7 @@ export default async function GamesPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const errors: string[] = []
   const supabase = await createSupabaseServerClient()
   const resolvedSearchParams = (searchParams ? await searchParams : {}) ?? {}
 
@@ -73,6 +76,7 @@ export default async function GamesPage({
 
   if (profileError) {
     console.error('Error loading profile for games page:', profileError.message)
+    await sendServerTelemetry('games_profile_error', { message: profileError.message, userId: user.id })
   }
 
   const activeTeamId = profile?.active_team_id as string | null
@@ -88,7 +92,10 @@ export default async function GamesPage({
     .order('start_time', { ascending: false })
 
   if (gamesError) {
-    console.error('Error loading games:', gamesError.message)
+    const message = 'Error loading games.'
+    errors.push(message)
+    console.error(message, gamesError.message)
+    await sendServerTelemetry('games_fetch_error', { message: gamesError.message, teamId: activeTeamId })
   }
 
   const games: GameRow[] = (gamesData as GameRow[] | null) ?? []
@@ -104,7 +111,13 @@ export default async function GamesPage({
       .in('game_id', gameIds)
 
     if (sessionError) {
-      console.error('Error loading game sessions:', sessionError.message)
+      const message = 'Error loading game sessions.'
+      errors.push(message)
+      console.error(message, sessionError.message)
+      await sendServerTelemetry('game_sessions_fetch_error', {
+        message: sessionError.message,
+        teamId: activeTeamId,
+      })
     } else if (sessionData) {
       sessionsByGame = sessionData.reduce<Record<string, SessionRow[]>>(
         (acc, row) => {
@@ -199,6 +212,14 @@ export default async function GamesPage({
     return value.toUpperCase() === 'HOME' ? 'Home' : 'Away'
   }
 
+  const renderErrors = () =>
+    errors.length ? (
+      <ErrorState
+        title="We hit a snag loading your games"
+        description={errors.join(' ')}
+      />
+    ) : null
+
   const deriveGameStatus = (game: GameRow, sessions: SessionRow[]) => {
     const hasActive = sessions.some((s) => s.status === 'active')
     const hasFinal = sessions.some((s) => s.status === 'closed' || s.status === 'final')
@@ -225,6 +246,8 @@ export default async function GamesPage({
         }
         badge="Command Center"
       />
+
+      {renderErrors()}
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <GlassCard>

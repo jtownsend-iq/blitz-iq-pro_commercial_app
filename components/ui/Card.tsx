@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
 type CardProps = {
   children: ReactNode
@@ -11,7 +11,7 @@ type CardProps = {
 type SectionProps = {
   children: ReactNode
   className?: string
-}
+} & HTMLAttributes<HTMLDivElement>
 
 const paddingMap: Record<NonNullable<CardProps['padding']>, string> = {
   sm: 'p-4',
@@ -52,22 +52,42 @@ export function Card({
   )
 }
 
-export function CardHeader({ children, className = '' }: SectionProps) {
-  return <div className={['flex items-start justify-between gap-3', className].join(' ')}>{children}</div>
+export function CardHeader({ children, className = '', ...rest }: SectionProps) {
+  return (
+    <div className={['flex items-start justify-between gap-3', className].join(' ')} {...rest}>
+      {children}
+    </div>
+  )
 }
 
-export function CardTitle({ children, className = '' }: SectionProps) {
-  return <h3 className={['text-lg font-semibold text-slate-50', className].join(' ')}>{children}</h3>
+export function CardTitle({ children, className = '', ...rest }: SectionProps) {
+  return (
+    <h3 className={['text-lg font-semibold text-slate-50', className].join(' ')} {...rest}>
+      {children}
+    </h3>
+  )
 }
 
-export function CardDescription({ children, className = '' }: SectionProps) {
-  return <p className={['text-sm text-slate-400', className].join(' ')}>{children}</p>
+export function CardDescription({ children, className = '', ...rest }: SectionProps) {
+  return (
+    <p className={['text-sm text-slate-400', className].join(' ')} {...rest}>
+      {children}
+    </p>
+  )
 }
 
-export function CardContent({ children, className = '' }: SectionProps) {
-  return <div className={['mt-4', className].join(' ')}>{children}</div>
+export function CardContent({ children, className = '', ...rest }: SectionProps) {
+  return (
+    <div className={['mt-4', className].join(' ')} {...rest}>
+      {children}
+    </div>
+  )
 }
 
-export function CardFooter({ children, className = '' }: SectionProps) {
-  return <div className={['mt-5 flex items-center justify-between gap-3', className].join(' ')}>{children}</div>
+export function CardFooter({ children, className = '', ...rest }: SectionProps) {
+  return (
+    <div className={['mt-5 flex items-center justify-between gap-3', className].join(' ')} {...rest}>
+      {children}
+    </div>
+  )
 }

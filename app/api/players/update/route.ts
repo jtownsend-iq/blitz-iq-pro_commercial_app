@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { jsonError, jsonOk } from '@/utils/api/responses'
 
 async function assertMembership(playerId: string, userId: string) {
   const supabase = await createSupabaseServerClient()
@@ -36,13 +37,13 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      return jsonError('Not authenticated', 401)
     }
 
     const body = await request.json()
     const playerId: string | undefined = body.playerId
     if (!playerId) {
-      return NextResponse.json({ error: 'playerId is required' }, { status: 400 })
+      return jsonError('playerId is required', 400)
     }
 
     const { supabase: svc } = await assertMembership(playerId, user.id)
@@ -95,12 +96,12 @@ export async function POST(request: Request) {
 
     const { error } = await svc.from('players').update(update).eq('id', playerId)
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return jsonError(error.message, 400)
     }
 
-    return NextResponse.json({ ok: true })
+    return jsonOk({ playerId })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
-    return NextResponse.json({ error: message }, { status: 400 })
+    return jsonError(message, 400)
   }
 }

@@ -52,18 +52,20 @@ export function LiveSessionList({ sessions }: LiveSessionListProps) {
                     </span>
                     <span className="text-slate-500">{formatUnitLabel(session.unit)}</span>
                   </div>
-                  <div className="text-sm font-semibold text-slate-100">#{session.sequence} · {session.focus}</div>
+                  <div className="text-sm font-semibold text-slate-100">
+                    {session.games?.opponent_name ? `vs ${session.games.opponent_name}` : 'Session'}
+                  </div>
                   <p className="text-sm text-slate-400">
-                    {session.game_name} · {formatDateShort(session.created_at)}
+                    {formatDateShort(session.games?.start_time ?? null)}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Started {formatRelativeTime(session.created_at)} · {session.play_count} plays charted
+                    Started {formatRelativeTime(session.started_at)}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 text-right">
                   <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-[0.78rem] text-slate-200">
                     <Clock3 className="h-4 w-4 text-slate-500" />
-                    {formatRelativeTime(session.last_event_at)} ago
+                    {formatRelativeTime(session.started_at)} ago
                   </div>
                   <Link
                     href={`/games/${session.game_id}/chart/${(session.unit || '').toLowerCase().replace('_', '-')}`}
@@ -74,7 +76,7 @@ export function LiveSessionList({ sessions }: LiveSessionListProps) {
                   </Link>
                   <div className="flex items-center gap-2 text-[0.8rem] text-slate-400">
                     <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                    {session.created_by}
+                    Active
                   </div>
                 </div>
               </div>

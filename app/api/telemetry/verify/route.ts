@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createSupabaseServiceRoleClient } from '@/utils/supabase/server'
+import { env } from '@/utils/env'
 
-const verifyToken = process.env.TELEMETRY_VERIFY_TOKEN
+const verifyToken = env.telemetryVerifyToken
 
 export async function POST() {
   if (!verifyToken) {

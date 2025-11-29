@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
+import { env } from '@/utils/env'
 
-const apiKey = process.env.OPENAI_API_KEY
+const apiKey = env.openaiApiKey
 const openaiClient = apiKey ? new OpenAI({ apiKey }) : null
 
 type DriveSummaryInput = {

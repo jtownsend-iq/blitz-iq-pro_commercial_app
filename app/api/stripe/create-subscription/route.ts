@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
+import { env } from '@/utils/env'
 
 const requestSchema = z.object({
   email: z.string().email(),
@@ -21,10 +22,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing or invalid fields.' }, { status: 400 })
   }
 
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  const stripeSecretKey = env.stripeSecretKey
   const priceMap: Record<string, string | undefined> = {
-    standard: process.env.STRIPE_PRICE_STANDARD,
-    elite: process.env.STRIPE_PRICE_ELITE,
+    standard: env.stripePriceStandard,
+    elite: env.stripePriceElite,
   }
 
   if (!stripeSecretKey || !priceMap.standard) {

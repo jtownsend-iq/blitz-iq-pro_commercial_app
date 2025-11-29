@@ -1,26 +1,27 @@
 ﻿// proxy.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { getSupabasePublicConfig } from '@/utils/supabase/publicConfig'
 
 export default async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request })
+  const { url: supabaseUrl, anonKey } = getSupabasePublicConfig()
+  if (!supabaseUrl || !anonKey) {
+    throw new Error('Missing Supabase public configuration for proxy.')
+  }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
-          })
-        },
+  const supabase = createServerClient(supabaseUrl, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
       },
-    }
-  )
+      setAll(cookiesToSet: Array<{ name: string; value: string; options?: Parameters<typeof response.cookies.set>[2] }>) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options)
+        })
+      },
+    },
+  })
 
   // Do not put logic between client creation and getUser()
   const {
