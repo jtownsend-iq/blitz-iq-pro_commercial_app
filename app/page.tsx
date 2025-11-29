@@ -4,12 +4,12 @@ type SearchParams = {
   [key: string]: string | string[] | undefined
 }
 
-export default function HomeRedirect({
+export default async function HomeRedirect({
   searchParams,
 }: {
-  searchParams?: SearchParams
+  searchParams?: Promise<SearchParams>
 }) {
-  const params = searchParams ?? {}
+  const params = (searchParams ? await searchParams : {}) ?? {}
   const urlParams = new URLSearchParams()
 
   for (const [key, value] of Object.entries(params)) {

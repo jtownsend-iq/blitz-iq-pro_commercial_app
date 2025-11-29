@@ -7,19 +7,19 @@ function isTestEnv(vars: NodeJS.ProcessEnv) {
 }
 
 export function resolveSupabasePublicConfig(vars: NodeJS.ProcessEnv): { url: string; anonKey: string } {
-  const supabaseUrl = vars.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const supabaseUrl = vars.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const supabaseAnonKey = vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const allowMissing = isTestEnv(vars)
 
   if ((!supabaseUrl || !supabaseAnonKey) && !allowMissing) {
-    throw new Error(
+    console.warn(
       'Missing Supabase client configuration. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.'
     )
   }
 
   return {
-    url: supabaseUrl ?? '',
-    anonKey: supabaseAnonKey ?? '',
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   }
 }
 
