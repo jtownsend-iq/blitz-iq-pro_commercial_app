@@ -2,12 +2,6 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-const priceMap: Record<string, string | undefined> = {
-  standard: process.env.STRIPE_PRICE_STANDARD,
-  elite: process.env.STRIPE_PRICE_ELITE,
-}
-
 const requestSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1),
@@ -15,10 +9,6 @@ const requestSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  if (!stripeSecretKey) {
-    return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 })
-  }
-
   let body: unknown
   try {
     body = await request.json()
@@ -31,6 +21,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing or invalid fields.' }, { status: 400 })
   }
 
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  const priceMap: Record<string, string | undefined> = {
+    standard: process.env.STRIPE_PRICE_STANDARD,
+    elite: process.env.STRIPE_PRICE_ELITE,
+  }
+
+  if (!stripeSecretKey || !priceMap.standard) {
+    return NextResponse.json(
+      { error: 'Stripe billing is not configured. Contact support.' },
+      { status: 500 }
+    )
+  }
+
   const { email, name, plan } = parsed.data
   const normalizedPlan = plan.toLowerCase()
   const priceId = priceMap[normalizedPlan] ?? priceMap.standard
@@ -40,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2024-06-20',
+    apiVersion: '2025-11-17.clover',
   })
 
   try {
@@ -60,9 +63,21 @@ export async function POST(request: Request) {
       expand: ['latest_invoice.payment_intent'],
     })
 
-    const paymentIntent = subscription.latest_invoice?.payment_intent
-    const clientSecret =
-      paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.client_secret : null
+    const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null | string | undefined
+    let clientSecret: string | null = null
+
+    if (latestInvoice && typeof latestInvoice !== 'string') {
+      const invoicePaymentIntent = (latestInvoice as Stripe.Invoice & {
+        payment_intent?: Stripe.PaymentIntent | string | null
+      }).payment_intent
+
+      if (invoicePaymentIntent && typeof invoicePaymentIntent !== 'string') {
+        clientSecret = invoicePaymentIntent.client_secret
+      } else if (typeof invoicePaymentIntent === 'string') {
+        const pi = await stripe.paymentIntents.retrieve(invoicePaymentIntent)
+        clientSecret = pi.client_secret
+      }
+    }
 
     if (!clientSecret) {
       return NextResponse.json(

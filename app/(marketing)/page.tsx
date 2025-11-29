@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -23,26 +23,6 @@ import { StatBadge } from '@/components/ui/StatBadge'
 import { MotionList } from '@/components/ui/MotionList'
 
 type Plan = 'Elite' | 'Standard'
-type Intent = 'elite_availability' | 'demo_deck' | 'call_request'
-type FieldType = 'text' | 'email' | 'select'
-type ContactFieldName =
-  | 'name'
-  | 'role'
-  | 'school'
-  | 'state'
-  | 'classification'
-  | 'region'
-  | 'email'
-
-type ContactField = {
-  label: string
-  name: ContactFieldName
-  type: FieldType
-  description: string
-  required?: boolean
-  autoComplete?: string
-  options?: { label: string; value: string }[]
-}
 
 type Outcome = { title: string; description: string; icon: ReactNode }
 type Capability = { title: string; copy: string; icon: ReactNode }
@@ -52,113 +32,6 @@ type PlanCard = {
   summary: string
   highlights: string[]
 }
-
-const contactFields: ContactField[] = [
-  { label: 'Name', name: 'name', type: 'text', required: true, autoComplete: 'name', description: 'Who are we talking with?' },
-  {
-    label: 'Role',
-    name: 'role',
-    type: 'select',
-    required: true,
-    autoComplete: 'organization-title',
-    description: 'HC, OC, DC, Analyst, AD, etc.',
-    options: [
-      { label: 'Head Coach', value: 'Head Coach' },
-      { label: 'Offensive Coordinator', value: 'Offensive Coordinator' },
-      { label: 'Defensive Coordinator', value: 'Defensive Coordinator' },
-      { label: 'Special Teams Coordinator', value: 'Special Teams Coordinator' },
-      { label: 'Analyst', value: 'Analyst' },
-      { label: 'Quality Control', value: 'Quality Control' },
-      { label: 'Assistant Coach', value: 'Assistant Coach' },
-      { label: 'Other Coach', value: 'Other Coach' },
-    ],
-  },
-  { label: 'School', name: 'school', type: 'text', required: true, autoComplete: 'organization', description: 'Program or school name.' },
-  {
-    label: 'State',
-    name: 'state',
-    type: 'select',
-    required: true,
-    autoComplete: 'address-level1',
-    description: 'State or province (e.g., TX, CA, ON).',
-    options: [
-      { label: 'Alabama', value: 'AL' },
-      { label: 'Alaska', value: 'AK' },
-      { label: 'Arizona', value: 'AZ' },
-      { label: 'Arkansas', value: 'AR' },
-      { label: 'California', value: 'CA' },
-      { label: 'Colorado', value: 'CO' },
-      { label: 'Connecticut', value: 'CT' },
-      { label: 'Delaware', value: 'DE' },
-      { label: 'District of Columbia', value: 'DC' },
-      { label: 'Florida', value: 'FL' },
-      { label: 'Georgia', value: 'GA' },
-      { label: 'Hawaii', value: 'HI' },
-      { label: 'Idaho', value: 'ID' },
-      { label: 'Illinois', value: 'IL' },
-      { label: 'Indiana', value: 'IN' },
-      { label: 'Iowa', value: 'IA' },
-      { label: 'Kansas', value: 'KS' },
-      { label: 'Kentucky', value: 'KY' },
-      { label: 'Louisiana', value: 'LA' },
-      { label: 'Maine', value: 'ME' },
-      { label: 'Maryland', value: 'MD' },
-      { label: 'Massachusetts', value: 'MA' },
-      { label: 'Michigan', value: 'MI' },
-      { label: 'Minnesota', value: 'MN' },
-      { label: 'Mississippi', value: 'MS' },
-      { label: 'Missouri', value: 'MO' },
-      { label: 'Montana', value: 'MT' },
-      { label: 'Nebraska', value: 'NE' },
-      { label: 'Nevada', value: 'NV' },
-      { label: 'New Hampshire', value: 'NH' },
-      { label: 'New Jersey', value: 'NJ' },
-      { label: 'New Mexico', value: 'NM' },
-      { label: 'New York', value: 'NY' },
-      { label: 'North Carolina', value: 'NC' },
-      { label: 'North Dakota', value: 'ND' },
-      { label: 'Ohio', value: 'OH' },
-      { label: 'Oklahoma', value: 'OK' },
-      { label: 'Oregon', value: 'OR' },
-      { label: 'Pennsylvania', value: 'PA' },
-      { label: 'Rhode Island', value: 'RI' },
-      { label: 'South Carolina', value: 'SC' },
-      { label: 'South Dakota', value: 'SD' },
-      { label: 'Tennessee', value: 'TN' },
-      { label: 'Texas', value: 'TX' },
-      { label: 'Utah', value: 'UT' },
-      { label: 'Vermont', value: 'VT' },
-      { label: 'Virginia', value: 'VA' },
-      { label: 'Washington', value: 'WA' },
-      { label: 'West Virginia', value: 'WV' },
-      { label: 'Wisconsin', value: 'WI' },
-      { label: 'Wyoming', value: 'WY' },
-      { label: 'Ontario', value: 'ON' },
-      { label: 'Quebec', value: 'QC' },
-      { label: 'British Columbia', value: 'BC' },
-      { label: 'Alberta', value: 'AB' },
-    ],
-  },
-  {
-    label: 'Classification',
-    name: 'classification',
-    type: 'select',
-    required: true,
-    autoComplete: 'organization-title',
-    description: 'Level (HS, JUCO, NAIA, FBS, CFL, etc.).',
-    options: [
-      { label: 'High School', value: 'High School' },
-      { label: 'College FBS', value: 'College FBS' },
-      { label: 'College FCS', value: 'College FCS' },
-      { label: 'College D2/D3/NAIA', value: 'College D2/D3/NAIA' },
-      { label: 'JUCO', value: 'JUCO' },
-      { label: 'CFL / U Sports', value: 'CFL / U Sports' },
-      { label: 'Other', value: 'Other' },
-    ],
-  },
-  { label: 'Region', name: 'region', type: 'text', required: true, description: 'Your metro/area for coverage and support.', autoComplete: 'address-level2' },
-  { label: 'Work Email', name: 'email', type: 'email', required: true, autoComplete: 'email', description: 'We use this to follow up quickly. We never share it.' },
-]
 
 const outcomes: Outcome[] = [
   { title: 'Own 3rd-and-medium', description: 'See their go-to calls by formation, hash, and personnel before you dial it.', icon: <Radar className="h-5 w-5 text-cyan-200" /> },
@@ -213,14 +86,7 @@ const pulseVariants = {
 }
 
 export default function MarketingPage() {
-  const [selectedPlan, setSelectedPlan] = useState<Plan>('Elite')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [successIntent, setSuccessIntent] = useState<Intent | null>(null)
-  const [invalidField, setInvalidField] = useState<ContactFieldName | null>(null)
-
-  const intentRef = useRef<Intent>('elite_availability')
-  const planRef = useRef<Plan>('Elite')
+  const selectedPlan: Plan = 'Elite'
   const currentYear = useMemo(() => new Date().getFullYear(), [])
   const copyrightSymbol = '\u00A9'
 
@@ -228,111 +94,6 @@ export default function MarketingPage() {
     const el = document.getElementById(id)
     if (el) el.scrollIntoView({ behavior: 'smooth' })
   }, [])
-
-  const setIntentAndScroll = useCallback(
-    (nextIntent: Intent, nextPlan: Plan) => {
-      intentRef.current = nextIntent
-      planRef.current = nextPlan
-      setSelectedPlan(nextPlan)
-      setSuccessIntent(null)
-      scrollToSection('contact')
-    },
-    [scrollToSection]
-  )
-
-  const successCopy = useMemo<Record<Intent, string>>(
-    () => ({
-      elite_availability: 'Got it - we will confirm Elite availability in your area and reply fast.',
-      demo_deck: 'Thanks - we will send the demo deck and a sample breakdown shortly.',
-      call_request: 'Thanks - we will email to schedule a call that fits your time.',
-    }),
-    []
-  )
-
-  const handleSubmit = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault()
-      setSubmitting(true)
-      setError(null)
-      setSuccessIntent(null)
-      setInvalidField(null)
-
-      const form = event.currentTarget
-      const formData = new FormData(form)
-      const cleanedValues = contactFields.reduce(
-        (acc, field) => {
-          acc[field.name] = String(formData.get(field.name) || '').trim()
-          return acc
-        },
-        {} as Record<ContactFieldName, string>
-      )
-
-      for (const field of contactFields) {
-        if (!field.required) continue
-        const value = cleanedValues[field.name]
-        if (!value) {
-          const message = `${field.label} is required.`
-          setError(message)
-          setInvalidField(field.name)
-          const target = form.elements.namedItem(field.name) as HTMLElement | null
-          target?.focus()
-          setSubmitting(false)
-          return
-        }
-      }
-
-      if (cleanedValues.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanedValues.email)) {
-        setError('Enter a valid work email address.')
-        setInvalidField('email')
-        const target = form.elements.namedItem('email') as HTMLElement | null
-        target?.focus()
-        setSubmitting(false)
-        return
-      }
-
-      const payload = {
-        name: cleanedValues.name,
-        role: cleanedValues.role,
-        school: cleanedValues.school,
-        state: cleanedValues.state,
-        classification: cleanedValues.classification,
-        region: cleanedValues.region,
-        email: cleanedValues.email,
-        plan: planRef.current,
-        intent: intentRef.current,
-      }
-
-      try {
-        const res = await fetch('/api/contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        let json: { error?: string } | null = null
-        try {
-          json = await res.json()
-        } catch {
-          json = null
-        }
-        if (!res.ok) {
-          const message = json?.error || 'We could not send your info. Please try again.'
-          setError(message)
-          return
-        }
-        setSuccessIntent(intentRef.current)
-        setInvalidField(null)
-        form.reset()
-        planRef.current = 'Elite'
-        setSelectedPlan('Elite')
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Something went wrong.'
-        setError(message)
-      } finally {
-        setSubmitting(false)
-      }
-    },
-    []
-  )
 
   return (
     <main className="bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.12),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(16,185,129,0.1),transparent_30%),#020617] text-slate-50 min-h-screen">
@@ -375,13 +136,12 @@ export default function MarketingPage() {
             >
               Login
             </Link>
-            <button
-              type="button"
-              onClick={() => setIntentAndScroll('elite_availability', 'Elite')}
+            <Link
+              href="/signup"
               className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60"
             >
-              Check Elite availability <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+              Start membership <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </div>
         <div className="md:hidden border-t border-slate-900/60 bg-black/80">
@@ -429,20 +189,12 @@ export default function MarketingPage() {
               <StatBadge label="Booth + sideline view" value="Synced" tone="amber" />
             </div>
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setIntentAndScroll('demo_deck', selectedPlan)}
-                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
               >
-                Get the demo deck
-              </button>
-              <button
-                type="button"
-                onClick={() => setIntentAndScroll('call_request', selectedPlan)}
-                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white"
-              >
-                Talk to a coach
-              </button>
+                Start membership
+              </Link>
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-slate-400">
               <Pill label="No student logins" tone="slate" icon={<Shield className="h-3 w-3" />} />
@@ -571,20 +323,18 @@ export default function MarketingPage() {
                   ))}
                 </ul>
                 <div className="mt-4 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIntentAndScroll('elite_availability', plan.name)}
+                  <Link
+                    href="/signup"
                     className="rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft"
                   >
-                    {plan.name === 'Elite' ? 'Check Elite availability' : 'Start Standard (from $299/mo)'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIntentAndScroll('demo_deck', plan.name)}
+                    Start {plan.name}
+                  </Link>
+                  <Link
+                    href="/signup"
                     className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white"
                   >
-                    Demo deck
-                  </button>
+                    View demo deck
+                  </Link>
                 </div>
               </GlassCard>
             ))}
@@ -610,112 +360,20 @@ export default function MarketingPage() {
 
         <section id="contact" className="space-y-4">
           <SectionHeader
-            eyebrow="Contact"
-            title="Tell us what you need"
-            description="Share your role and what you’re trying to solve. We reply fast in-season."
-            badge="We respond quickly"
+            eyebrow="Ready to join"
+            title="Start your membership"
+            description="Pick your plan and create your account to get live charting and scouting."
+            badge="Premium access"
           />
           <GlassCard>
-            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
-              {contactFields.map((field) => (
-                <label key={field.name} className="space-y-1 text-xs text-slate-400">
-                  <span className="uppercase tracking-[0.2em] text-slate-300">{field.label}</span>
-                  {field.type === 'select' ? (
-                    <select
-                      name={field.name}
-                      required={field.required}
-                      aria-label={field.label}
-                      autoComplete={field.autoComplete}
-                      className={`w-full rounded-xl border ${invalidField === field.name ? 'border-amber-500' : 'border-white/10'} bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30`}
-                    >
-                      <option value="">Select</option>
-                      {field.options?.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={field.type}
-                      name={field.name}
-                      required={field.required}
-                      aria-label={field.label}
-                      autoComplete={field.autoComplete}
-                      className={`w-full rounded-xl border ${invalidField === field.name ? 'border-amber-500' : 'border-white/10'} bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30`}
-                    />
-                  )}
-                  <span className="block text-[0.7rem] text-slate-500">{field.description}</span>
-                </label>
-              ))}
-              <label className="space-y-1 text-xs text-slate-400 md:col-span-2">
-                <span className="uppercase tracking-[0.2em]">Plan of interest</span>
-                <select
-                  name="plan"
-                  value={selectedPlan}
-                  onChange={(e) => {
-                    const nextValue = e.target.value
-                    const nextPlan: Plan = nextValue === 'Elite' ? 'Elite' : 'Standard'
-                    planRef.current = nextPlan
-                    setSelectedPlan(nextPlan)
-                  }}
-                  aria-label="Select your plan of interest"
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
-                >
-                  <option value="Elite">Elite</option>
-                  <option value="Standard">Standard</option>
-                </select>
-                <span className="block text-[0.7rem] text-slate-500">
-                  {selectedPlan === 'Elite'
-                    ? 'Elite includes white-glove setup, analyst support, and game-night coverage.'
-                    : 'Standard includes live charting, scouting imports, and staff access controls.'}
-                </span>
-              </label>
-              <div className="md:col-span-2 flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                onClick={() => {
-                  intentRef.current = 'elite_availability'
-                  planRef.current = 'Elite'
-                  setSelectedPlan('Elite')
-                }}
-                disabled={submitting}
-                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-brand/60 disabled:opacity-60"
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)] hover:bg-brand-soft"
               >
-                  {submitting && intentRef.current === 'elite_availability' ? 'Sending...' : 'Check availability'}
-                </button>
-                <button
-                  type="submit"
-                onClick={() => {
-                  intentRef.current = 'demo_deck'
-                }}
-                disabled={submitting}
-                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
-              >
-                  {submitting && intentRef.current === 'demo_deck' ? 'Sending...' : 'Get the demo deck'}
-                </button>
-                <button
-                  type="submit"
-                onClick={() => {
-                  intentRef.current = 'call_request'
-                }}
-                disabled={submitting}
-                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-brand hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
-              >
-                  {submitting && intentRef.current === 'call_request' ? 'Sending...' : 'Request a call'}
-                </button>
-              </div>
-              {error ? (
-                <div className="md:col-span-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                  {error}
-                </div>
-              ) : null}
-              {successIntent ? (
-                <div className="md:col-span-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                  {successCopy[successIntent]}
-                </div>
-              ) : null}
-            </form>
+                Start membership
+              </Link>
+            </div>
           </GlassCard>
         </section>
       </div>

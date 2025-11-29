@@ -123,7 +123,8 @@ function SignupForm() {
 
       router.push('/dashboard')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong.'
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong. If you were charged, try logging in.'
       setError(message)
     } finally {
       setLoading(false)
@@ -170,7 +171,10 @@ function SignupForm() {
       </label>
 
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Select plan</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Select your plan</p>
+        <p className="text-xs text-slate-500">
+          This drives the price we charge when you submit. The selection below is the source of truth.
+        </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {plans.map((option) => (
             <button
@@ -229,17 +233,16 @@ function SignupForm() {
 }
 
 export default function SignupPage() {
-  const router = useRouter()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const [hasSession, setHasSession] = useState(false)
+
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession()
-      if (data.session) {
-        router.replace('/dashboard')
-      }
+      setHasSession(Boolean(data.session))
     }
     void checkSession()
-  }, [router, supabase])
+  }, [supabase])
 
   if (!stripePromise) {
     return (
@@ -271,11 +274,35 @@ export default function SignupPage() {
           </p>
         </header>
 
+        {hasSession ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+            You are currently signed in. Go to your dashboard or sign out before creating a new membership.
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-black hover:bg-brand-soft"
+              >
+                Go to dashboard
+              </Link>
+              <Link
+                href="/login?signout=true"
+                className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200 hover:border-brand hover:text-white"
+              >
+                Sign out
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
         <div className="space-y-2 rounded-2xl border border-slate-800 bg-black/30 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Choose your plan</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Plan overview</p>
+          <p className="text-sm text-slate-400">
+            Compare plans below, then select your plan in the form to charge the correct price.
+          </p>
           <stripe-pricing-table
             pricing-table-id="prctbl_1SYaKWJyxtwFIImrpT9I4WRr"
             publishable-key={publishableKey}
+            class="pointer-events-none opacity-80"
           />
         </div>
 

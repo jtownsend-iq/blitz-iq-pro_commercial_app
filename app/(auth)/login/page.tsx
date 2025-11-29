@@ -14,14 +14,18 @@ export default async function LoginPage({
   searchParams: SearchParams | Promise<SearchParams>
 }) {
   const params = await Promise.resolve(searchParams)
-
   const supabase = await createSupabaseServerClient()
+
+  const signoutRequested = params?.signout === 'true'
+  if (signoutRequested) {
+    await supabase.auth.signOut()
+  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (user) {
+  if (user && !signoutRequested) {
     redirect('/dashboard')
   }
 
@@ -37,6 +41,7 @@ export default async function LoginPage({
       : '/dashboard'
 
   let errorMessage: string | null = null
+  let infoMessage: string | null = null
 
   if (error === 'missing') {
     errorMessage = 'Email and password are required.'
@@ -44,6 +49,10 @@ export default async function LoginPage({
     errorMessage = "That email / password didn't work. Try again."
   } else if (typeof error === 'string') {
     errorMessage = 'We could not log you in. Please try again.'
+  }
+
+  if (signoutRequested) {
+    infoMessage = 'You have been signed out.'
   }
 
   return (
@@ -61,6 +70,14 @@ export default async function LoginPage({
             role="alert"
           >
             {errorMessage}
+          </div>
+        )}
+        {infoMessage && !errorMessage && (
+          <div
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[0.7rem] text-emerald-100"
+            role="status"
+          >
+            {infoMessage}
           </div>
         )}
 
