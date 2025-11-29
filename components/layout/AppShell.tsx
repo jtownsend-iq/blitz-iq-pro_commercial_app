@@ -68,9 +68,13 @@ export function AppShell({
         .filter(Boolean)
         .join(' ')}
     >
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 rounded-full bg-black px-3 py-2 text-sm text-white shadow-lg">
+        Skip to main content
+      </a>
       {isAuthVariant ? null : <TopNav navItems={mergedNavItems} />}
 
       <main
+        id="main-content"
         className={
           isAuthVariant
             ? 'flex-1 flex items-center justify-center px-4 py-10'
@@ -79,7 +83,7 @@ export function AppShell({
       >
         <div
           className={
-            isAuthVariant ? 'w-full' : 'max-w-6xl mx-auto px-4 py-6 w-full'
+            isAuthVariant ? 'w-full' : 'app-container py-6'
           }
         >
           {children}
@@ -100,7 +104,7 @@ export function TopNav({ navItems }: TopNavProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
       <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-60" />
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-6">
+      <div className="app-container py-3 flex items-center justify-between gap-6">
         <div className="flex items-center gap-2">
           <div className="relative h-[2.75rem] w-[4.5rem] overflow-hidden">
             <Image
@@ -119,7 +123,7 @@ export function TopNav({ navItems }: TopNavProps) {
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-2 text-xs font-semibold">
+        <nav className="hidden md:flex items-center gap-2 text-xs font-semibold" aria-label="Primary">
           {navItems.map((item) => (
             <Link
               key={item.href}

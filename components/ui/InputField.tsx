@@ -4,6 +4,7 @@ type BaseFieldProps = {
   label: string
   name: string
   description?: string
+  id?: string
   required?: boolean
   error?: string | null
   children?: ReactNode
@@ -29,21 +30,24 @@ type InputVariant =
 type InputFieldProps = BaseFieldProps & InputVariant
 
 export function InputField(props: InputFieldProps) {
-  const { label, name, description, required, error } = props
+  const { label, name, description, required, error, id } = props
+  const inputId = id ?? name
   const shared =
-    'w-full rounded-xl border bg-black/40 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30'
-  const borderClass = error ? 'border-amber-500' : 'border-white/10'
+    'w-full rounded-xl border bg-surface-muted/80 px-3 py-2 text-sm text-slate-100 transition focus:border-brand focus:ring-2 focus:ring-brand/30 focus:outline-none'
+  const borderClass = error ? 'border-amber-500/80' : 'border-white/10'
 
   return (
-    <label className="space-y-1 text-xs text-slate-400">
+    <label className="space-y-1 text-xs text-slate-400" htmlFor={inputId}>
       <span className="uppercase tracking-[0.2em] text-slate-300">{label}</span>
       {props.as === 'select' ? (
         <select
+          id={inputId}
           name={name}
           required={required}
           value={props.value}
           onChange={props.onChange}
           autoComplete={props.autoComplete}
+          aria-invalid={Boolean(error)}
           className={`${shared} ${borderClass}`}
         >
           <option value="">Select</option>
@@ -55,6 +59,7 @@ export function InputField(props: InputFieldProps) {
         </select>
       ) : (
         <input
+          id={inputId}
           type={props.type || 'text'}
           name={name}
           required={required}
@@ -62,6 +67,7 @@ export function InputField(props: InputFieldProps) {
           onChange={props.onChange}
           placeholder={props.placeholder}
           autoComplete={props.autoComplete}
+          aria-invalid={Boolean(error)}
           className={`${shared} ${borderClass}`}
         />
       )}

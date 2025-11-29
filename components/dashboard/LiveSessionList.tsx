@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { ArrowUpRight, Clock3, Radio, Satellite, ShieldCheck } from 'lucide-react'
 import { SessionSummary } from '@/app/(app)/dashboard/types'
 import { formatDateShort, formatRelativeTime, formatUnitLabel } from '@/app/(app)/dashboard/utils'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 type LiveSessionListProps = {
   sessions: SessionSummary[]
@@ -11,68 +13,75 @@ type LiveSessionListProps = {
 
 export function LiveSessionList({ sessions }: LiveSessionListProps) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
-      <div className="flex items-center justify-between">
+    <Card padding="lg">
+      <CardHeader>
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Live sessions</h2>
-          <p className="text-sm text-slate-400">Jump into active charting or review recent sessions.</p>
+          <CardTitle>Live sessions</CardTitle>
+          <CardDescription>Jump into active charting or review recent sessions.</CardDescription>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-200">
           <Radio className="h-5 w-5" />
         </div>
-      </div>
+      </CardHeader>
 
       {sessions.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center text-slate-400">
-          <Satellite className="mb-3 h-10 w-10 text-slate-500" />
-          <p className="text-sm">No sessions yet. Start offense, defense, or special teams from Games.</p>
-        </div>
+        <CardContent>
+          <EmptyState
+            icon={<Satellite className="h-10 w-10 text-slate-500" />}
+            title="No sessions yet"
+            description="Start offense, defense, or special teams from Games."
+          />
+        </CardContent>
       ) : (
-        <div className="mt-4 space-y-3">
+        <CardContent className="space-y-3" role="list">
           {sessions.map((session, idx) => (
             <article
               key={session.id}
+              role="listitem"
               className={`group relative overflow-hidden rounded-2xl border border-white/10 p-4 transition hover:-translate-y-[1px] hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 ${
                 idx % 2 === 0 ? 'bg-slate-900/60' : 'bg-slate-950/50'
               }`}
             >
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-transparent opacity-0 blur-2xl transition duration-500 group-hover:opacity-100" />
               <div className="relative flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Unit</p>
-                  <p className="text-base font-semibold text-slate-100">{formatUnitLabel(session.unit)}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-400">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-100">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(52,211,153,0.15)]" />
+                      {session.status}
+                    </span>
+                    <span className="text-slate-500">{formatUnitLabel(session.unit)}</span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-100">#{session.sequence} · {session.focus}</div>
+                  <p className="text-sm text-slate-400">
+                    {session.game_name} · {formatDateShort(session.created_at)}
+                  </p>
                   <p className="text-xs text-slate-500">
-                    vs {session.games?.opponent_name || 'Opponent TBD'} |{' '}
-                    {formatDateShort(session.games?.start_time ?? null)}
+                    Started {formatRelativeTime(session.created_at)} · {session.play_count} plays charted
                   </p>
                 </div>
-                <span
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.7rem] uppercase tracking-[0.24em] ${
-                    session.status === 'active'
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-                      : 'border-slate-700 bg-slate-800/70 text-slate-300'
-                  }`}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  {session.status}
-                </span>
-              </div>
-              <div className="relative mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                <div className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-slate-300 backdrop-blur">
-                  <Clock3 className="h-3.5 w-3.5 text-slate-500" />
-                  Started {formatRelativeTime(session.started_at)}
+                <div className="flex flex-col items-end gap-2 text-right">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-[0.78rem] text-slate-200">
+                    <Clock3 className="h-4 w-4 text-slate-500" />
+                    {formatRelativeTime(session.last_event_at)} ago
+                  </div>
+                  <Link
+                    href={`/games/${session.game_id}/chart/${(session.unit || '').toLowerCase().replace('_', '-')}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-black shadow-[0_14px_36px_-18px_rgba(0,229,255,0.55)] transition hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                  >
+                    Resume
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <div className="flex items-center gap-2 text-[0.8rem] text-slate-400">
+                    <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                    {session.created_by}
+                  </div>
                 </div>
-                <Link
-                  href={`/games/${session.game_id}/chart/${(session.unit || '').toLowerCase().replace('_', '-')}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100 transition hover:border-emerald-400/50 hover:text-white"
-                >
-                  Open chart <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
               </div>
             </article>
           ))}
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   )
 }
