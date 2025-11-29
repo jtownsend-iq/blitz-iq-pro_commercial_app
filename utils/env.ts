@@ -1,5 +1,3 @@
-'use server'
-
 export type Env = {
   supabaseUrl: string | undefined
   supabaseAnonKey: string | undefined

@@ -3,11 +3,12 @@
 import { useEffect } from 'react'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { trackEvent } from '@/utils/telemetry'
 
-export default function AppError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error('App route error boundary triggered')
-  }, [])
+    trackEvent('app_error_boundary', { digest: error?.digest ?? null, message: error?.message ?? null })
+  }, [error])
 
   return (
     <div className="app-container py-10">
