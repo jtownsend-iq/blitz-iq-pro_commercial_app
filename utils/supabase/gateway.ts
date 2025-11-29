@@ -1,5 +1,3 @@
-'use server'
-
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseAdminClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'

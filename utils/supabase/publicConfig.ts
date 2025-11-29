@@ -1,13 +1,17 @@
-const isTest =
-  process.env.NODE_ENV === 'test' ||
-  process.env.VITEST === 'true' ||
-  process.env.JEST_WORKER_ID !== undefined
+function isTestEnv(vars: NodeJS.ProcessEnv) {
+  return (
+    vars.NODE_ENV === 'test' ||
+    vars.VITEST === 'true' ||
+    vars.JEST_WORKER_ID !== undefined
+  )
+}
 
-export function getSupabasePublicConfig(): { url: string; anonKey: string } {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+export function resolveSupabasePublicConfig(vars: NodeJS.ProcessEnv): { url: string; anonKey: string } {
+  const supabaseUrl = vars.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const allowMissing = isTestEnv(vars)
 
-  if ((!supabaseUrl || !supabaseAnonKey) && !isTest) {
+  if ((!supabaseUrl || !supabaseAnonKey) && !allowMissing) {
     throw new Error(
       'Missing Supabase client configuration. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.'
     )
@@ -17,6 +21,10 @@ export function getSupabasePublicConfig(): { url: string; anonKey: string } {
     url: supabaseUrl ?? '',
     anonKey: supabaseAnonKey ?? '',
   }
+}
+
+export function getSupabasePublicConfig() {
+  return resolveSupabasePublicConfig(process.env)
 }
 
 export const supabasePublicConfig = getSupabasePublicConfig()

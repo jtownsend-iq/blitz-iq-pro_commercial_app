@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --test --require ts-node/register tests/unit/env.test.ts tests/unit/supabase-public-config.test.ts",
     "test:integration": "node --test tests/integration/*.test.mjs",
     "test:smoke": "playwright test"
   },
@@ -51,6 +52,7 @@
     "eslint-config-next": "16.0.3",
     "rimraf": "^5.0.10",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

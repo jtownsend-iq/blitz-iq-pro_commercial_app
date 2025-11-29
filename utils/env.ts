@@ -1,29 +1,51 @@
 'use server'
 
-const isTest =
-  process.env.NODE_ENV === 'test' ||
-  process.env.VITEST === 'true' ||
-  process.env.JEST_WORKER_ID !== undefined
+export type Env = {
+  supabaseUrl: string | undefined
+  supabaseAnonKey: string | undefined
+  supabaseServiceRoleKey: string | undefined
+  stripePublishableKey: string | undefined
+  stripeSecretKey: string | undefined
+  stripePriceStandard: string | undefined
+  stripePriceElite: string | undefined
+  telemetryVerifyToken: string | undefined
+  openaiApiKey: string | undefined
+}
 
-function readEnv(key: string, { optional = false }: { optional?: boolean } = {}): string | undefined {
-  const value = process.env[key]
-  if (!value && !optional && !isTest) {
+function isTestEnv(vars: NodeJS.ProcessEnv) {
+  return (
+    vars.NODE_ENV === 'test' ||
+    vars.VITEST === 'true' ||
+    vars.JEST_WORKER_ID !== undefined
+  )
+}
+
+function readEnv(
+  key: string,
+  vars: NodeJS.ProcessEnv,
+  { optional = false, allowMissingInTest = true }: { optional?: boolean; allowMissingInTest?: boolean } = {}
+): string | undefined {
+  const value = vars[key]
+  const inTest = isTestEnv(vars)
+  if (!value && !optional && !(allowMissingInTest && inTest)) {
     throw new Error(`Missing required environment variable: ${key}`)
   }
   return value
 }
 
-export const env = {
-  supabaseUrl: readEnv('NEXT_PUBLIC_SUPABASE_URL'),
-  supabaseAnonKey: readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
-  supabaseServiceRoleKey: readEnv('SUPABASE_SERVICE_ROLE_KEY'),
+export function buildEnv(vars: NodeJS.ProcessEnv, opts: { allowMissingInTest?: boolean } = {}): Env {
+  const { allowMissingInTest = true } = opts
+  return {
+    supabaseUrl: readEnv('NEXT_PUBLIC_SUPABASE_URL', vars, { allowMissingInTest }),
+    supabaseAnonKey: readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', vars, { allowMissingInTest }),
+    supabaseServiceRoleKey: readEnv('SUPABASE_SERVICE_ROLE_KEY', vars, { allowMissingInTest }),
+    stripePublishableKey: readEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', vars, { optional: true, allowMissingInTest }),
+    stripeSecretKey: readEnv('STRIPE_SECRET_KEY', vars, { optional: true, allowMissingInTest }),
+    stripePriceStandard: readEnv('STRIPE_PRICE_STANDARD', vars, { optional: true, allowMissingInTest }),
+    stripePriceElite: readEnv('STRIPE_PRICE_ELITE', vars, { optional: true, allowMissingInTest }),
+    telemetryVerifyToken: readEnv('TELEMETRY_VERIFY_TOKEN', vars, { optional: true, allowMissingInTest }),
+    openaiApiKey: readEnv('OPENAI_API_KEY', vars, { optional: true, allowMissingInTest }),
+  }
+}
 
-  stripePublishableKey: readEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', { optional: true }),
-  stripeSecretKey: readEnv('STRIPE_SECRET_KEY', { optional: true }),
-  stripePriceStandard: readEnv('STRIPE_PRICE_STANDARD', { optional: true }),
-  stripePriceElite: readEnv('STRIPE_PRICE_ELITE', { optional: true }),
-
-  telemetryVerifyToken: readEnv('TELEMETRY_VERIFY_TOKEN', { optional: true }),
-
-  openaiApiKey: readEnv('OPENAI_API_KEY', { optional: true }),
-} as const
+export const env = buildEnv(process.env)
