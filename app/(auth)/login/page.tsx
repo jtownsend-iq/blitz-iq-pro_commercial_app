@@ -1,8 +1,7 @@
 // app/login/page.tsx
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { LoginCard } from '@/components/auth/LoginCard'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
-import { login } from '../../auth-actions'
 
 type SearchParams = {
   [key: string]: string | string[] | undefined
@@ -56,76 +55,9 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="min-h-[60vh] flex items-center justify-center text-foreground">
-      <div className="w-full max-w-md space-y-6 bg-surface-raised border border-slate-800 rounded-2xl p-8 shadow-brand-card">
-        <header className="space-y-2">
-          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-slate-400">BlitzIQ Pro</p>
-          <p className="text-xs text-slate-500">Engineered to Destroy Egos.</p>
-          <h1 className="text-xl font-semibold text-slate-50">Sign in to continue</h1>
-        </header>
-
-        {errorMessage && (
-          <div
-            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[0.7rem] text-red-200"
-            role="alert"
-          >
-            {errorMessage}
-          </div>
-        )}
-        {infoMessage && !errorMessage && (
-          <div
-            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[0.7rem] text-emerald-100"
-            role="status"
-          >
-            {infoMessage}
-          </div>
-        )}
-
-        <form action={login} className="space-y-4">
-          <input type="hidden" name="redirectTo" value={redirectTo} />
-
-          <div className="space-y-1 text-xs">
-            <label htmlFor="email" className="block text-slate-300 font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
-            />
-          </div>
-
-          <div className="space-y-1 text-xs">
-            <label htmlFor="password" className="block text-slate-300 font-medium">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="w-full rounded-lg bg-black/40 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full inline-flex items-center justify-center rounded-full bg-brand text-black text-xs font-semibold tracking-[0.16em] uppercase py-2 hover:bg-brand-soft transition-colors"
-          >
-            Log In
-          </button>
-        </form>
-
-        <div className="flex items-center justify-between text-[0.7rem] text-slate-500">
-          <span>Need access?</span>
-          <Link href="/signup" className="font-semibold text-brand-soft hover:text-brand transition-colors">
-            Request access
-          </Link>
-        </div>
+    <main className="min-h-[60vh] flex items-center justify-center text-foreground px-4 py-10">
+      <div className="w-full max-w-md">
+        <LoginCard redirectTo={redirectTo} errorMessage={errorMessage} infoMessage={infoMessage} />
       </div>
     </main>
   )

@@ -1,5 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import PDFDocument from 'pdfkit'
+import type PDFKitDocument from 'pdfkit'
+
+// Shim missing helper used by fontkit/pdfkit when bundled via Turbopack.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const swcHelpers = require('@swc/helpers')
+if (!swcHelpers.applyDecoratedDescriptor && swcHelpers._apply_decorated_descriptor) {
+  swcHelpers.applyDecoratedDescriptor = swcHelpers._apply_decorated_descriptor
+}
+if (!swcHelpers.defineProperty && swcHelpers._define_property) {
+  swcHelpers.defineProperty = swcHelpers._define_property
+}
+if (!swcHelpers.initializerDefineProperty && swcHelpers._initializer_define_property) {
+  swcHelpers.initializerDefineProperty = swcHelpers._initializer_define_property
+}
+
+// Use the CJS build to avoid ESM helper resolution issues.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PDFDocument = require('pdfkit/js/pdfkit.js') as typeof PDFKitDocument
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 async function assertMembership(teamId: string, userId: string) {

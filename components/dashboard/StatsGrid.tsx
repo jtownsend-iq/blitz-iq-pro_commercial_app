@@ -115,7 +115,7 @@ function MiniSparkline({ data, accentClass, stroke, label }: MiniSparklineProps)
 
   return (
     <div className="absolute inset-x-0 bottom-0 h-20">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={80}>
         <AreaChart data={data}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
