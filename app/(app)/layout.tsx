@@ -1,4 +1,4 @@
-import { AppShell, type NavItem } from '@/components/shell/AppShell'
+import { AppShell, type NavItem } from '@/components/layout/AppShell'
 import type { ReactNode } from 'react'
 
 const navItems: NavItem[] = [

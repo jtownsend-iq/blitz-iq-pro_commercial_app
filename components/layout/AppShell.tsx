@@ -1,4 +1,4 @@
- 'use client'
+"use client"
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -105,14 +105,14 @@ export function TopNav({ navItems }: TopNavProps) {
           <div className="relative h-[2.75rem] w-[4.5rem] overflow-hidden">
             <Image
               src="/blitziq-logo.png"
-              alt="BlitzIQ Pro™"
+              alt="BlitzIQ Pro"
               fill
               className="object-contain drop-shadow-[0_8px_24px_rgba(0,229,255,0.35)]"
               priority
             />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro™</div>
+            <div className="text-sm font-semibold tracking-wide text-slate-50">BlitzIQ Pro</div>
             <div className="text-[0.7rem] uppercase tracking-[0.16em] text-brand-soft">
               Command every snap.
             </div>
@@ -162,7 +162,7 @@ export function Footer() {
         <span>
           {copyrightSymbol} {currentYear} Trips Right, LLC. All rights reserved.
         </span>
-        <span className="text-slate-400">BlitzIQ Pro™</span>
+        <span className="text-slate-400">BlitzIQ Pro</span>
       </div>
     </footer>
   )
