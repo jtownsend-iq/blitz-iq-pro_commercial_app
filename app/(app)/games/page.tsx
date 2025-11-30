@@ -60,12 +60,24 @@ type SessionRow = {
   analyst_user_id: string | null
 }
 
-type GamesPageSearchParams = Record<string, string | string[] | undefined>
+type GamesPageSearchParams = Promise<Record<string, string | string[] | undefined> | undefined> | Record<string, string | string[] | undefined> | undefined
+
+function getSearchParam(
+  params: Record<string, string | string[] | undefined>,
+  key: string
+): string | null {
+  const value = params[key]
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
 
 export default async function GamesPage({ searchParams }: { searchParams?: GamesPageSearchParams }) {
   const errors: string[] = []
   const supabase = await createSupabaseServerClient()
-  const resolvedSearchParams = searchParams ?? {}
+  const resolvedSearchParams = ((searchParams ? await searchParams : {}) ?? {}) as Record<
+    string,
+    string | string[] | undefined
+  >
 
   const {
     data: { user },
@@ -153,12 +165,8 @@ export default async function GamesPage({ searchParams }: { searchParams?: Games
     .filter((n) => !Number.isNaN(n))
     .sort((a, b) => a - b)[0]
 
-  const errorCode = Array.isArray(resolvedSearchParams.error)
-    ? resolvedSearchParams.error[0]
-    : resolvedSearchParams.error ?? null
-  const errorReason = Array.isArray(resolvedSearchParams.reason)
-    ? resolvedSearchParams.reason[0]
-    : resolvedSearchParams.reason ?? null
+  const errorCode = getSearchParam(resolvedSearchParams, 'error')
+  const errorReason = getSearchParam(resolvedSearchParams, 'reason')
   const formDefaults = {
     opponent_name:
       (Array.isArray(resolvedSearchParams.opponent_name)
