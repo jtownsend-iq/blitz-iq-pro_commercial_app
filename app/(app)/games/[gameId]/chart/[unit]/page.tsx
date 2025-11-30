@@ -140,7 +140,7 @@ export default async function ChartUnitPage({
   const { data: eventData, error: eventError } = await supabase
     .from('chart_events')
     .select(
-      'id, sequence, quarter, clock_seconds, down, distance, ball_on, play_call, result, gained_yards, created_at, drive_number, play_family, run_concept, wr_concept_id, st_play_type, st_variant, front_code, defensive_structure_id, coverage_shell_pre, coverage_shell_post, explosive, turnover'
+      'id, sequence, quarter, clock_seconds, down, distance, ball_on, play_call, result, gained_yards, created_at, drive_number, explosive, turnover'
     )
     .eq('game_session_id', session.id)
     .order('sequence', { ascending: false })

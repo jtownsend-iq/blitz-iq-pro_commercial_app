@@ -37,6 +37,7 @@ type EventRow = {
   defensive_structure_id?: string | null
   coverage_shell_pre?: string | null
   coverage_shell_post?: string | null
+  strength?: string | null
   drive_number?: number | null
   series_tag?: string | null
   explosive?: boolean | null
@@ -102,6 +103,12 @@ const stPlayTypes = ['KICKOFF', 'KICKOFF_RETURN', 'PUNT', 'PUNT_RETURN', 'FG', '
 const stVariants = ['NORMAL', 'FAKE', 'ONSIDE', 'DIRECTIONAL', 'RUGBY', 'SKY']
 const clockPattern = /^([0-5]?[0-9]):([0-5][0-9])$/
 const quickGainOptions = [-5, -2, 0, 3, 6, 10, 15, 25]
+const strengthOptions = ['TO_TE', 'TO_TRIPS', 'FIELD', 'BOUNDARY']
+const prettifyLabel = (opt: string) =>
+  opt
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
 
 const coverageShellOptions = [
   { value: 'ZERO_SHELL', label: '0 (No Deep)' },
@@ -362,7 +369,8 @@ function buildOptimisticEvent(formData: FormData, sequence: number, seriesTag?: 
     defensive_structure_id: formData.get('defensive_structure_id')?.toString() || null,
     coverage_shell_pre: formData.get('coverage_shell_pre')?.toString() || null,
     coverage_shell_post: formData.get('coverage_shell_post')?.toString() || null,
-    series_tag: seriesTag || null,
+    strength: formData.get('strength')?.toString() || null,
+    series_tag: seriesTag || formData.get('series_tag')?.toString() || null,
     created_at: new Date().toISOString(),
   }
 }
@@ -393,6 +401,7 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     defensive_structure_id: (payload.defensive_structure_id as string) ?? null,
     coverage_shell_pre: (payload.coverage_shell_pre as string) ?? null,
     coverage_shell_post: (payload.coverage_shell_post as string) ?? null,
+    strength: (payload.strength as string) ?? null,
     drive_number: (payload.drive_number as number) ?? null,
     series_tag: null,
     created_at: (payload.created_at as string) ?? null,
@@ -451,6 +460,8 @@ export function ChartEventPanel({
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   )
   const [formData, setFormData] = useState<Record<string, string | number | boolean>>({})
+  const touchedFields = useRef<Set<string>>(new Set())
+  const seriesSeed = useRef<number>(1)
   const eventType: EventType =
     unit === 'OFFENSE' ? 'Offense' : unit === 'DEFENSE' ? 'Defense' : 'Special Teams'
 
@@ -462,6 +473,11 @@ export function ChartEventPanel({
     selectedPersonnel && selectedPersonnel.length > 0
       ? offenseFormationsUnique.filter((f) => f.personnel === selectedPersonnel)
       : offenseFormationsUnique
+  const stickyDefaults = useMemo(() => {
+    return {
+      offensive_personnel_code: latestEvent?.play_family !== 'SPECIAL_TEAMS' ? latestEvent?.play_call ? undefined : latestEvent?.play_call : latestEvent?.play_call,
+    }
+  }, [latestEvent])
 
   const selectedBackfieldMeta = selectedBackfield
     ? backfieldOptions.find((b) => b.code === selectedBackfield)
@@ -570,10 +586,26 @@ export function ChartEventPanel({
 
   const resetDynamicFieldsForEventType = () => {
     const defaults: Record<string, string | number | boolean> = {}
+    const stickyKeys = new Set([
+      'offensive_personnel_code',
+      'offensive_formation_id',
+      'backfield_code',
+      'wr_concept_id',
+      'run_concept',
+      'front_code',
+      'defensive_structure_id',
+      'coverage_shell_pre',
+      'coverage_shell_post',
+      'st_play_type',
+      'st_variant',
+      'strength',
+    ])
     FIELD_CONFIG[eventType].forEach((field) => {
-      defaults[field.name] = field.type === 'checkbox' ? false : ''
+      if (!stickyKeys.has(field.name)) {
+        defaults[field.name] = field.type === 'checkbox' ? false : ''
+      }
     })
-    setFormData(defaults)
+    setFormData((prev) => ({ ...defaults, ...prev }))
     setSelectedPersonnel('')
     setSelectedBackfield('')
     setHasMotion(false)
@@ -657,6 +689,42 @@ export function ChartEventPanel({
     clockInputRef.current.focus({ preventScroll: true })
   }, [])
 
+  useEffect(() => {
+    const seeds: Record<string, string | number> = {}
+    const last = latestEvent
+    if (last) {
+      if (last.play_family && !touchedFields.current.has('play_family')) {
+        seeds.play_family = last.play_family
+      }
+      if (last.drive_number && !touchedFields.current.has('driveNumber')) {
+        seeds.driveNumber = last.drive_number
+      }
+      if (last.coverage_shell_pre && !touchedFields.current.has('coverage_shell_pre')) seeds.coverage_shell_pre = last.coverage_shell_pre
+      if (last.coverage_shell_post && !touchedFields.current.has('coverage_shell_post')) seeds.coverage_shell_post = last.coverage_shell_post
+      if (last.front_code && !touchedFields.current.has('front_code')) seeds.front_code = last.front_code
+      if (last.defensive_structure_id && !touchedFields.current.has('defensive_structure_id')) seeds.defensive_structure_id = last.defensive_structure_id
+      if (last.st_play_type && !touchedFields.current.has('st_play_type')) seeds.st_play_type = last.st_play_type
+      if (last.st_variant && !touchedFields.current.has('st_variant')) seeds.st_variant = last.st_variant
+      if (last.run_concept && !touchedFields.current.has('run_concept')) seeds.run_concept = last.run_concept
+      if (last.wr_concept_id && !touchedFields.current.has('wr_concept_id')) seeds.wr_concept_id = last.wr_concept_id
+    }
+    if (Object.keys(seeds).length > 0) {
+      setFormData((prev) => ({ ...seeds, ...prev }))
+    }
+
+    if (last?.drive_number) {
+      if (!touchedFields.current.has('series_tag')) {
+        if (seriesSeed.current === 1 || last.drive_number !== (formData.driveNumber as number | undefined)) {
+          seriesSeed.current = 1
+        }
+        if (last.down === 1) {
+          seriesSeed.current += 1
+        }
+        setSeriesTag(String(seriesSeed.current))
+      }
+    }
+  }, [latestEvent, formData.driveNumber])
+
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -665,8 +733,8 @@ export function ChartEventPanel({
     formData.set('sessionId', sessionId)
     formData.set('play_family', playFamily)
     const seriesValue = seriesTag.trim() || ''
-    formData.delete('seriesTag')
     if (seriesValue) {
+      formData.set('series_tag', seriesValue)
       setSeriesLookup((prev) => ({ ...prev, [sequenceCounter]: seriesValue }))
     }
     // Ensure advanced tags are always present in the payload, even if the Advanced section is collapsed.
@@ -976,7 +1044,7 @@ export function ChartEventPanel({
               <p className="text-xs text-slate-400">
                 Tag formation, structure, and concepts for quick scouting across units.
               </p>
-              <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
               {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
                 const prettify = (opt: string) =>
                   opt
@@ -1016,7 +1084,8 @@ export function ChartEventPanel({
                     : warning
                     ? 'border-amber-500 bg-amber-950/30 text-amber-50'
                     : 'border-slate-800 bg-surface-muted text-slate-100')
-                const handleChange = (value: string | boolean) => {
+    const handleChange = (value: string | boolean) => {
+                  touchedFields.current.add(field.name)
                   setFormData((prev) => ({ ...prev, [field.name]: value }))
                   if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
                   if (field.name === 'backfield_code') setSelectedBackfield(String(value))
@@ -1073,6 +1142,27 @@ export function ChartEventPanel({
                   </label>
                 )
               })}
+                {(unit === 'OFFENSE' || unit === 'DEFENSE') && (
+                  <label className="space-y-1 text-xs text-slate-200 block">
+                    <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Strength</span>
+                    <select
+                      name="strength"
+                      value={(formData.strength as string) ?? ''}
+                      onChange={(e) => {
+                        touchedFields.current.add('strength')
+                        setFormData((prev) => ({ ...prev, strength: e.target.value }))
+                      }}
+                      className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    >
+                      <option value="">Select</option>
+                      {strengthOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {prettifyLabel(opt)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
             </div>
           </section>
 
@@ -1266,9 +1356,12 @@ export function ChartEventPanel({
                 <label className="space-y-1 text-xs text-slate-200 block">
                   <span className="uppercase tracking-[0.18em]">Series # (within drive)</span>
                   <input
-                    name="seriesTag"
+                    name="series_tag"
                     value={seriesTag}
-                    onChange={(e) => setSeriesTag(e.target.value)}
+                    onChange={(e) => {
+                      touchedFields.current.add('series_tag')
+                      setSeriesTag(e.target.value)
+                    }}
                     placeholder="1, 2, 3..."
                     className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
