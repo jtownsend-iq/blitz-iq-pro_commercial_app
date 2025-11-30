@@ -856,6 +856,7 @@ export function ChartEventPanel({
                   <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Down</span>
                   <select
                     name="down"
+                    defaultValue={latestEvent?.down ? String(latestEvent.down) : ''}
                     className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   >
                     {downOptions.map((option) => (
@@ -872,6 +873,7 @@ export function ChartEventPanel({
                     name="distance"
                     type="number"
                     min={1}
+                    defaultValue={latestEvent?.distance ?? ''}
                     className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>
@@ -914,6 +916,7 @@ export function ChartEventPanel({
                     name="driveNumber"
                     type="number"
                     min={1}
+                    defaultValue={latestEvent?.drive_number ?? ''}
                     className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>

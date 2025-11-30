@@ -11,6 +11,7 @@ import { StatBadge } from '@/components/ui/StatBadge'
 import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { buildNumericSummary, getAiTendenciesAndNextCall } from '@/utils/ai/getTendencies'
 
 type GameRow = {
   id: string
@@ -173,6 +174,30 @@ export default async function ChartUnitPage({
   const lastThreeYards = sumYards(events.slice(0, 3))
   const scoringPlays = events.filter((ev) => isScoringPlay(ev.result)).length
   const lens = buildTendencyLens(events, normalizedUnit)
+  const numericSummary = buildNumericSummary(normalizedUnit, events)
+  const aiResult = await getAiTendenciesAndNextCall({
+    unit: normalizedUnit,
+    events,
+    numericSummary,
+    situation: {
+      down: events[0]?.down,
+      distance: events[0]?.distance,
+      yardLine: yardLineFromBallOn(events[0]?.ball_on || null),
+      hash: null,
+      drive: events[0]?.drive_number ?? null,
+      series: null,
+    },
+    fallback: {
+      summary: lens.summary,
+      recommendations: lens.options.map((opt) => ({
+        label: opt.label,
+        rationale: opt.note || '',
+        successProbability: Math.round(opt.success * 100),
+        statLine: `Success ${Math.round(opt.success * 100)}% | Explosive ${Math.round(opt.explosive * 100)}%`,
+      })),
+      source: 'fallback',
+    },
+  })
 
   const closeSession = async (formData: FormData) => {
     'use server'
@@ -265,6 +290,29 @@ export default async function ChartUnitPage({
                 Success {Math.round(opt.success * 100)}% | Explosive {Math.round(opt.explosive * 100)}%
               </div>
               {opt.note && <div className="text-[0.7rem] text-slate-400 mt-1">{opt.note}</div>}
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+
+      <GlassCard className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-100">AI Analyst</h3>
+            <p className="text-sm text-slate-300">Situation-aware suggestions for this unit.</p>
+          </div>
+          <Pill label={aiResult.source === 'openai' ? 'AI' : 'Local'} tone="emerald" />
+        </div>
+        <p className="text-sm text-slate-100">{aiResult.summary}</p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {aiResult.recommendations.slice(0, 3).map((rec) => (
+            <div key={rec.label} className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3 text-sm text-slate-100">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{rec.label}</span>
+                <span className="text-xs text-slate-400">{Math.round(rec.successProbability)}% est.</span>
+              </div>
+              <div className="text-xs text-slate-300">{rec.statLine}</div>
+              {rec.rationale && <div className="text-[0.7rem] text-slate-400 mt-1">{rec.rationale}</div>}
             </div>
           ))}
         </div>
