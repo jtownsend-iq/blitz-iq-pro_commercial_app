@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/utils/supabase/browser'
 type RealtimeOptions<T extends Record<string, unknown>> = {
   sessionId: string
   onEvent: (payload: T) => void
+  onDelete?: (payload: T) => void
 }
 
 type ChartEventPayload<T extends Record<string, unknown>> = {
@@ -16,6 +17,7 @@ type ChartEventPayload<T extends Record<string, unknown>> = {
 export function useChartRealtime<T extends Record<string, unknown>>({
   sessionId,
   onEvent,
+  onDelete,
 }: RealtimeOptions<T>) {
   useEffect(() => {
     let supabase: ReturnType<typeof createSupabaseBrowserClient> | null = null
@@ -36,6 +38,10 @@ export function useChartRealtime<T extends Record<string, unknown>>({
           filter: `game_session_id=eq.${sessionId}`,
         },
         (payload: RealtimePostgresChangesPayload<ChartEventPayload<T>>) => {
+          if (payload.eventType === 'DELETE' && payload.old) {
+            onDelete?.(payload.old as T)
+            return
+          }
           if (!payload.new) return
           const data = payload.new as T
           onEvent(data)
@@ -46,5 +52,5 @@ export function useChartRealtime<T extends Record<string, unknown>>({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [sessionId, onEvent])
+  }, [sessionId, onEvent, onDelete])
 }

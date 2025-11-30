@@ -150,6 +150,19 @@ export default async function ChartUnitPage({
   const ypp = totalPlays > 0 ? totalYards / totalPlays : 0
   const currentDrive = events[0]?.drive_number ?? null
   const lastResult = events[0]?.result || '--'
+  const eventsWithContext = events.filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null)
+  const successPlays = eventsWithContext.filter((ev) => isSuccessful(ev))
+  const successRate = eventsWithContext.length > 0 ? successPlays.length / eventsWithContext.length : 0
+  const explosiveRate = totalPlays > 0 ? explosives / totalPlays : 0
+  const lateDownAttempts = eventsWithContext.filter((ev) => (ev.down ?? 0) >= 3)
+  const lateDownConversions = lateDownAttempts.filter(
+    (ev) => (ev.gained_yards ?? 0) >= (ev.distance ?? Number.POSITIVE_INFINITY)
+  )
+  const lateDownRate = lateDownAttempts.length > 0 ? lateDownConversions.length / lateDownAttempts.length : 0
+  const currentDriveEvents = currentDrive ? events.filter((ev) => ev.drive_number === currentDrive) : []
+  const currentDriveYards = sumYards(currentDriveEvents)
+  const lastThreeYards = sumYards(events.slice(0, 3))
+  const scoringPlays = events.filter((ev) => isScoringPlay(ev.result)).length
 
   const closeSession = async (formData: FormData) => {
     'use server'
@@ -192,6 +205,34 @@ export default async function ChartUnitPage({
           <StatBadge label="Drive" value={currentDrive ?? '--'} tone="slate" />
           <StatBadge label="Last result" value={lastResult || '--'} tone="slate" />
         </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <StatBadge label="Success rate" value={`${Math.round(successRate * 100)}%`} tone="emerald" />
+          <StatBadge
+            label="Explosive rate"
+            value={totalPlays > 0 ? `${explosives}/${totalPlays} (${Math.round(explosiveRate * 100)}%)` : '--'}
+            tone="amber"
+          />
+          <StatBadge
+            label="Late-down conv."
+            value={
+              lateDownAttempts.length > 0
+                ? `${lateDownConversions.length}/${lateDownAttempts.length} (${Math.round(lateDownRate * 100)}%)`
+                : '--'
+            }
+            tone="cyan"
+          />
+          <StatBadge
+            label="Current drive load"
+            value={
+              currentDrive
+                ? `${currentDrive} | ${currentDriveEvents.length} plays / ${currentDriveYards} yds`
+                : '--'
+            }
+            tone="slate"
+          />
+          <StatBadge label="Last 3 plays" value={lastThreeYards === 0 ? '0 yds' : `${lastThreeYards} yds`} tone="slate" />
+          <StatBadge label="Scoring plays" value={scoringPlays} tone="emerald" />
+        </div>
       </GlassCard>
 
       {session.status !== 'active' ? (
@@ -220,6 +261,23 @@ export default async function ChartUnitPage({
       )}
     </section>
   )
+}
+
+function isSuccessful(ev: EventRow) {
+  if (ev.down == null || ev.distance == null || ev.gained_yards == null) return false
+  if (ev.down === 1) return ev.gained_yards >= ev.distance * 0.5
+  if (ev.down === 2) return ev.gained_yards >= ev.distance * 0.7
+  return ev.gained_yards >= ev.distance
+}
+
+function sumYards(list: EventRow[]) {
+  return list.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+}
+
+function isScoringPlay(result: string | null) {
+  if (!result) return false
+  const normalized = result.toLowerCase()
+  return normalized.includes('td') || normalized.includes('touchdown') || normalized.includes('fg') || normalized.includes('field goal')
 }
 
 function formatKickoffLabel(game: GameRow) {

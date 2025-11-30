@@ -1,7 +1,7 @@
-﻿'use client'
+'use client'
 
 import { useRouter } from 'next/navigation'
-import { FormEvent, useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import type { recordChartEvent } from '../../../chart-actions'
 import type {
   BackfieldFamily,
@@ -28,6 +28,7 @@ type EventRow = {
   result: string | null
   gained_yards: number | null
   created_at: string | null
+  drive_number?: number | null
   explosive?: boolean | null
   turnover?: boolean | null
 }
@@ -90,6 +91,7 @@ const passResultOptions = ['COMPLETE', 'INCOMPLETE', 'INT', 'SACK', 'THROWAWAY',
 const stPlayTypes = ['KICKOFF', 'KICKOFF_RETURN', 'PUNT', 'PUNT_RETURN', 'FG', 'FG_BLOCK']
 const stVariants = ['NORMAL', 'FAKE', 'ONSIDE', 'DIRECTIONAL', 'RUGBY', 'SKY']
 const clockPattern = /^([0-5]?[0-9]):([0-5][0-9])$/
+const quickGainOptions = [-5, -2, 0, 3, 6, 10, 15, 25]
 
 const coverageShellOptions = [
   { value: 'ZERO_SHELL', label: '0 (No Deep)' },
@@ -172,6 +174,23 @@ function formatClock(seconds: number | null) {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
+function formatYards(value: number | null | undefined) {
+  if (value == null) return '--'
+  const prefix = value > 0 ? '+' : ''
+  return `${prefix}${value}`
+}
+
+function isSuccessful(event: EventRow) {
+  if (event.down == null || event.distance == null || event.gained_yards == null) return false
+  if (event.down === 1) return event.gained_yards >= event.distance * 0.5
+  if (event.down === 2) return event.gained_yards >= event.distance * 0.7
+  return event.gained_yards >= event.distance
+}
+
+function isExplosivePlay(event: EventRow) {
+  return Boolean(event.explosive) || (event.gained_yards ?? 0) >= 20
+}
+
 function mapError(code?: string) {
   if (!code) return 'Unable to record play. Please try again.'
   if (code === 'session_closed') return 'Session already closed. Return to games to reopen.'
@@ -197,6 +216,7 @@ function buildOptimisticEvent(formData: FormData, sequence: number): EventRow {
     play_call: formData.get('playCall')?.toString() || null,
     result: formData.get('result')?.toString() || null,
     gained_yards: formData.get('gainedYards') ? Number(formData.get('gainedYards')) : null,
+    drive_number: formData.get('driveNumber') ? Number(formData.get('driveNumber')) : null,
     created_at: new Date().toISOString(),
   }
 }
@@ -218,6 +238,7 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     play_call: (payload.play_call as string) ?? null,
     result: (payload.result as string) ?? null,
     gained_yards: (payload.gained_yards as number) ?? null,
+    drive_number: (payload.drive_number as number) ?? null,
     created_at: (payload.created_at as string) ?? null,
   }
 }
@@ -237,20 +258,27 @@ export function ChartEventPanel({
   defenseStructures,
   wrConcepts,
 }: ChartEventPanelProps) {
-  const latestEvent = initialEvents[0]
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
+  const [events, setEvents] = useState<EventRow[]>(initialEvents)
+  const latestEvent = events[0]
   const [sequenceCounter, setSequenceCounter] = useState(nextSequence)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [warningMessage, setWarningMessage] = useState<string | null>(null)
   const [inlineErrors, setInlineErrors] = useState<Record<string, string>>({})
   const [inlineWarnings, setInlineWarnings] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
-  const [events, setEvents] = useState<EventRow[]>(initialEvents)
   const [selectedPersonnel, setSelectedPersonnel] = useState<string>('')
   const [selectedBackfield, setSelectedBackfield] = useState<string>('')
   const [motionType, setMotionType] = useState<string>('NONE')
   const [hasMotion, setHasMotion] = useState<boolean>(false)
+  const [hasShift, setHasShift] = useState<boolean>(false)
+  const [isPlayAction, setIsPlayAction] = useState<boolean>(false)
+  const [isShotPlay, setIsShotPlay] = useState<boolean>(false)
+  const [markFirstDown, setMarkFirstDown] = useState<boolean>(false)
+  const [markScoring, setMarkScoring] = useState<boolean>(false)
+  const [markTurnover, setMarkTurnover] = useState<boolean>(false)
+  const [gainedYardsValue, setGainedYardsValue] = useState<string>('')
   const [playFamily, setPlayFamily] = useState<'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS'>(
     unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS'
   )
@@ -297,6 +325,50 @@ export function ChartEventPanel({
     defenseStructures,
     wrConcepts,
   }
+  const eventsWithContext = useMemo(
+    () => events.filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null),
+    [events]
+  )
+  const successRate = useMemo(() => {
+    if (eventsWithContext.length === 0) return 0
+    const successful = eventsWithContext.filter((ev) => isSuccessful(ev)).length
+    return Math.round((successful / eventsWithContext.length) * 100)
+  }, [eventsWithContext])
+  const explosiveCount = useMemo(() => events.filter((ev) => isExplosivePlay(ev)).length, [events])
+  const explosiveRate = events.length > 0 ? Math.round((explosiveCount / events.length) * 100) : 0
+  const currentDriveNumber = latestEvent?.drive_number ?? null
+  const currentDriveEvents = useMemo(
+    () => (currentDriveNumber ? events.filter((ev) => ev.drive_number === currentDriveNumber) : []),
+    [currentDriveNumber, events]
+  )
+  const currentDriveYards = useMemo(
+    () => currentDriveEvents.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0),
+    [currentDriveEvents]
+  )
+  const lateDownAttempts = useMemo(
+    () => events.filter((ev) => (ev.down ?? 0) >= 3 && ev.distance != null && ev.gained_yards != null),
+    [events]
+  )
+  const lateDownRate = lateDownAttempts.length
+    ? Math.round(
+        (lateDownAttempts.filter(
+          (ev) => (ev.gained_yards ?? 0) >= (ev.distance ?? Number.POSITIVE_INFINITY)
+        ).length /
+          lateDownAttempts.length) *
+          100
+      )
+    : 0
+  const averageGain = useMemo(() => {
+    const withYards = events.filter((ev) => ev.gained_yards != null)
+    return withYards.length > 0
+      ? withYards.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0) / withYards.length
+      : 0
+  }, [events])
+  const pendingOptimistic = events.some((ev) => ev.id.startsWith('optimistic'))
+  const toggleChipClass = (active: boolean) =>
+    `rounded-full border px-3 py-1 text-[0.75rem] transition duration-150 ${
+      active ? 'border-brand bg-brand text-black' : 'border-slate-800 text-slate-200 hover:border-slate-700'
+    }`
   const gainedError = inlineErrors.gainedYards
   const gainedWarning = inlineWarnings.gainedYards
   const situationLabel = latestEvent
@@ -317,14 +389,26 @@ export function ChartEventPanel({
       defaults[field.name] = field.type === 'checkbox' ? false : ''
     })
     setFormData(defaults)
+    setSelectedPersonnel('')
+    setSelectedBackfield('')
+    setHasMotion(false)
+    setMotionType('NONE')
+    setHasShift(false)
+    setIsPlayAction(false)
+    setIsShotPlay(false)
+    setMarkFirstDown(false)
+    setMarkScoring(false)
+    setMarkTurnover(false)
+    setGainedYardsValue('')
   }
 
   const upsertEvent = useCallback(
     (newEvent: EventRow) => {
       setEvents((prev) => {
         const filtered = prev.filter((event) => event.id !== newEvent.id)
-        return [newEvent, ...filtered].slice(0, 50)
+        return [newEvent, ...filtered].sort((a, b) => b.sequence - a.sequence).slice(0, 50)
       })
+      setSequenceCounter((prev) => Math.max(prev, (newEvent.sequence ?? 0) + 1))
     },
     [setEvents]
   )
@@ -333,6 +417,11 @@ export function ChartEventPanel({
     sessionId,
     onEvent: (payload) => {
       upsertEvent(normalizeRealtimeEvent(payload))
+    },
+    onDelete: (payload) => {
+      const id = (payload as { id?: string }).id
+      if (!id) return
+      setEvents((prev) => prev.filter((ev) => ev.id !== id))
     },
   })
 
@@ -368,6 +457,32 @@ export function ChartEventPanel({
     // Ensure advanced tags are always present in the payload, even if the Advanced section is collapsed.
     formData.set('qb_alignment', qbAlignmentValue)
     formData.set('motion_type', hasMotion ? motionType : 'NONE')
+    formData.set('has_motion', String(hasMotion))
+    formData.set('has_shift', String(hasShift))
+    formData.set('is_play_action', String(isPlayAction))
+    formData.set('is_shot_play', String(isShotPlay))
+    if (selectedBackfieldMeta?.backs != null) {
+      formData.set('backs_count', String(selectedBackfieldMeta.backs))
+    }
+    const formationMeta = offenseFormations.find(
+      (formation) => formation.id === formData.get('offensive_formation_id')?.toString()
+    )
+    if (formationMeta) {
+      formData.set('offensive_formation_label', `${formationMeta.personnel} | ${formationMeta.formation}`)
+    }
+    const wrConceptMeta = wrConcepts.find((w) => w.id === formData.get('wr_concept_id')?.toString())
+    if (wrConceptMeta) {
+      formData.set('wr_concept_label', wrConceptMeta.name)
+      if (wrConceptMeta.family) formData.set('wr_concept_family', wrConceptMeta.family)
+      if (wrConceptMeta.qbDrop) formData.set('qb_drop', wrConceptMeta.qbDrop)
+      if (wrConceptMeta.coverageBeater?.length) {
+        formData.set('primary_coverage_beater', wrConceptMeta.coverageBeater[0])
+      }
+    }
+    const gainedValue = formData.get('gainedYards')
+    const gainedNumber = gainedValue !== null && gainedValue !== '' ? Number(gainedValue) : undefined
+    const distanceValue = formData.get('distance')
+    const distanceNumber = distanceValue !== null && distanceValue !== '' ? Number(distanceValue) : undefined
     const validationInput = {
       unit,
       play_family: playFamily,
@@ -382,13 +497,12 @@ export function ChartEventPanel({
       coverage_shell_post: formData.get('coverage_shell_post')?.toString() || undefined,
       st_play_type: formData.get('st_play_type')?.toString() || undefined,
       st_variant: formData.get('st_variant')?.toString() || undefined,
-      gained_yards: formData.get('gainedYards')
-        ? Number(formData.get('gainedYards'))
-        : undefined,
+      gained_yards: gainedNumber,
       pass_result: formData.get('pass_result')?.toString() || undefined,
-      st_return_yards: formData.get('st_return_yards')
-        ? Number(formData.get('st_return_yards'))
-        : undefined,
+      st_return_yards:
+        formData.get('st_return_yards') && formData.get('st_return_yards') !== ''
+          ? Number(formData.get('st_return_yards'))
+          : undefined,
     }
     const validation = validateChartEventInput(validationInput, dictionaryBundle)
     if (!validation.ok) {
@@ -414,6 +528,19 @@ export function ChartEventPanel({
       if (msg.toLowerCase().includes('coverage')) fieldWarnings.coverage_shell_post = msg
     })
     setInlineWarnings(fieldWarnings)
+
+    if (markFirstDown || (distanceNumber != null && gainedNumber != null && gainedNumber >= distanceNumber)) {
+      formData.set('first_down', 'true')
+    }
+    if (markScoring) {
+      formData.set('scoring_play', 'true')
+    }
+    if (markTurnover) {
+      formData.set('turnover', 'true')
+    }
+    if (gainedNumber != null && gainedNumber >= 20) {
+      formData.set('explosive', 'true')
+    }
 
     const optimisticEvent = buildOptimisticEvent(formData, sequenceCounter)
     upsertEvent(optimisticEvent)
@@ -454,6 +581,17 @@ export function ChartEventPanel({
             <Pill label={unit} tone="emerald" />
             <span className="text-[0.75rem] text-slate-200">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Pill label={`Success ${successRate}%`} tone="emerald" />
+          <Pill label={`Explosive ${explosiveRate}%`} tone="amber" />
+          <Pill
+            label={`Drive ${currentDriveNumber ?? '--'} | ${currentDriveEvents.length || 0}P / ${currentDriveYards} yds`}
+            tone="slate"
+          />
+          <Pill label={`Late downs ${lateDownRate}%`} tone="cyan" />
+          <Pill label={`Avg gain ${averageGain.toFixed(1)} yds`} tone="slate" />
+          {pendingOptimistic && <Pill label="Pending sync" tone="amber" />}
         </div>
       </GlassCard>
 
@@ -734,6 +872,8 @@ export function ChartEventPanel({
                   type="number"
                   min={-99}
                   max={99}
+                  value={gainedYardsValue}
+                  onChange={(e) => setGainedYardsValue(e.target.value)}
                   className={`w-full rounded-xl border px-4 py-3 text-sm transition duration-base ease-smooth ${
                     gainedError
                       ? 'border-red-500 bg-red-950/30 text-red-50'
@@ -742,6 +882,18 @@ export function ChartEventPanel({
                       : 'border-slate-800 bg-surface-muted text-slate-100'
                   } hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand`}
                 />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {quickGainOptions.map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setGainedYardsValue(String(val))}
+                      className={toggleChipClass(gainedYardsValue === String(val))}
+                    >
+                      {val > 0 ? `+${val}` : val}
+                    </button>
+                  ))}
+                </div>
                 {gainedError && (
                   <p className="text-[0.7rem] text-red-300">{gainedError}</p>
                 )}
@@ -767,6 +919,30 @@ export function ChartEventPanel({
                   ))}
                 </select>
               </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMarkFirstDown((prev) => !prev)}
+                  className={toggleChipClass(markFirstDown)}
+                >
+                  1st Down
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarkScoring((prev) => !prev)}
+                  className={toggleChipClass(markScoring)}
+                >
+                  Scoring
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarkTurnover((prev) => !prev)}
+                  className={toggleChipClass(markTurnover)}
+                >
+                  Turnover
+                </button>
+              </div>
             </div>
           </section>
 
@@ -829,15 +1005,40 @@ export function ChartEventPanel({
                   </div>
                 )}
 
-                <label className="space-y-1 text-xs text-slate-200">
-                  <span className="uppercase tracking-[0.18em]">Series #</span>
-                  <input
-                    name="driveNumber"
-                    type="number"
-                    min={1}
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
-                  />
-                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHasShift((prev) => !prev)}
+                    className={toggleChipClass(hasShift)}
+                  >
+                    Shift
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPlayAction((prev) => !prev)}
+                    className={toggleChipClass(isPlayAction)}
+                  >
+                    Play Action
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsShotPlay((prev) => !prev)}
+                    className={toggleChipClass(isShotPlay)}
+                  >
+                    Shot Play
+                  </button>
+                </div>
+
+                {unit === 'DEFENSE' && (
+                  <label className="space-y-1 text-xs text-slate-200">
+                    <span className="uppercase tracking-[0.18em]">Pressure tag</span>
+                    <input
+                      name="pressure_code"
+                      placeholder="Fire zone, SIM, boundary..."
+                      className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    />
+                  </label>
+                )}
 
                 <label className="space-y-1 text-xs text-slate-200 block">
                   <span className="uppercase tracking-[0.18em]">Notes</span>
@@ -891,29 +1092,42 @@ export function ChartEventPanel({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                     <span>
-                      Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)}
+                      Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)} | Drive{' '}
+                      {event.drive_number ?? '--'}
                     </span>
-                    <span>Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}</span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {event.id.startsWith('optimistic') && (
+                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
+                          Syncing
+                        </span>
+                      )}
+                      {isSuccessful(event) && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.7rem] text-emerald-200">
+                          Success
+                        </span>
+                      )}
+                      {isExplosivePlay(event) && (
+                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
+                          Explosive
+                        </span>
+                      )}
+                      {(event.turnover ||
+                        (event.result || '').toLowerCase().includes('int') ||
+                        (event.result || '').toLowerCase().includes('fumble')) && (
+                        <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[0.7rem] text-red-200">
+                          Turnover
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-1 text-base font-semibold text-slate-50">{event.play_call || 'Play call TBD'}</div>
                   <div className="text-xs text-slate-200 flex items-center gap-2">
                     <span>
-                      {event.result || 'Result TBD'} | Yardage:{' '}
-                      {typeof event.gained_yards === 'number' ? `${event.gained_yards}` : '--'}
+                      {event.result || 'Result TBD'} | Yardage: {formatYards(event.gained_yards)} | Down/Dist:{' '}
+                      {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
                     </span>
-                    {(event.explosive || (event.gained_yards ?? 0) >= 20) && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.7rem] text-amber-300">
-                        • Explosive
-                      </span>
-                    )}
-                    {(event.turnover ||
-                      (event.result || '').toLowerCase().includes('int') ||
-                      (event.result || '').toLowerCase().includes('fumble')) && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[0.7rem] text-red-300">
-                        • Turnover
-                      </span>
-                    )}
                   </div>
+
                   <div className="text-[0.7rem] text-slate-400">
                     Logged{' '}
                     {event.created_at
@@ -932,6 +1146,4 @@ export function ChartEventPanel({
     </div>
   )
 }
-
-
 
