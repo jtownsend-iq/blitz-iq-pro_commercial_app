@@ -197,7 +197,7 @@ export default async function ChartUnitPage({
         }
       />
 
-      <GlassCard>
+      <GlassCard className="space-y-4">
         <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
           <StatBadge label="Plays" value={totalPlays} tone="cyan" />
           <StatBadge label="Yards / YPP" value={`${totalYards} / ${ypp.toFixed(1)}`} tone="emerald" />

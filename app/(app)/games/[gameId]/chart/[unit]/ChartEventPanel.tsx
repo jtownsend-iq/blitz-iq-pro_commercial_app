@@ -391,6 +391,8 @@ export function ChartEventPanel({
       { RUN: 0, PASS: 0, RPO: 0, SPECIAL_TEAMS: 0 }
     )
   }, [events])
+  const seriesTagged = events.filter((ev) => ev.series_tag).length
+  const lastSeriesTag = events.find((ev) => ev.series_tag)?.series_tag || seriesTag || '--'
   const unitCue =
     unit === 'OFFENSE'
       ? 'Emphasize tempo and hash; log QB alignment/motion for tendency work.'
@@ -606,9 +608,9 @@ export function ChartEventPanel({
   }
 
   return (
-    <div className="space-y-6">
-      <GlassCard className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
+    <div className="space-y-8">
+      <GlassCard className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="font-display text-2xl font-semibold text-slate-100">Live charting | {unitLabel}</h2>
             <div className="text-sm text-slate-300">
@@ -621,10 +623,10 @@ export function ChartEventPanel({
           </div>
           <div className="flex flex-col items-end gap-2">
             <Pill label={unit} tone="emerald" />
-            <span className="text-[0.75rem] text-slate-200">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
+            <span className="text-[0.75rem] text-slate-200 text-right">Alt+O/D/S = unit | Ctrl/Cmd+Enter = save</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Pill label={`Success ${successRate}%`} tone="emerald" />
           <Pill label={`Explosive ${explosiveRate}%`} tone="amber" />
           <Pill
@@ -637,20 +639,24 @@ export function ChartEventPanel({
         </div>
       </GlassCard>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <GlassCard className="space-y-5">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <GlassCard className="space-y-6">
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
-            <section className="space-y-3">
-              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Situation</h3>
-              <p className="text-xs text-slate-400">Quarter, clock, down & distance, spot, hash</p>
-              <div className="flex flex-wrap gap-3">
+            <section className="space-y-4">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Situation</h3>
+                  <p className="text-xs text-slate-400">Quarter, clock, down & distance, spot, hash</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="space-y-1">
                   <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Quarter</span>
                   <select
                     name="quarter"
                     value={quarterValue}
                     onChange={(e) => setQuarterValue(e.target.value)}
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   >
                     <option value="">--</option>
                     {quarterOptions.map((q) => (
@@ -667,7 +673,7 @@ export function ChartEventPanel({
                     name="clock"
                     placeholder="12:34"
                     pattern="[0-5]?[0-9]:[0-5][0-9]"
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>
 
@@ -675,7 +681,7 @@ export function ChartEventPanel({
                   <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Down</span>
                   <select
                     name="down"
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   >
                     {downOptions.map((option) => (
                       <option key={option.label} value={option.value}>
@@ -691,7 +697,7 @@ export function ChartEventPanel({
                     name="distance"
                     type="number"
                     min={1}
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>
 
@@ -702,7 +708,7 @@ export function ChartEventPanel({
                     value={ballOnValue}
                     onChange={(e) => setBallOnValue(e.target.value)}
                     placeholder="O35"
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>
 
@@ -712,7 +718,7 @@ export function ChartEventPanel({
                     name="hashMark"
                     value={hashValue}
                     onChange={(e) => setHashValue(e.target.value)}
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   >
                     {hashOptions.map((option) => (
                       <option key={option.label} value={option.value}>
@@ -728,15 +734,21 @@ export function ChartEventPanel({
                     name="driveNumber"
                     type="number"
                     min={1}
-                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>
               </div>
             </section>
 
-          <section className="space-y-3 border-t border-slate-900/70 pt-4">
+          <section className="space-y-4 border-t border-slate-900/70 pt-6">
             <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Play type</h3>
-            <p className="text-xs text-slate-400">Pick run, pass, RPO, or special teams to tailor the fields.</p>
+            <p className="text-xs text-slate-400">
+              {unit === 'OFFENSE'
+                ? 'Pick run, pass, or RPO to tailor offensive tags. Special teams disabled here.'
+                : unit === 'DEFENSE'
+                ? 'Tag the offensive family faced to pair with front/coverage tendencies.'
+                : 'Special teams mode is locked for this unit.'}
+            </p>
             {unit === 'SPECIAL_TEAMS' ? (
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-2 text-xs text-amber-100">
                 Special teams mode is locked for this unit. Tag kick type + variant and return yards.
@@ -770,21 +782,12 @@ export function ChartEventPanel({
                 >
                   RPO
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPlayFamily('SPECIAL_TEAMS')}
-                  className={`rounded-full px-3 py-1 transition duration-base ease-smooth focus-visible:shadow-focus focus-visible:outline-none ${
-                    playFamily === 'SPECIAL_TEAMS' ? 'bg-brand text-black' : 'text-slate-300'
-                  }`}
-                >
-                  ST
-                </button>
               </div>
             )}
           </section>
 
-          <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+          <section className="space-y-4 border-t border-slate-900/70 pt-6">
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">
                 Formation & tags
               </h3>
               <p className="text-xs text-slate-400">
@@ -890,7 +893,7 @@ export function ChartEventPanel({
             </div>
           </section>
 
-          <section className="space-y-3 border-t border-slate-900/70 pt-4">
+          <section className="space-y-4 border-t border-slate-900/70 pt-6">
             <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Result & gain</h3>
             <p className="text-xs text-slate-400">Capture the call, a quick note, yardage, and pass result.</p>
             <div className="space-y-3">
@@ -994,7 +997,7 @@ export function ChartEventPanel({
             </div>
           </section>
 
-          <section className="space-y-3 border-t border-slate-900/70 pt-4">
+          <section className="space-y-4 border-t border-slate-900/70 pt-6">
             <div className="flex items-center justify-between">
               <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Optional tags</h3>
               <button
@@ -1123,7 +1126,7 @@ export function ChartEventPanel({
             </div>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <CTAButton type="submit" disabled={isPending} variant="primary">
               {isPending ? 'Saving...' : 'Log play'}
             </CTAButton>
@@ -1131,7 +1134,7 @@ export function ChartEventPanel({
           </form>
         </GlassCard>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-0 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
           <GlassCard className="space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xl font-semibold text-slate-100">AI analyst</h2>
@@ -1167,6 +1170,12 @@ export function ChartEventPanel({
                 <p className="text-sm text-slate-100">
                   Success {successRate}% | Explosive {explosiveRate}% | Late-down {lateDownRate}% | Avg gain{' '}
                   {averageGain.toFixed(1)} yds
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Series context</p>
+                <p className="text-sm text-slate-100">
+                  Series tags logged: {seriesTagged} | Last series: {lastSeriesTag}
                 </p>
               </div>
             </div>
