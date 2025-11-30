@@ -5,13 +5,15 @@ import { getSupabasePublicConfig } from './publicConfig'
 let browserClient: SupabaseClient | null = null
 
 export function createSupabaseBrowserClient(): SupabaseClient {
-  const { url, anonKey } = getSupabasePublicConfig()
-  if (!url || !anonKey) {
-    throw new Error('Missing Supabase public configuration.')
+  const config = getSupabasePublicConfig({ allowMissingInDev: true })
+  if (!config) {
+    throw new Error(
+      'Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).'
+    )
   }
 
   if (!browserClient) {
-    browserClient = createBrowserClient(url, anonKey)
+    browserClient = createBrowserClient(config.url, config.anonKey)
   }
   return browserClient
 }

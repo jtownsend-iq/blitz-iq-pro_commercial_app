@@ -18,7 +18,13 @@ export function useChartRealtime<T extends Record<string, unknown>>({
   onEvent,
 }: RealtimeOptions<T>) {
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient()
+    let supabase: ReturnType<typeof createSupabaseBrowserClient> | null = null
+    try {
+      supabase = createSupabaseBrowserClient()
+    } catch (err) {
+      console.warn('Chart realtime unavailable: Supabase not configured', err)
+      return
+    }
     const channel = supabase
       .channel(`chart-events-${sessionId}`)
       .on(

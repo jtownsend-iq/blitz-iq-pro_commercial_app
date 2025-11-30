@@ -15,10 +15,19 @@ type LiveEventFeedProps = {
 
 export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFeedProps) {
   const [events, setEvents] = useState<EventSummary[]>(initialEvents)
+  const [unavailable, setUnavailable] = useState(false)
 
   useEffect(() => {
     let isMounted = true
-    const supabase = createSupabaseBrowserClient()
+    let supabase: ReturnType<typeof createSupabaseBrowserClient> | null = null
+    try {
+      supabase = createSupabaseBrowserClient()
+    } catch (err) {
+      console.warn('Live event feed unavailable: Supabase not configured', err)
+      setTimeout(() => setUnavailable(true), 0)
+      return
+    }
+
     const channel = supabase
       .channel(`dashboard-feed-${teamId}`)
       .on(
@@ -57,26 +66,44 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
               created_at: incoming.created_at,
               game_sessions: normalizeEventSession(
                 // incoming may not contain joined session; fallback to null
-                (incoming as Partial<EventSummary> | null)?.game_sessions ?? null
-              ),
-            } as EventSummary)
+            (incoming as Partial<EventSummary> | null)?.game_sessions ?? null
+          ),
+        } as EventSummary)
 
-          if (!isMounted) return
+      if (!isMounted) return
 
-          setEvents((prev) => {
-            if (prev.some((item) => item.id === hydratedEvent.id)) return prev
-            return [hydratedEvent, ...prev].slice(0, 40)
-          })
-          onNewEvent?.(hydratedEvent)
-        }
+      setEvents((prev) => {
+        if (prev.some((item) => item.id === hydratedEvent.id)) return prev
+        return [hydratedEvent, ...prev].slice(0, 40)
+      })
+      onNewEvent?.(hydratedEvent)
+    }
       )
       .subscribe()
 
     return () => {
       isMounted = false
-      supabase.removeChannel(channel)
+      supabase?.removeChannel(channel)
     }
   }, [teamId, onNewEvent])
+
+  if (unavailable) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">Live event feed</h2>
+            <p className="text-sm text-slate-400">
+              Supabase is not configured; live feed is unavailable in this environment.
+            </p>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">
+            <RadioTower className="h-5 w-5" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">

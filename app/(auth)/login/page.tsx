@@ -1,5 +1,4 @@
 // app/login/page.tsx
-import { redirect } from 'next/navigation'
 import { LoginCard } from '@/components/auth/LoginCard'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
@@ -18,14 +17,6 @@ export default async function LoginPage({
   const signoutRequested = params?.signout === 'true'
   if (signoutRequested) {
     await supabase.auth.signOut()
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user && !signoutRequested) {
-    redirect('/dashboard')
   }
 
   const errorParam = params?.error

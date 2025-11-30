@@ -4,32 +4,46 @@ import { cookies } from 'next/headers'
 import { env } from '@/utils/env'
 import { getSupabasePublicConfig } from './publicConfig'
 
-const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabasePublicConfig()
-const supabaseServiceRoleKey = env.supabaseServiceRoleKey
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase configuration is missing. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are set.')
+type SupabaseConfig = {
+  url: string
+  anonKey: string
+  serviceRoleKey?: string
 }
 
-export const supabaseConfig = {
-  url: supabaseUrl,
-  anonKey: supabaseAnonKey,
-  serviceRoleKey: supabaseServiceRoleKey,
-} as const
-
+let cachedConfig: SupabaseConfig | null = null
 let browserClient: SupabaseClient | null = null
 
+function requireSupabaseConfig(): SupabaseConfig {
+  if (cachedConfig) return cachedConfig
+
+  const publicConfig = getSupabasePublicConfig()
+  if (!publicConfig) {
+    throw new Error('Supabase configuration is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).')
+  }
+
+  cachedConfig = {
+    url: publicConfig.url,
+    anonKey: publicConfig.anonKey,
+    serviceRoleKey: env.supabaseServiceRoleKey,
+  }
+
+  return cachedConfig
+}
+
 export function createSupabaseBrowserClient(): SupabaseClient {
+  const config = requireSupabaseConfig()
+
   if (!browserClient) {
-    browserClient = createBrowserClient(supabaseConfig.url, supabaseConfig.anonKey)
+    browserClient = createBrowserClient(config.url, config.anonKey)
   }
   return browserClient
 }
 
 export async function createSupabaseServerClient(): Promise<SupabaseClient> {
+  const config = requireSupabaseConfig()
   const cookieStore = await cookies()
 
-  return createServerClient(supabaseConfig.url, supabaseConfig.anonKey, {
+  return createServerClient(config.url, config.anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -49,11 +63,13 @@ export async function createSupabaseServerClient(): Promise<SupabaseClient> {
 }
 
 export function createSupabaseServiceRoleClient(): SupabaseClient {
-  if (!supabaseConfig.serviceRoleKey) {
+  const config = requireSupabaseConfig()
+
+  if (!config.serviceRoleKey) {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY. This key is required for privileged Supabase operations.')
   }
 
-  return createSupabaseAdminClient(supabaseConfig.url, supabaseConfig.serviceRoleKey, {
+  return createSupabaseAdminClient(config.url, config.serviceRoleKey, {
     auth: {
       persistSession: false,
     },

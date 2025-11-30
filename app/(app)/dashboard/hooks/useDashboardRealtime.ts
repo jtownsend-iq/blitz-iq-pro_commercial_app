@@ -29,7 +29,13 @@ type DashboardRealtimeOptions = {
 
 export function useDashboardRealtime({ teamId, onEvent }: DashboardRealtimeOptions) {
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient()
+    let supabase: ReturnType<typeof createSupabaseBrowserClient> | null = null
+    try {
+      supabase = createSupabaseBrowserClient()
+    } catch (err) {
+      console.warn('Dashboard realtime unavailable: Supabase not configured', err)
+      return
+    }
     const channel = supabase
       .channel(`dashboard-team-${teamId}`)
       .on(

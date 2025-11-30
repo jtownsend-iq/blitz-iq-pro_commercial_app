@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { LiveEventFeed } from '@/components/dashboard/LiveEventFeed'
 import { LiveSessionList } from '@/components/dashboard/LiveSessionList'
 import { StatsGrid } from '@/components/dashboard/StatsGrid'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { requireAuth } from '@/utils/auth/requireAuth'
 import { DashboardRealtimeClient } from './RealtimeClient'
 import { ActionButton } from './ActionButton'
 import { setActiveTeam } from './actions'
@@ -26,32 +27,10 @@ import {
 } from './types'
 
 export default async function DashboardPage() {
+  const { user, activeTeamId } = await requireAuth()
   const supabase = await createSupabaseServerClient()
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError) {
-    console.error('Error fetching auth user:', userError.message)
-  }
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('full_name, active_team_id')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    console.error('Error fetching user profile:', profileError.message)
-  }
-
-  const activeTeamId = (profile?.active_team_id as string | null) ?? null
+  const resolvedActiveTeamId = activeTeamId
 
   const { data: membershipsData, error: membershipError } = await supabase
     .from('team_members')
@@ -85,17 +64,17 @@ export default async function DashboardPage() {
   }
 
   if (teams.length === 0) {
-    redirect('/onboarding/team')
+    throw new Error('No teams found for user.')
   }
 
-  if (!activeTeamId) {
-    redirect('/onboarding/select-team')
+  if (!resolvedActiveTeamId) {
+    throw new Error('No active team set for user.')
   }
 
-  const activeTeam = teams.find((team) => team.id === activeTeamId)
+  const activeTeam = teams.find((team) => team.id === resolvedActiveTeamId)
 
   if (!activeTeam) {
-    redirect('/onboarding/select-team')
+    throw new Error('Active team not found.')
   }
 
   let sessionSummaries: SessionSummary[] = []

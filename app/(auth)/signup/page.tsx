@@ -28,7 +28,15 @@ function SignupForm() {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
-  const supabase = createSupabaseBrowserClient()
+  let supabase: ReturnType<typeof createSupabaseBrowserClient> | null = null
+  try {
+    supabase = createSupabaseBrowserClient()
+  } catch (err) {
+    console.warn(
+      'Signup Supabase client unavailable: check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      err
+    )
+  }
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -60,6 +68,9 @@ function SignupForm() {
     setLoading(true)
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured for signup.')
+      }
       const response = await fetch('/api/stripe/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,11 +244,22 @@ function SignupForm() {
 }
 
 export default function SignupPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => {
+    try {
+      return createSupabaseBrowserClient()
+    } catch (err) {
+      console.warn('Signup Supabase session check skipped: not configured', err)
+      return null
+    }
+  }, [])
   const [hasSession, setHasSession] = useState(false)
 
   useEffect(() => {
     const checkSession = async () => {
+      if (!supabase) {
+        setHasSession(false)
+        return
+      }
       const { data } = await supabase.auth.getSession()
       setHasSession(Boolean(data.session))
     }

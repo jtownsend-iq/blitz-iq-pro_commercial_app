@@ -5,12 +5,12 @@ import { getSupabasePublicConfig } from '@/utils/supabase/publicConfig'
 
 export default async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request })
-  const { url: supabaseUrl, anonKey } = getSupabasePublicConfig()
-  if (!supabaseUrl || !anonKey) {
+  const publicConfig = getSupabasePublicConfig()
+  if (!publicConfig) {
     throw new Error('Missing Supabase public configuration for proxy.')
   }
 
-  const supabase = createServerClient(supabaseUrl, anonKey, {
+  const supabase = createServerClient(publicConfig.url, publicConfig.anonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll()

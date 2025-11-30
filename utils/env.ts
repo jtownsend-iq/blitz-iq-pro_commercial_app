@@ -35,7 +35,9 @@ export function buildEnv(vars: NodeJS.ProcessEnv, opts: { allowMissingInTest?: b
   const { allowMissingInTest = true } = opts
   return {
     supabaseUrl: readEnv('NEXT_PUBLIC_SUPABASE_URL', vars, { allowMissingInTest }),
-    supabaseAnonKey: readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', vars, { allowMissingInTest }),
+    supabaseAnonKey:
+      readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', vars, { allowMissingInTest, optional: true }) ??
+      readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', vars, { allowMissingInTest }),
     supabaseServiceRoleKey: readEnv('SUPABASE_SERVICE_ROLE_KEY', vars, { allowMissingInTest }),
     stripePublishableKey: readEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', vars, { optional: true, allowMissingInTest }),
     stripeSecretKey: readEnv('STRIPE_SECRET_KEY', vars, { optional: true, allowMissingInTest }),

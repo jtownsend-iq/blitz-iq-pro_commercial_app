@@ -1,4 +1,6 @@
 import { AppShell, type NavItem } from '@/components/layout/AppShell'
+import { AuthProvider } from '@/components/auth/AuthProvider'
+import { requireAuth } from '@/utils/auth/requireAuth'
 import type { ReactNode } from 'react'
 
 const navItems: NavItem[] = [
@@ -9,13 +11,17 @@ const navItems: NavItem[] = [
   { href: '/settings', label: 'Settings' },
 ]
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const auth = await requireAuth()
+
   return (
-    <AppShell
-      navItems={navItems}
-      shellConfig={{ variant: 'app', showFooter: true }}
-    >
-      {children}
-    </AppShell>
+    <AuthProvider value={auth}>
+      <AppShell
+        navItems={navItems}
+        shellConfig={{ variant: 'app', showFooter: true }}
+      >
+        {children}
+      </AppShell>
+    </AuthProvider>
   )
 }
