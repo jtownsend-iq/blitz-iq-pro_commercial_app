@@ -28,7 +28,9 @@ type EventRow = {
   result: string | null
   gained_yards: number | null
   created_at: string | null
+  play_family?: 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | null
   drive_number?: number | null
+  series_tag?: string | null
   explosive?: boolean | null
   turnover?: boolean | null
 }
@@ -198,7 +200,7 @@ function mapError(code?: string) {
   return 'Unable to record play. Please retry.'
 }
 
-function buildOptimisticEvent(formData: FormData, sequence: number): EventRow {
+function buildOptimisticEvent(formData: FormData, sequence: number, seriesTag?: string): EventRow {
   const clock = formData.get('clock')?.toString()
   let clockSeconds: number | null = null
   if (clock && clockPattern.test(clock)) {
@@ -217,6 +219,8 @@ function buildOptimisticEvent(formData: FormData, sequence: number): EventRow {
     result: formData.get('result')?.toString() || null,
     gained_yards: formData.get('gainedYards') ? Number(formData.get('gainedYards')) : null,
     drive_number: formData.get('driveNumber') ? Number(formData.get('driveNumber')) : null,
+    play_family: (formData.get('play_family')?.toString() as EventRow['play_family']) || null,
+    series_tag: seriesTag || null,
     created_at: new Date().toISOString(),
   }
 }
@@ -238,7 +242,9 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     play_call: (payload.play_call as string) ?? null,
     result: (payload.result as string) ?? null,
     gained_yards: (payload.gained_yards as number) ?? null,
+    play_family: (payload.play_family as EventRow['play_family']) ?? null,
     drive_number: (payload.drive_number as number) ?? null,
+    series_tag: null,
     created_at: (payload.created_at as string) ?? null,
   }
 }
@@ -278,6 +284,8 @@ export function ChartEventPanel({
   const [markFirstDown, setMarkFirstDown] = useState<boolean>(false)
   const [markScoring, setMarkScoring] = useState<boolean>(false)
   const [markTurnover, setMarkTurnover] = useState<boolean>(false)
+  const [seriesTag, setSeriesTag] = useState<string>('')
+  const [seriesLookup, setSeriesLookup] = useState<Record<number, string>>({})
   const [gainedYardsValue, setGainedYardsValue] = useState<string>('')
   const [playFamily, setPlayFamily] = useState<'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS'>(
     unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS'
@@ -369,6 +377,26 @@ export function ChartEventPanel({
     `rounded-full border px-3 py-1 text-[0.75rem] transition duration-150 ${
       active ? 'border-brand bg-brand text-black' : 'border-slate-800 text-slate-200 hover:border-slate-700'
     }`
+  const lastFive = useMemo(() => events.slice(0, 5), [events])
+  const lastFiveSuccess = lastFive.filter((ev) => isSuccessful(ev)).length
+  const lastFiveExplosive = lastFive.filter((ev) => isExplosivePlay(ev)).length
+  const playFamilyCounts = useMemo(() => {
+    return events.reduce<Record<NonNullable<EventRow['play_family']>, number>>(
+      (acc, ev) => {
+        if (ev.play_family) {
+          acc[ev.play_family] = (acc[ev.play_family] || 0) + 1
+        }
+        return acc
+      },
+      { RUN: 0, PASS: 0, RPO: 0, SPECIAL_TEAMS: 0 }
+    )
+  }, [events])
+  const unitCue =
+    unit === 'OFFENSE'
+      ? 'Emphasize tempo and hash; log QB alignment/motion for tendency work.'
+      : unit === 'DEFENSE'
+      ? 'Capture coverage and front quickly; log pressure when bringing heat.'
+      : 'Track kick type/variant first; tag return yardage and ball spot.'
   const gainedError = inlineErrors.gainedYards
   const gainedWarning = inlineWarnings.gainedYards
   const situationLabel = latestEvent
@@ -399,18 +427,27 @@ export function ChartEventPanel({
     setMarkFirstDown(false)
     setMarkScoring(false)
     setMarkTurnover(false)
+    setSeriesTag('')
     setGainedYardsValue('')
   }
 
   const upsertEvent = useCallback(
     (newEvent: EventRow) => {
+      const seriesPatched: EventRow = {
+        ...newEvent,
+        series_tag:
+          newEvent.series_tag ??
+          (typeof newEvent.sequence === 'number' && seriesLookup[newEvent.sequence]
+            ? seriesLookup[newEvent.sequence]
+            : null),
+      }
       setEvents((prev) => {
-        const filtered = prev.filter((event) => event.id !== newEvent.id)
-        return [newEvent, ...filtered].sort((a, b) => b.sequence - a.sequence).slice(0, 50)
+        const filtered = prev.filter((event) => event.id !== seriesPatched.id)
+        return [seriesPatched, ...filtered].sort((a, b) => b.sequence - a.sequence).slice(0, 50)
       })
-      setSequenceCounter((prev) => Math.max(prev, (newEvent.sequence ?? 0) + 1))
+      setSequenceCounter((prev) => Math.max(prev, (seriesPatched.sequence ?? 0) + 1))
     },
-    [setEvents]
+    [seriesLookup]
   )
 
   useChartRealtime({
@@ -454,6 +491,11 @@ export function ChartEventPanel({
     const formData = new FormData(form)
     formData.set('sessionId', sessionId)
     formData.set('play_family', playFamily)
+    const seriesValue = seriesTag.trim() || ''
+    formData.delete('seriesTag')
+    if (seriesValue) {
+      setSeriesLookup((prev) => ({ ...prev, [sequenceCounter]: seriesValue }))
+    }
     // Ensure advanced tags are always present in the payload, even if the Advanced section is collapsed.
     formData.set('qb_alignment', qbAlignmentValue)
     formData.set('motion_type', hasMotion ? motionType : 'NONE')
@@ -542,7 +584,7 @@ export function ChartEventPanel({
       formData.set('explosive', 'true')
     }
 
-    const optimisticEvent = buildOptimisticEvent(formData, sequenceCounter)
+    const optimisticEvent = buildOptimisticEvent(formData, sequenceCounter, seriesValue || undefined)
     upsertEvent(optimisticEvent)
     setSequenceCounter((prev) => prev + 1)
 
@@ -595,7 +637,7 @@ export function ChartEventPanel({
         </div>
       </GlassCard>
 
-      <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <GlassCard className="space-y-5">
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
             <section className="space-y-3">
@@ -693,12 +735,17 @@ export function ChartEventPanel({
             </section>
 
           <section className="space-y-3 border-t border-slate-900/70 pt-4">
-              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Play type</h3>
-              <p className="text-xs text-slate-400">Pick run, pass, RPO, or special teams to tailor the fields.</p>
+            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Play type</h3>
+            <p className="text-xs text-slate-400">Pick run, pass, RPO, or special teams to tailor the fields.</p>
+            {unit === 'SPECIAL_TEAMS' ? (
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-2 text-xs text-amber-100">
+                Special teams mode is locked for this unit. Tag kick type + variant and return yards.
+              </div>
+            ) : (
               <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-slate-800 bg-surface-muted p-1 text-xs transition duration-base ease-smooth focus-visible:shadow-focus focus-visible:outline-none">
                 <button
                   type="button"
-                  onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RUN')}
+                  onClick={() => setPlayFamily('RUN')}
                   className={`rounded-full px-3 py-1 transition duration-base ease-smooth focus-visible:shadow-focus focus-visible:outline-none ${
                     playFamily === 'RUN' ? 'bg-brand text-black' : 'text-slate-300'
                   }`}
@@ -707,7 +754,7 @@ export function ChartEventPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'PASS')}
+                  onClick={() => setPlayFamily('PASS')}
                   className={`rounded-full px-3 py-1 transition duration-base ease-smooth focus-visible:shadow-focus focus-visible:outline-none ${
                     playFamily === 'PASS' ? 'bg-brand text-black' : 'text-slate-300'
                   }`}
@@ -716,7 +763,7 @@ export function ChartEventPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPlayFamily(unit === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : 'RPO')}
+                  onClick={() => setPlayFamily('RPO')}
                   className={`rounded-full px-3 py-1 transition duration-base ease-smooth focus-visible:shadow-focus focus-visible:outline-none ${
                     playFamily === 'RPO' ? 'bg-brand text-black' : 'text-slate-300'
                   }`}
@@ -733,6 +780,7 @@ export function ChartEventPanel({
                   ST
                 </button>
               </div>
+            )}
           </section>
 
           <section className="space-y-3">
@@ -1029,6 +1077,17 @@ export function ChartEventPanel({
                   </button>
                 </div>
 
+                <label className="space-y-1 text-xs text-slate-200 block">
+                  <span className="uppercase tracking-[0.18em]">Series # (within drive)</span>
+                  <input
+                    name="seriesTag"
+                    value={seriesTag}
+                    onChange={(e) => setSeriesTag(e.target.value)}
+                    placeholder="1, 2, 3..."
+                    className="w-32 rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                  />
+                </label>
+
                 {unit === 'DEFENSE' && (
                   <label className="space-y-1 text-xs text-slate-200">
                     <span className="uppercase tracking-[0.18em]">Pressure tag</span>
@@ -1072,76 +1131,123 @@ export function ChartEventPanel({
           </form>
         </GlassCard>
 
-        <GlassCard className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
-            <p className="text-sm text-slate-300">
-              Shows the latest plays, including ones still syncing.
-            </p>
-          </div>
-          <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-            {events.length === 0 ? (
-              <div className="empty-state">
-                <div className="text-sm">No plays logged yet for this game.</div>
+        <div className="space-y-4">
+          <GlassCard className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold text-slate-100">AI analyst</h2>
+              <Pill label="Live" tone="emerald" />
+            </div>
+            <p className="text-sm text-slate-300">{unitCue}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Mix</p>
+                <p className="text-sm text-slate-100">
+                  Run {playFamilyCounts.RUN} | Pass {playFamilyCounts.PASS} | RPO {playFamilyCounts.RPO} | ST{' '}
+                  {playFamilyCounts.SPECIAL_TEAMS}
+                </p>
               </div>
-            ) : (
-              events.map((event) => (
-                <div
-                  key={event.id}
-                  className="rounded-2xl border border-slate-900/60 bg-surface-muted px-4 py-3 text-sm text-slate-200"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-                    <span>
-                      Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)} | Drive{' '}
-                      {event.drive_number ?? '--'}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {event.id.startsWith('optimistic') && (
-                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
-                          Syncing
-                        </span>
-                      )}
-                      {isSuccessful(event) && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.7rem] text-emerald-200">
-                          Success
-                        </span>
-                      )}
-                      {isExplosivePlay(event) && (
-                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
-                          Explosive
-                        </span>
-                      )}
-                      {(event.turnover ||
-                        (event.result || '').toLowerCase().includes('int') ||
-                        (event.result || '').toLowerCase().includes('fumble')) && (
-                        <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[0.7rem] text-red-200">
-                          Turnover
-                        </span>
-                      )}
+              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Last 5</p>
+                <p className="text-sm text-slate-100">
+                  {lastFive.length} plays | {lastFiveSuccess} success | {lastFiveExplosive} explosive | Avg{' '}
+                  {lastFive.length ? (lastFive.reduce((s, ev) => s + (ev.gained_yards ?? 0), 0) / lastFive.length).toFixed(1) : '0.0'}{' '}
+                  yds
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Current drive</p>
+                <p className="text-sm text-slate-100">
+                  {currentDriveNumber
+                    ? `Drive ${currentDriveNumber}: ${currentDriveEvents.length} plays / ${currentDriveYards} yds`
+                    : 'No drive started'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Momentum</p>
+                <p className="text-sm text-slate-100">
+                  Success {successRate}% | Explosive {explosiveRate}% | Late-down {lateDownRate}% | Avg gain{' '}
+                  {averageGain.toFixed(1)} yds
+                </p>
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
+              <p className="text-sm text-slate-300">
+                Shows the latest plays, including ones still syncing.
+              </p>
+            </div>
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {events.length === 0 ? (
+                <div className="empty-state">
+                  <div className="text-sm">No plays logged yet for this game.</div>
+                </div>
+              ) : (
+                events.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-2xl border border-slate-900/60 bg-surface-muted px-4 py-3 text-sm text-slate-200"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                      <span>
+                        Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)} | Drive{' '}
+                        {event.drive_number ?? '--'}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {event.id.startsWith('optimistic') && (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
+                            Syncing
+                          </span>
+                        )}
+                        {isSuccessful(event) && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.7rem] text-emerald-200">
+                            Success
+                          </span>
+                        )}
+                        {isExplosivePlay(event) && (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
+                            Explosive
+                          </span>
+                        )}
+                        {(event.turnover ||
+                          (event.result || '').toLowerCase().includes('int') ||
+                          (event.result || '').toLowerCase().includes('fumble')) && (
+                          <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[0.7rem] text-red-200">
+                            Turnover
+                          </span>
+                        )}
+                        {event.series_tag && (
+                          <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-[0.7rem] text-slate-100">
+                            Series {event.series_tag}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-base font-semibold text-slate-50">{event.play_call || 'Play call TBD'}</div>
+                    <div className="text-xs text-slate-200 flex items-center gap-2">
+                      <span>
+                        {event.result || 'Result TBD'} | Yardage: {formatYards(event.gained_yards)} | Down/Dist:{' '}
+                        {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
+                      </span>
+                    </div>
+
+                    <div className="text-[0.7rem] text-slate-400">
+                      Logged{' '}
+                      {event.created_at
+                        ? new Intl.DateTimeFormat('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          }).format(new Date(event.created_at))
+                        : 'Pending...'}
                     </div>
                   </div>
-                  <div className="mt-1 text-base font-semibold text-slate-50">{event.play_call || 'Play call TBD'}</div>
-                  <div className="text-xs text-slate-200 flex items-center gap-2">
-                    <span>
-                      {event.result || 'Result TBD'} | Yardage: {formatYards(event.gained_yards)} | Down/Dist:{' '}
-                      {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
-                    </span>
-                  </div>
-
-                  <div className="text-[0.7rem] text-slate-400">
-                    Logged{' '}
-                    {event.created_at
-                      ? new Intl.DateTimeFormat('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        }).format(new Date(event.created_at))
-                      : 'Pending...'}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </GlassCard>
+                ))
+              )}
+            </div>
+          </GlassCard>
+        </div>
       </div>
     </div>
   )
