@@ -38,8 +38,8 @@ type PlayRow = {
 
 const navItems = [
   { id: 'overview', label: 'Overview' },
-  { id: 'imports', label: 'CSV imports' },
   { id: 'workspace', label: 'Scouting workspace' },
+  { id: 'imports', label: 'CSV imports' },
   { id: 'ai', label: 'AI & reports' },
   { id: 'help', label: 'How it works' },
 ]
@@ -395,24 +395,26 @@ export default async function ScoutingPage() {
             </GlassCard>
           </ScoutingSection>
 
-          <ScoutingSection id="workspace" title="Scouting workspace">
+          <ScoutingSection id="workspace" title="Scouting command center">
             <GlassCard className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Workspace</p>
-                  <h3 className="text-base font-semibold text-slate-100">Upload, map, clean, explore</h3>
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Live scouting board</p>
+                  <h3 className="text-base font-semibold text-slate-100">
+                    Upload, map, and clean in one place
+                  </h3>
                   <p className="text-sm text-slate-400">
-                    Coaches and analysts live here: select opponents, upload CSVs, map columns to BlitzIQ tags, resolve row errors, and explore tendencies to prep for Friday and game day.
+                    Select opponents, upload CSVs, map to BlitzIQ tags, resolve errors, and explore tendencies—your daily hub for Friday packets and game-day calls.
                   </p>
                 </div>
-                <Pill label="Live data" tone="emerald" />
+                <Pill label={`Live data${upcomingOpponent ? ` | ${upcomingOpponent}` : ''}`} tone="emerald" />
               </div>
               {importsError ? (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
                   We couldn&apos;t load imports. Refresh, reupload your CSV, or fix headers/tags before trying again.
                 </div>
               ) : null}
-              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted/60 p-3 md:p-4">
+              <div className="rounded-2xl border border-slate-900/70 bg-surface-muted p-2 md:p-3">
                 <ScoutingBoard teamId={activeTeamId} opponents={uniqueOpponentsList} imports={imports} />
               </div>
             </GlassCard>
