@@ -68,7 +68,17 @@ export default async function ScoutingPage() {
           title="Activate a team"
           description="Set an active team in Settings before running opponent scouting."
           badge="Team needed"
-          actions={<Pill label="Activate team" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <CTAButton href="/settings" size="sm" variant="primary">
+                Go to Settings
+              </CTAButton>
+              <CTAButton href="/team" size="sm" variant="secondary">
+                Switch team
+              </CTAButton>
+              <Pill label="Team needed" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />
+            </div>
+          }
         />
         <GlassCard tone="amber">
           <p className="text-sm text-amber-100">
@@ -94,7 +104,17 @@ export default async function ScoutingPage() {
           title="Access restricted"
           description="You are not on staff for this team. Switch to a team where you are a member to manage scouting."
           badge="Permission"
-          actions={<Pill label="Switch team" tone="amber" />}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <CTAButton href="/team" size="sm" variant="primary">
+                Switch team
+              </CTAButton>
+              <CTAButton href="/settings" size="sm" variant="secondary">
+                Manage access
+              </CTAButton>
+              <Pill label="Permission" tone="amber" />
+            </div>
+          }
         />
         <GlassCard tone="amber">
           <p className="text-sm text-amber-100">
@@ -171,30 +191,40 @@ export default async function ScoutingPage() {
   const tendencyPanels = buildTendencyPanels(playsForUpcoming, upcomingOpponent, upcomingSeason)
 
   return (
-    <main className="mx-auto max-w-7xl space-y-10 px-4 py-10">
+      <main className="mx-auto max-w-7xl space-y-10 px-4 py-10">
       <SectionHeader
         eyebrow="Scouting"
         title="Opponent scouting workspace"
-        description="Upload opponent CSVs, clean errors, and let BlitzIQ's OpenAI LLM analyze that data for tendencies and reports - no model training required."
+        description="Coaches and analysts can drop in opponent CSVs, clean errors fast, and jump straight into tendencies, reports, and next-call insights."
         badge="Premium"
-        actions={<Pill label="Scouting ready" tone="emerald" icon={<Crosshair className="h-3 w-3" />} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <CTAButton href="#workspace" variant="primary" size="sm">
+              Open scouting workspace
+            </CTAButton>
+            <CTAButton href="#imports" variant="secondary" size="sm">
+              View CSV imports
+            </CTAButton>
+            <Pill label="Scouting ready" tone="slate" icon={<Crosshair className="h-3 w-3" />} />
+          </div>
+        }
       />
 
       <GlassCard>
         <div className="grid gap-4 md:grid-cols-4">
-          <StatBadge label="Opponent-season pairs" value={summaryStats.opponentSeasons} tone="cyan" />
-          <StatBadge label="Opponents scouted" value={summaryStats.opponents} tone="emerald" />
-          <StatBadge label="Imports processed" value={summaryStats.imports} tone="amber" />
-          <StatBadge label="Imports needing fix" value={summaryStats.failedImports} tone="slate" />
+          <StatBadge label="Opponents ready" value={summaryStats.opponents} tone="emerald" />
+          <StatBadge label="Seasons logged" value={summaryStats.opponentSeasons} tone="cyan" />
+          <StatBadge label="CSV imports" value={summaryStats.imports} tone="amber" />
+          <StatBadge label="Imports to fix" value={summaryStats.failedImports} tone="slate" />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
           <Clock3 className="h-3.5 w-3.5 text-slate-500" />
           <span>
-            Last successful import:{' '}
+            Last clean import:{' '}
             {lastSuccessTs ? new Date(lastSuccessTs).toLocaleString() : 'No successful imports yet'}
           </span>
           <span className="text-slate-600">|</span>
-          <span>{summaryStats.opponents} opponents | {summaryStats.opponentSeasons} opponent-season pairs</span>
+          <span>Stay current: upload the next opponent on tape and clear any fixes before reports.</span>
         </div>
       </GlassCard>
 
@@ -206,7 +236,7 @@ export default async function ScoutingPage() {
               {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
             </h2>
             <p className="text-sm text-slate-400">
-              Quick reads for offense, defense, and special teams pulled from your latest scouting CSVs.
+              Quick, coach-ready reads for offense, defense, and special teams so you can script early downs, third down, and the kick game in seconds.
             </p>
           </div>
           <Pill label="Tendencies" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
@@ -228,25 +258,28 @@ export default async function ScoutingPage() {
                   <li key={c}>{c}</li>
                 ))}
               </ul>
-              <p className="mt-3 text-[0.7rem] uppercase tracking-[0.18em] text-slate-500">
-                {panel.cta}
-              </p>
+              <div className="mt-3">
+                <CTAButton href={panel.href || '#workspace'} size="sm" variant="secondary">
+                  {panel.cta}
+                </CTAButton>
+              </div>
             </GlassCard>
           ))}
         </div>
       </GlassCard>
 
-      <div className="lg:hidden">
-        <ScoutingNav items={navItems} variant="mobile" />
-      </div>
-      <div className="grid gap-8 lg:grid-cols-[240px,1fr]">
-        <aside className="hidden lg:block">
-          <GlassCard padding="none" className="sticky top-6">
-            <ScoutingNav items={navItems} variant="desktop" />
-          </GlassCard>
-        </aside>
+      <div className="space-y-8">
+        <div className="lg:hidden">
+          <ScoutingNav items={navItems} variant="mobile" />
+        </div>
+        <div className="grid gap-10 lg:grid-cols-[240px,1fr] lg:items-start">
+          <aside className="hidden lg:block">
+            <GlassCard padding="none" className="sticky top-6">
+              <ScoutingNav items={navItems} variant="desktop" />
+            </GlassCard>
+          </aside>
 
-        <div className="space-y-12">
+          <div className="space-y-12">
           <ScoutingSection id="overview" title="Overview">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
@@ -255,13 +288,12 @@ export default async function ScoutingPage() {
                 tendencies for pregame reports and in-game calls.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
-                <StatBadge label="Opponents covered" value={summaryStats.opponents} tone="cyan" />
-                <StatBadge label="Opponent-season pairs" value={summaryStats.opponentSeasons} tone="emerald" />
-                <StatBadge label="Imports to fix" value={summaryStats.failedImports} tone="amber" />
+                <StatBadge label="Clean imports" value={summaryStats.imports - summaryStats.failedImports} tone="emerald" />
+                <StatBadge label="Imports needing fixes" value={summaryStats.failedImports} tone="amber" />
+                <StatBadge label="Opponents in queue" value={summaryStats.opponents} tone="cyan" />
               </div>
               <p className="text-xs text-slate-400">
-                Clean imports feed every tendency panel and pregame report. Fix failed imports to trust
-                AI reports and game-day recommendations.
+                Clean imports fuel every tendency panel and pregame report. Triage any fixes before game week so AI reports stay trustworthy.
               </p>
             </GlassCard>
           </ScoutingSection>
@@ -272,8 +304,8 @@ export default async function ScoutingPage() {
                 <div>
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Imports</p>
                   <h3 className="text-base font-semibold text-slate-100">History & cleanup</h3>
-                  <p className="text-sm text-slate-400">
-                    Upload CSVs, see status, and preview errors so you can fix headers, tags, or formats.
+                <p className="text-sm text-slate-400">
+                    Upload CSVs, check status, and quickly grasp issues so coaches can fix headers, tags, or formats without extra help.
                   </p>
                 </div>
                 <Pill label="CSV" tone="cyan" icon={<Table2 className="h-3 w-3" />} />
@@ -281,7 +313,7 @@ export default async function ScoutingPage() {
 
               {importsError ? (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-                  Failed to load imports: {importsError.message}
+                  Couldn&apos;t load imports. Refresh, reupload the CSV, or fix headers/tags before trying again. ({importsError.message})
                 </div>
               ) : null}
 
@@ -301,13 +333,17 @@ export default async function ScoutingPage() {
                         <th className="px-3 py-2 text-left font-medium">Created</th>
                         <th className="px-3 py-2 text-left font-medium">Status</th>
                         <th className="px-3 py-2 text-left font-medium">Errors</th>
+                        <th className="px-3 py-2 text-left font-medium">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {imports.map((imp) => {
                         const hasError = imp.status === 'failed' || (imp.error_log && Object.keys(imp.error_log).length)
                         return (
-                          <tr key={imp.id} className="border-t border-slate-900/50">
+                          <tr
+                            key={imp.id}
+                            className="border-t border-slate-900/50 transition-colors hover:bg-white/5"
+                          >
                             <td className="px-3 py-2">{imp.opponent_name}</td>
                             <td className="px-3 py-2">{imp.season || '--'}</td>
                             <td className="px-3 py-2">{imp.original_filename || imp.file_hash || '--'}</td>
@@ -331,6 +367,11 @@ export default async function ScoutingPage() {
                               {hasError ? (
                                 <details className="space-y-1 rounded border border-slate-800 bg-slate-900/60 px-3 py-2">
                                   <summary className="cursor-pointer text-amber-200">View log</summary>
+                                  <p className="text-[0.75rem] text-amber-100">
+                                    {imp.error_log
+                                      ? `Detected ${Object.keys(imp.error_log).length} issue type(s). Check headers, tags, or row formatting, then reupload.`
+                                      : 'Issues detected. Expand for details.'}
+                                  </p>
                                   <pre className="whitespace-pre-wrap break-words text-[0.7rem] text-slate-200">
                                     {JSON.stringify(imp.error_log, null, 2)}
                                   </pre>
@@ -338,6 +379,11 @@ export default async function ScoutingPage() {
                               ) : (
                                 <span className="text-slate-500">--</span>
                               )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              <CTAButton href="#workspace" size="sm" variant="secondary">
+                                View in workspace
+                              </CTAButton>
                             </td>
                           </tr>
                         )
@@ -356,31 +402,29 @@ export default async function ScoutingPage() {
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Workspace</p>
                   <h3 className="text-base font-semibold text-slate-100">Upload, map, clean, explore</h3>
                   <p className="text-sm text-slate-400">
-                    Select opponents, upload CSVs, map columns to BlitzIQ tags, resolve row errors, and explore tendencies so data is ready for analysis.
+                    Coaches and analysts live here: select opponents, upload CSVs, map columns to BlitzIQ tags, resolve row errors, and explore tendencies to prep for Friday and game day.
                   </p>
                 </div>
                 <Pill label="Live data" tone="emerald" />
               </div>
               {importsError ? (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-                  Imports failed to load. Retry after fixing the file or headers.
+                  We couldn&apos;t load imports. Refresh, reupload your CSV, or fix headers/tags before trying again.
                 </div>
               ) : null}
-              <GlassCard>
+              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted/60 p-3 md:p-4">
                 <ScoutingBoard teamId={activeTeamId} opponents={uniqueOpponentsList} imports={imports} />
-              </GlassCard>
+              </div>
             </GlassCard>
           </ScoutingSection>
 
           <ScoutingSection id="ai" title="AI & reports">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Once CSVs are imported and clean, BlitzIQ sends your structured scouting data to an OpenAI LLM at query
-                time - no model training or fine-tuning required. It generates pregame summaries and game-day insights by
-                down/distance, personnel, formation, front, coverage, pressure, and special teams situations.
+                Once CSVs are clean, BlitzIQ pushes your scouting cutups to OpenAI on demand—no model training needed—to surface down-and-distance call tendencies, personnel and formation tells, and pressure looks for the upcoming opponent.
               </p>
               <p className="text-sm text-slate-300">
-                Use your existing reports and exports to open pregame packets and game-ready cutups in one click for the upcoming opponent.
+                Use your existing reports and exports to spin up Friday packets and game-ready cutups in one click, organized by phase and situation for the next opponent on tape.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <CTAButton href="#workspace" size="sm" variant="primary">
@@ -396,13 +440,14 @@ export default async function ScoutingPage() {
           <ScoutingSection id="help" title="How it works">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Export scouting CSVs from your film or analytics tools. Upload them here, map columns, and clear any errors. Once clean, every tendency panel, pregame report, and in-game recommendation uses this data across BlitzIQ. Repeat each week for your next opponent.
+                1) Export scouting CSVs from your film/analytics tools. 2) Upload and map to BlitzIQ tags. 3) Clear any header or row errors. 4) Trust the tendencies feeding your Friday packet and call sheet. 5) Repeat weekly for each opponent on tape.
               </p>
               <p className="text-sm text-slate-300">
-                If an import fails, open the log, fix headers or tags, and reupload. When the import is clean, you can trust the AI summaries and live charts.
+                If an import fails, use the log summary to fix headers or tags, then reupload so AI summaries and live charts stay reliable.
               </p>
             </GlassCard>
           </ScoutingSection>
+          </div>
         </div>
       </div>
     </main>
@@ -459,20 +504,22 @@ function buildTendencyPanels(plays: PlayRow[], opponent: string, season: string 
   const special = plays.filter((p) => (p.phase || '').toUpperCase().includes('SPECIAL'))
 
   return [
-    buildPanel('Offense', offense, opponent, season, 'Open scouting workspace for offense detail'),
-    buildPanel('Defense', defense, opponent, season, 'Open scouting workspace for defense detail'),
-    buildPanel('Special teams', special, opponent, season, 'Open scouting workspace for special teams detail'),
+    buildPanel('Offense', offense, opponent, season, 'Open offense workspace'),
+    buildPanel('Defense', defense, opponent, season, 'Open defense workspace'),
+    buildPanel('Special teams', special, opponent, season, 'Open special teams workspace'),
   ]
 }
 
 function buildPanel(label: string, plays: PlayRow[], opponent: string, season: string | null, cta: string) {
-  const total = plays.length || 1
+  const total = plays.length
+  const safeTotal = total || 1
   const runPlays = plays.filter((p) => includesAny(p, ['run']))
   const passPlays = plays.filter((p) => includesAny(p, ['pass']))
-  const runRate = Math.round((runPlays.length / total) * 100)
-  const passRate = Math.round((passPlays.length / total) * 100)
+  const runRate = Math.round((runPlays.length / safeTotal) * 100)
+  const passRate = Math.round((passPlays.length / safeTotal) * 100)
 
   const earlyDown = plays.filter((p) => p.down === 1 || p.down === 2)
+  const lateDown = plays.filter((p) => (p.down || 0) >= 3)
   const earlyRun = earlyDown.filter((p) => includesAny(p, ['run']))
   const earlyRunRate = earlyDown.length ? Math.round((earlyRun.length / earlyDown.length) * 100) : 0
   const thirdMedium = plays.filter((p) => p.down === 3 && (p.distance || 0) >= 4 && (p.distance || 0) <= 7)
@@ -483,31 +530,58 @@ function buildPanel(label: string, plays: PlayRow[], opponent: string, season: s
   const topPersonnel = topValue(plays.map((p) => p.personnel))
   const topPlayFamily = topValue(plays.map((p) => p.play_family))
   const blitzPlays = plays.filter((p) => includesAny(p, ['blitz', 'pressure']))
-  const blitzRate = Math.round((blitzPlays.length / total) * 100)
+  const blitzRate = Math.round((blitzPlays.length / safeTotal) * 100)
+
+  const coverageTags = plays.filter((p) => includesAny(p, ['cover', 'quarters', 'cloud', 'trap']))
+  const coverageRate = Math.round((coverageTags.length / safeTotal) * 100)
+
+  const stDirectionalLeft = plays.filter((p) => includesAny(p, ['left', 'boundary', 'field']))
+  const stDirectionalRight = plays.filter((p) => includesAny(p, ['right']))
+  const stMiddle = plays.filter((p) => includesAny(p, ['middle', 'center']))
+  const stTotalDirectional = stDirectionalLeft.length + stDirectionalRight.length + stMiddle.length || 1
+  const stSplit = `${Math.round((stDirectionalLeft.length / stTotalDirectional) * 100)}% left/field | ${Math.round(
+    (stDirectionalRight.length / stTotalDirectional) * 100
+  )}% right | ${Math.round((stMiddle.length / stTotalDirectional) * 100)}% middle`
 
   const split =
     label === 'Offense'
-      ? `${runRate}% run / ${passRate}% pass`
+      ? `${runRate}% run | ${passRate}% pass`
       : label === 'Defense'
-      ? `${blitzRate}% pressure looks`
-      : `${runRate}% left / ${passRate}% right`
+      ? `${blitzRate}% pressure | ${coverageRate}% coverage tags`
+      : stSplit
 
   const callouts: string[] = []
-  if (topFormation) callouts.push(`Most used formation: ${topFormation}`)
-  if (topPersonnel) callouts.push(`Top personnel: ${topPersonnel}`)
-  if (label === 'Offense' && earlyDown.length) callouts.push(`Early downs: ${earlyRunRate}% run`)
-  if (label === 'Offense' && thirdMedium.length) callouts.push(`3rd & medium: ${thirdPassRate}% pass`)
-  if (label === 'Defense' && blitzPlays.length) callouts.push(`Pressure rate: ${blitzRate}%`)
-  if (label === 'Defense' && topPlayFamily) callouts.push(`Common look: ${topPlayFamily}`)
-  if (label === 'Special teams' && topPlayFamily) callouts.push(`Tendency: ${topPlayFamily}`)
-  if (callouts.length === 0) callouts.push(`Add CSVs for ${opponent || 'opponent'} ${season || ''}`.trim())
+  if (label === 'Offense') {
+    if (earlyDown.length) callouts.push(`Early downs: ${earlyRunRate}% run`)
+    if (thirdMedium.length) callouts.push(`3rd & medium: ${thirdPassRate}% pass`)
+    if (topFormation) callouts.push(`Top formation: ${topFormation}`)
+    if (topPersonnel) callouts.push(`Top personnel: ${topPersonnel}`)
+  } else if (label === 'Defense') {
+    if (blitzPlays.length) callouts.push(`Pressure rate: ${blitzRate}%`)
+    if (topPlayFamily) callouts.push(`Common look: ${topPlayFamily}`)
+    if (coverageTags.length) callouts.push(`Coverage tags on ${coverageRate}% of snaps`)
+    if (lateDown.length) {
+      const latePressure = lateDown.filter((p) => includesAny(p, ['blitz', 'pressure']))
+      const latePressureRate = Math.round((latePressure.length / lateDown.length) * 100)
+      callouts.push(`Late downs: ${latePressureRate}% pressure`)
+    }
+  } else if (label === 'Special teams') {
+    if (topPlayFamily) callouts.push(`Top call: ${topPlayFamily}`)
+    if (stDirectionalLeft.length + stDirectionalRight.length + stMiddle.length) callouts.push('Directional tend: see split')
+  }
+
+  const hasData = total > 0 && callouts.length > 0
+  if (!hasData) {
+    callouts.push(`Upload or select scouting CSVs for ${opponent || 'this opponent'} ${season || ''}`.trim())
+  }
 
   return {
     label,
-    headline: callouts[0] || 'No data yet',
+    headline: hasData ? callouts[0] : 'Scouting data needed',
     callouts,
     split,
     cta,
+    href: '#workspace',
   }
 }
 
