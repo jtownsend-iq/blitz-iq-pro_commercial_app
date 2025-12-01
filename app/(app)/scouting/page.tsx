@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { Clock3, Crosshair, ShieldAlert, Table2 } from 'lucide-react'
 import ScoutingBoard from '@/components/scout/ScoutingBoard'
@@ -37,9 +37,9 @@ type PlayRow = {
 }
 
 const navItems = [
-  { id: 'overview', label: 'Status & health' },
+  { id: 'overview', label: 'Board status' },
   { id: 'workspace', label: 'Scouting workspace' },
-  { id: 'imports', label: 'Data inbox' },
+  { id: 'imports', label: 'Scouting files' },
   { id: 'ai', label: 'AI & reports' },
   { id: 'help', label: 'Weekly workflow' },
 ]
@@ -153,17 +153,19 @@ export default async function ScoutingPage() {
   const lastSuccess = imports.find((imp) => imp.status === 'completed')
   const lastSuccessTs = lastSuccess?.created_at ?? null
 
-  const opponentSet = new Set<string>()
-  plays.forEach((p) => {
-    if (p.opponent_name) opponentSet.add(p.opponent_name)
-  })
-  imports.forEach((imp) => {
-    if (imp.opponent_name) opponentSet.add(imp.opponent_name)
-  })
-  const uniqueOpponentsList =
-    opponentSet.size > 0
-      ? Array.from(opponentSet).map((opp) => ({ opponent: opp, season: '' }))
-      : [{ opponent: 'Set Opponent', season: '' }]
+  const opponentSeasonKeys = new Set<string>()
+  const uniqueOpponentsList: { opponent: string; season: string }[] = []
+  const addOpponentSeason = (opp?: string | null, season?: string | null) => {
+    if (!opp) return
+    const normalizedSeason = season || ''
+    const key = `${opp}|||${normalizedSeason}`
+    if (opponentSeasonKeys.has(key)) return
+    opponentSeasonKeys.add(key)
+    uniqueOpponentsList.push({ opponent: opp, season: normalizedSeason })
+  }
+  plays.forEach((p) => addOpponentSeason(p.opponent_name, p.season))
+  imports.forEach((imp) => addOpponentSeason(imp.opponent_name, imp.season))
+  // Leave empty to allow the workspace selector to show its placeholder when no data is available
 
   const upcomingImport =
     imports.find((imp) => imp.status === 'completed') ??
@@ -189,23 +191,30 @@ export default async function ScoutingPage() {
 
   const summaryStats = computeSummaryStats(imports, plays)
   const tendencyPanels = buildTendencyPanels(playsForUpcoming, upcomingOpponent, upcomingSeason)
+  const readinessPill =
+    upcomingOpponent && summaryStats.failedImports > 0
+      ? `Cleanup needed before ${upcomingOpponent}`
+      : upcomingOpponent
+      ? `Ready for ${upcomingOpponent}${upcomingSeason ? ` | ${upcomingSeason}` : ''}`
+      : 'Board ready for next opponent'
+  const statusBadge = summaryStats.failedImports > 0 ? 'Cleanup needed' : 'Live board'
 
   return (
       <main className="mx-auto max-w-7xl space-y-10 px-4 py-10">
     <SectionHeader
-      eyebrow="Scouting"
-      title="Scout Friday night with a clean, live board"
-      description="Upload opponent film exports, clean them fast, and open the workspace for trustworthy tendencies and reports in minutes."
-      badge="Scouting ready"
+      eyebrow="Opponent scouting command center"
+      title="Own Friday night calls against your next opponent"
+      description="Pull opponent exports from your film system, clean and map them here, then run live tendencies and reports from one workspace all week."
+      badge={statusBadge}
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <CTAButton href="#workspace" variant="primary" size="sm">
-            Open scouting workspace
+            Open workspace
           </CTAButton>
           <CTAButton href="#imports" variant="secondary" size="sm">
-            Go to data inbox
+            Review scouting files
           </CTAButton>
-          <Pill label="Ready this week" tone="emerald" icon={<Crosshair className="h-3 w-3" />} />
+          <Pill label={readinessPill} tone={summaryStats.failedImports > 0 ? 'amber' : 'emerald'} icon={<Crosshair className="h-3 w-3" />} />
         </div>
       }
     />
@@ -233,16 +242,16 @@ export default async function ScoutingPage() {
               <div>
                 <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent tendencies</p>
                 <h2 className="text-xl font-semibold text-slate-100">
-                  {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
+                  {upcomingOpponent ? `${upcomingOpponent}${upcomingSeason ? ` | ${upcomingSeason}` : ''} scouting reads` : 'Set your next opponent'}
                 </h2>
                 <p className="text-sm text-slate-400">
-              Phase-by-phase reads for the next opponentâ€”offense, defense, and special teams. Jump into the workspace to drill calls by season, game, and situation.
+                  Phase-by-phase tendencies for the next opponent with links into the workspace to drill calls by season, game, and situation.
                 </p>
               </div>
-              <Pill label="Next opponent ready" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
+              <Pill label={tendencyPanels.readyState} tone={tendencyPanels.readyTone} icon={<Crosshair className="h-3 w-3" />} />
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {tendencyPanels.map((panel) => (
+          {tendencyPanels.panels.map((panel) => (
             <GlassCard key={panel.label} padding="md" className="h-full bg-black/20">
               <div className="flex items-center justify-between">
                 <div>
@@ -280,48 +289,51 @@ export default async function ScoutingPage() {
           </aside>
 
           <div className="space-y-12">
-          <ScoutingSection id="overview" title="Status & health">
+          <ScoutingSection id="overview" title="Board status">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Health check for this week: who&apos;s on tape, what&apos;s clean, and what needs attention before you trust the board.
+                Weekly board check: who&apos;s on tape, what&apos;s clean, what still needs attention for Friday.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
-                <StatBadge label="Clean scouting files" value={summaryStats.imports - summaryStats.failedImports} tone="emerald" />
+                <StatBadge label="Clean files" value={summaryStats.imports - summaryStats.failedImports} tone="emerald" />
                 <StatBadge label="Files to fix" value={summaryStats.failedImports} tone="amber" />
                 <StatBadge label="Opponents ready" value={summaryStats.opponents} tone="cyan" />
               </div>
               <p className="text-xs text-slate-400">
-                Clear amber items before Friday so the workspace and AI pulls stay trustworthy.
+                {summaryStats.failedImports === 0 && summaryStats.opponents > 0
+                  ? 'Board is clean enough to trust this week.'
+                  : 'Fix the bad files or add an opponent before you trust the board.'}
               </p>
             </GlassCard>
           </ScoutingSection>
 
-          <ScoutingSection id="imports" title="Data inbox">
+          <ScoutingSection id="imports" title="Scouting files">
             <GlassCard className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Imports</p>
-                  <h3 className="text-base font-semibold text-slate-100">Workspace inbox</h3>
+                  <h3 className="text-base font-semibold text-slate-100">Scouting files inbox</h3>
                   <p className="text-sm text-slate-400">
-                    Upload film exports, check status, and quickly see what to fix so the workspace stays clean.
+                    Film exports land here; check if each file is clean before trusting the board.
                   </p>
                 </div>
-                <Pill label="CSV" tone="cyan" icon={<Table2 className="h-3 w-3" />} />
+                <Pill label="Scouting files" tone="cyan" icon={<Table2 className="h-3 w-3" />} />
               </div>
 
               {importsError ? (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-                  Couldn&apos;t load imports. Refresh, reupload the CSV, or fix headers/tags before trying again. ({importsError.message})
+                  We couldn&apos;t load your scouting files. Refresh or reupload; if it keeps failing, check headers. ({importsError.message})
                 </div>
               ) : null}
 
               {imports.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
-                  <p className="text-sm font-semibold text-slate-200">No imports yet</p>
-                  <p className="text-xs text-slate-500">Upload scouting CSVs from your film system to power reports and tendencies.</p>
+                  <p className="text-sm font-semibold text-slate-200">No scouting files yet</p>
+                  <p className="text-xs text-slate-500">Upload CSVs from your film system to power the board and tendencies.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
+                  <p className="mb-2 text-xs text-slate-400">What&apos;s clean, and what will lie to the board until it&apos;s fixed.</p>
                   <table className="min-w-full text-sm text-slate-200">
                     <thead className="bg-white/5 text-slate-400">
                       <tr>
@@ -399,10 +411,10 @@ export default async function ScoutingPage() {
                 <div>
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Live scouting board</p>
                   <h3 className="text-base font-semibold text-slate-100">
-                    Upload, map, and clean in one place
+                    Upload, map, clean, scout
                   </h3>
                   <p className="text-sm text-slate-400">
-                    Select opponents, upload CSVs, map to BlitzIQ tags, resolve errors, and explore tendencies — your daily hub for Friday packets and game-day calls.â€”your daily hub for Friday packets and game-day calls.
+                    Pick the opponent, upload scouting CSVs, map to BlitzIQ tags, fix issues, and read tendencies all week.
                   </p>
                 </div>
                 <Pill label={`Live data${upcomingOpponent ? ` | ${upcomingOpponent}` : ''}`} tone="emerald" />
@@ -421,10 +433,10 @@ export default async function ScoutingPage() {
           <ScoutingSection id="ai" title="AI & reports">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                After your workspace is clean, BlitzIQ uses OpenAI to deliver Friday packets, situation-ready cutups, and call sheet insightsâ€”down-and-distance tendencies, personnel tells, formation trends, and pressure looks for the next opponent.
+                Clean workspace lets BlitzIQ surface down-and-distance calls, personnel tells, formation trends, and pressure looks for the next opponent.
               </p>
               <p className="text-sm text-slate-300">
-                Use your reports and exports to spin up phase-by-phase packets in one click; every output stays synced to the data you cleaned in the workspace.
+                Reports and exports turn that into phase-by-phase packets and cutups that stay synced to the data you cleaned.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <CTAButton href="#workspace" size="sm" variant="primary">
@@ -440,10 +452,10 @@ export default async function ScoutingPage() {
           <ScoutingSection id="help" title="Weekly workflow">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Export scouting CSVs, upload and map to BlitzIQ tags, clean any header or row issues, and let the workspace drive your Friday packet and call sheet. Repeat weekly for the next opponent on tape.
+                Export scouting CSVs from film, upload and map to BlitzIQ tags, and clean headers or rows. Let the workspace feed Friday packets and call sheets, then repeat for the next opponent.
               </p>
               <p className="text-sm text-slate-300">
-                If an import fails, use the log summary to fix headers or tags, then reupload so AI summaries and live charts stay reliable.
+                If an import fails, check the log summary, fix headers or tags, and reupload so AI summaries and charts stay honest.
               </p>
             </GlassCard>
           </ScoutingSection>
@@ -494,7 +506,7 @@ function computeSummaryStats(imports: ImportRow[], plays: PlayRow[]) {
     opponents: opponents.size,
     opponentSeasons: opponentSeasons.size,
     imports: imports.length,
-    failedImports: imports.filter((imp) => imp.status !== 'completed').length,
+    failedImports: imports.filter((imp) => imp.status === 'failed').length,
   }
 }
 
@@ -503,11 +515,24 @@ function buildTendencyPanels(plays: PlayRow[], opponent: string, season: string 
   const defense = plays.filter((p) => (p.phase || '').toUpperCase() === 'DEFENSE')
   const special = plays.filter((p) => (p.phase || '').toUpperCase().includes('SPECIAL'))
 
-  return [
+  const panels = [
     buildPanel('Offense', offense, opponent, season, 'Open offense in workspace'),
     buildPanel('Defense', defense, opponent, season, 'Open defense in workspace'),
     buildPanel('Special teams', special, opponent, season, 'Open special teams in workspace'),
   ]
+
+  const phasesWithData = panels.filter((p) => p.hasData).length
+  const readyState =
+    phasesWithData === 3
+      ? 'Ready this week'
+      : phasesWithData > 0
+      ? 'Partially ready'
+      : opponent
+      ? `Scouting data needed for ${opponent}`
+      : 'Set next opponent'
+  const readyTone: 'emerald' | 'amber' | 'slate' = phasesWithData === 3 ? 'emerald' : phasesWithData > 0 ? 'amber' : 'slate'
+
+  return { panels, readyState, readyTone }
 }
 
 function buildPanel(label: string, plays: PlayRow[], opponent: string, season: string | null, cta: string) {
@@ -538,50 +563,58 @@ function buildPanel(label: string, plays: PlayRow[], opponent: string, season: s
   const stDirectionalLeft = plays.filter((p) => includesAny(p, ['left', 'boundary', 'field']))
   const stDirectionalRight = plays.filter((p) => includesAny(p, ['right']))
   const stMiddle = plays.filter((p) => includesAny(p, ['middle', 'center']))
-  const stTotalDirectional = stDirectionalLeft.length + stDirectionalRight.length + stMiddle.length || 1
-  const stSplit = `${Math.round((stDirectionalLeft.length / stTotalDirectional) * 100)}% left/field | ${Math.round(
-    (stDirectionalRight.length / stTotalDirectional) * 100
-  )}% right | ${Math.round((stMiddle.length / stTotalDirectional) * 100)}% middle`
-
-  const split =
-    label === 'Offense'
-      ? `${runRate}% run | ${passRate}% pass`
-      : label === 'Defense'
-      ? `${blitzRate}% pressure | ${coverageRate}% coverage tags`
-      : stSplit
+  const stTotalDirectional = stDirectionalLeft.length + stDirectionalRight.length + stMiddle.length
+  const stSplit =
+    stTotalDirectional > 0
+      ? `${Math.round((stDirectionalLeft.length / stTotalDirectional) * 100)}% left/field | ${Math.round(
+          (stDirectionalRight.length / stTotalDirectional) * 100
+        )}% right | ${Math.round((stMiddle.length / stTotalDirectional) * 100)}% middle`
+      : 'No data yet'
 
   const callouts: string[] = []
-  if (label === 'Offense') {
+  const hasPlays = total > 0
+  let split = 'No data yet'
+  let headline = 'Scouting data needed'
+  let adjustedCta = cta
+
+  if (label === 'Offense' && hasPlays) {
+    headline = `Balanced from ${total} charted plays`
+    split = `${runRate}% run | ${passRate}% pass`
     if (earlyDown.length) callouts.push(`Early downs: ${earlyRunRate}% run`)
     if (thirdMedium.length) callouts.push(`3rd & medium: ${thirdPassRate}% pass`)
     if (topFormation) callouts.push(`Top formation: ${topFormation}`)
     if (topPersonnel) callouts.push(`Top personnel: ${topPersonnel}`)
-  } else if (label === 'Defense') {
+  } else if (label === 'Defense' && hasPlays) {
+    headline = `${total} charted plays | ${blitzRate}% pressure looks`
+    split = `${blitzRate}% pressure | ${coverageRate}% coverage tags`
     if (blitzPlays.length) callouts.push(`Pressure rate: ${blitzRate}%`)
-    if (topPlayFamily) callouts.push(`Common look: ${topPlayFamily}`)
     if (coverageTags.length) callouts.push(`Coverage tags on ${coverageRate}% of snaps`)
+    if (topPlayFamily) callouts.push(`Common look: ${topPlayFamily}`)
     if (lateDown.length) {
       const latePressure = lateDown.filter((p) => includesAny(p, ['blitz', 'pressure']))
       const latePressureRate = Math.round((latePressure.length / lateDown.length) * 100)
       callouts.push(`Late downs: ${latePressureRate}% pressure`)
     }
-  } else if (label === 'Special teams') {
+  } else if (label === 'Special teams' && hasPlays) {
+    headline = `${total} charted ST plays`
+    split = stSplit
     if (topPlayFamily) callouts.push(`Top call: ${topPlayFamily}`)
-    if (stDirectionalLeft.length + stDirectionalRight.length + stMiddle.length) callouts.push('Directional tend: see split')
+    if (stTotalDirectional > 0) callouts.push('Directional tendency shown in split')
   }
 
-  const hasData = total > 0 && callouts.length > 0
-  if (!hasData) {
+  if (!hasPlays) {
     callouts.push(`Upload or select scouting CSVs for ${opponent || 'this opponent'} ${season || ''}`.trim())
+    adjustedCta = `Upload ${label.toLowerCase()} data`
   }
 
   return {
     label,
-    headline: hasData ? callouts[0] : 'Scouting data needed',
+    headline,
     callouts,
     split,
-    cta,
+    cta: adjustedCta,
     href: '#workspace',
+    hasData: hasPlays,
   }
 }
 
@@ -608,6 +641,18 @@ function topValue(values: Array<string | null | undefined>) {
   })
   return best
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

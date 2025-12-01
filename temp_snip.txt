@@ -1,0 +1,40 @@
+            {lastSuccessTs ? new Date(lastSuccessTs).toLocaleString() : 'No successful imports yet'}
+          </span>
+          <span className="text-slate-600">|</span>
+          <span>Upload the next opponent on tape and clear fixes before you pull reports.</span>
+        </div>
+      </GlassCard>
+
+          <GlassCard>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent tendencies</p>
+                <h2 className="text-xl font-semibold text-slate-100">
+                  {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
+                </h2>
+                <p className="text-sm text-slate-400">
+              Phase-by-phase reads for the next opponent—offense, defense, and special teams. Jump into the workspace to drill calls by season, game, and situation.
+                </p>
+              </div>
+              <Pill label="Next opponent ready" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {tendencyPanels.map((panel) => (
+            <GlassCard key={panel.label} padding="md" className="h-full bg-black/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">{panel.label}</p>
+                  <p className="text-sm font-semibold text-slate-100">{panel.headline}</p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-slate-200">
+                  {panel.split}
+                </span>
+              </div>
+              <ul className="mt-3 space-y-1.5 text-xs text-slate-300">
+                {panel.callouts.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+              <div className="mt-3">
+                <CTAButton href={panel.href || '#workspace'} size="sm" variant="secondary">
+                  {panel.cta}

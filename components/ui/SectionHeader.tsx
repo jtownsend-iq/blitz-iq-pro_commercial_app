@@ -45,9 +45,9 @@ export function SectionHeader({
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
       <div className="relative mt-4 flex flex-wrap gap-2 text-xs text-slate-400">
-        <Pill label="Glass UI" tone="slate" icon={<ArrowUpRight className="h-3 w-3" />} />
-        <Pill label="Live-ready" tone="emerald" />
-        <Pill label="Command Center Theme" tone="cyan" />
+        <Pill label="Game-week ready" tone="emerald" icon={<ArrowUpRight className="h-3 w-3" />} />
+        <Pill label="Staff command" tone="cyan" />
+        <Pill label="Friday calls" tone="slate" />
       </div>
     </div>
   )

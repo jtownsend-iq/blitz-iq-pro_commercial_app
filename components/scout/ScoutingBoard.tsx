@@ -69,8 +69,9 @@ type SavedView = {
 }
 
 export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
-  const [opponent, setOpponent] = useState(opponents[0]?.opponent ?? '')
-  const [season, setSeason] = useState(opponents[0]?.season ?? '')
+  const defaultOpponentEntry = opponents.find((o) => o.opponent) ?? opponents[0] ?? { opponent: '', season: '' }
+  const [opponent, setOpponent] = useState(defaultOpponentEntry.opponent ?? '')
+  const [season, setSeason] = useState(defaultOpponentEntry.season ?? '')
   const [phase, setPhase] = useState<'OFFENSE' | 'DEFENSE' | 'ALL'>('ALL')
   const [tagFilter, setTagFilter] = useState('')
   const [tagLogic, setTagLogic] = useState<'AND' | 'OR'>('OR')
@@ -82,7 +83,10 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const [recentEnd, setRecentEnd] = useState(false)
   const [loadingTendencies, setLoadingTendencies] = useState(false)
   const [loadingRecent, setLoadingRecent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [tendencyError, setTendencyError] = useState<string | null>(null)
+  const [recentError, setRecentError] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [viewError, setViewError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadInfo, setUploadInfo] = useState<{ importId: string; rows: number; rowsWithErrors: number } | null>(null)
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
@@ -160,6 +164,8 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
     if (!opponent || !season) {
       setTendencies([])
       setRecent([])
+      setTendencyError(null)
+      setRecentError(null)
       return
     }
     const params = new URLSearchParams({
@@ -175,7 +181,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
 
     const loadTendencies = async () => {
       setLoadingTendencies(true)
-      setError(null)
+      setTendencyError(null)
       try {
         const resp = await fetch(`/api/scout/tendencies?${params.toString()}`)
         const json = await resp.json()
@@ -183,7 +189,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
         setTendencies(json.tendencies || [])
         track('scouting_tendencies_loaded', { rows: (json.tendencies || []).length })
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load tendencies')
+        setTendencyError(err instanceof Error ? err.message : 'Failed to load tendencies')
         setTendencies([])
         track('scouting_tendencies_failed', { error: err instanceof Error ? err.message : 'Unknown' })
       } finally {
@@ -193,7 +199,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
 
     const loadRecent = async () => {
       setLoadingRecent(true)
-      setError(null)
+      setRecentError(null)
       try {
         const recentParams = new URLSearchParams(params.toString())
         recentParams.set('limit', '25')
@@ -206,7 +212,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
         setRecentEnd((json.plays || []).length < 25)
         track('scouting_recent_loaded', { rows: (json.plays || []).length })
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load plays')
+        setRecentError(err instanceof Error ? err.message : 'Failed to load plays')
         setRecent([])
         track('scouting_recent_failed', { error: err instanceof Error ? err.message : 'Unknown' })
       } finally {
@@ -233,7 +239,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       if (newPlays.length < 25) setRecentEnd(true)
       track('scouting_recent_loaded_more', { rows: newPlays.length })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load more plays')
+      setRecentError(err instanceof Error ? err.message : 'Failed to load more plays')
       track('scouting_recent_more_failed', { error: err instanceof Error ? err.message : 'Unknown' })
     } finally {
       setLoadingRecent(false)
@@ -241,7 +247,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   }
   const onUpload = async (formData: FormData) => {
     setUploading(true)
-    setError(null)
+    setUploadError(null)
     setUploadInfo(null)
     setPreviewRows([])
     track('scouting_upload_started')
@@ -257,7 +263,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
         rowsWithErrors: json.rowsWithErrors,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      setUploadError(err instanceof Error ? err.message : 'Upload failed')
       track('scouting_upload_failed', { error: err instanceof Error ? err.message : 'Unknown' })
     } finally {
       setUploading(false)
@@ -266,7 +272,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
 
   const onPreview = async () => {
     if (!uploadInfo?.importId) return
-    setError(null)
+    setUploadError(null)
     setPreviewing(true)
     try {
       const resp = await fetch(`/api/scout/imports/${uploadInfo.importId}/preview?limit=100`)
@@ -281,7 +287,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       setPreviewRows(parsed)
       track('scouting_preview_succeeded', { importId: uploadInfo.importId, rows: parsed.length })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Preview failed')
+      setUploadError(err instanceof Error ? err.message : 'Preview failed')
       track('scouting_preview_failed', { importId: uploadInfo.importId, error: err instanceof Error ? err.message : 'Unknown' })
     } finally {
       setPreviewing(false)
@@ -291,7 +297,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
   const onCommit = async () => {
     if (!uploadInfo?.importId) return
     setCommitting(true)
-    setError(null)
+    setUploadError(null)
     track('scouting_commit_started', { importId: uploadInfo.importId })
     try {
       const resp = await fetch('/api/scout/imports/commit', {
@@ -305,7 +311,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       setPreviewRows([])
       track('scouting_commit_succeeded', { importId: uploadInfo.importId })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Commit failed')
+      setUploadError(err instanceof Error ? err.message : 'Commit failed')
       track('scouting_commit_failed', { importId: uploadInfo.importId, error: err instanceof Error ? err.message : 'Unknown' })
     } finally {
       setCommitting(false)
@@ -328,6 +334,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
 
   const handleSaveView = async () => {
     if (!viewName.trim()) return
+    setViewError(null)
     const filters = {
       phase,
       tagFilter,
@@ -356,7 +363,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       setSavedViews(refreshJson.views || [])
       track('scouting_view_saved', { viewId: json.id || 'unknown' })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save view')
+      setViewError(err instanceof Error ? err.message : 'Failed to save view')
       track('scouting_view_save_failed', { error: err instanceof Error ? err.message : 'Unknown' })
     } finally {
       setSavingView(false)
@@ -385,21 +392,23 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       if (selectedViewId === id) setSelectedViewId(null)
       track('scouting_view_deleted', { viewId: id })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete view')
+      setViewError(err instanceof Error ? err.message : 'Failed to delete view')
       track('scouting_view_delete_failed', { viewId: id, error: err instanceof Error ? err.message : 'Unknown' })
     }
   }
 
   const tendencySkeletonRows = Array.from({ length: 5 })
   const recentSkeletonRows = Array.from({ length: 4 })
+  const errorMessages = [tendencyError, recentError, uploadError, viewError].filter(Boolean) as string[]
+  const filtersDisabled = !opponent || !season
   return (
     <div className="space-y-8">
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">Upload</p>
-              <h3 className="text-lg font-semibold text-slate-50">Opponent CSV</h3>
+              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">Import</p>
+              <h3 className="text-lg font-semibold text-slate-50">Scouting CSV</h3>
             </div>
             <a
               href="/api/scout/imports/template"
@@ -450,92 +459,127 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">Opponent</p>
-              <h3 className="text-lg font-semibold text-slate-50">Tendencies & Recent</h3>
+              <h3 className="text-lg font-semibold text-slate-50">Tendencies & calls</h3>
             </div>
             <div className="flex flex-wrap gap-2 text-sm">
-              <select
-                value={opponent}
-                onChange={(e) => {
-                  setOpponent(e.target.value)
-                  track('scouting_filter_change', { field: 'opponent', value: e.target.value })
-                }}
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              >
-                {opponents.map((o, idx) => (
-                  <option key={`${o.opponent}-${o.season}-${idx}`} value={o.opponent || ''}>
-                    {o.opponent || 'Unknown'}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={season || ''}
-                onChange={(e) => {
-                  setSeason(e.target.value)
-                  track('scouting_filter_change', { field: 'season', value: e.target.value })
-                }}
-                placeholder="Season"
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              />
-              <select
-                value={phase}
-                onChange={(e) => {
-                  const value = e.target.value as 'OFFENSE' | 'DEFENSE' | 'ALL'
-                  setPhase(value)
-                  track('scouting_filter_change', { field: 'phase', value })
-                }}
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              >
-                <option value="ALL">All phases</option>
-                <option value="OFFENSE">Offense</option>
-                <option value="DEFENSE">Defense</option>
-              </select>
-              <input
-                value={tagFilter}
-                onChange={(e) => {
-                  setTagFilter(e.target.value)
-                  track('scouting_filter_change', { field: 'tags', value: e.target.value })
-                }}
-                placeholder="Filter tags (comma)"
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              />
-              <select
-                value={tagLogic}
-                onChange={(e) => {
-                  const value = e.target.value as 'AND' | 'OR'
-                  setTagLogic(value)
-                  track('scouting_filter_change', { field: 'tagLogic', value })
-                }}
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              >
-                <option value="OR">Tags: OR</option>
-                <option value="AND">Tags: AND</option>
-              </select>
-              <select
-                value={hashFilter}
-                onChange={(e) => {
-                  setHashFilter(e.target.value)
-                  track('scouting_filter_change', { field: 'hash', value: e.target.value })
-                }}
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              >
-                <option value="ALL">Hash: All</option>
-                <option value="L">Left</option>
-                <option value="M">Middle</option>
-                <option value="R">Right</option>
-              </select>
-              <select
-                value={fieldBucket}
-                onChange={(e) => {
-                  setFieldBucket(e.target.value)
-                  track('scouting_filter_change', { field: 'fieldBucket', value: e.target.value })
-                }}
-                className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
-              >
-                <option value="ALL">Field pos: All</option>
-                <option value="RZ">Red zone (20+)</option>
-                <option value="MIDFIELD">Midfield</option>
-                <option value="BACKED_UP">Backed up</option>
-              </select>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Opponent</span>
+                <select
+                  value={`${opponent || ''}|||${season || ''}`}
+                  onChange={(e) => {
+                    const [nextOpponent = '', nextSeason = ''] = e.target.value.split('|||')
+                    setOpponent(nextOpponent)
+                    setSeason(nextSeason)
+                    track('scouting_filter_change', { field: 'opponent', value: nextOpponent, season: nextSeason })
+                  }}
+                  className="min-w-[170px] rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                >
+                  <option value="|||">Choose opponent</option>
+                  {opponents
+                    .filter((o) => o.opponent || o.season)
+                    .map((o, idx) => {
+                      const value = `${o.opponent || ''}|||${o.season || ''}`
+                      const label = o.opponent ? (o.season ? `${o.opponent} | ${o.season}` : o.opponent) : 'Choose opponent'
+                      return (
+                        <option key={`${o.opponent || 'opponent'}-${o.season || 'season'}-${idx}`} value={value}>
+                          {label}
+                        </option>
+                      )
+                    })}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Season</span>
+                <input
+                  value={season || ''}
+                  onChange={(e) => {
+                    setSeason(e.target.value)
+                    track('scouting_filter_change', { field: 'season', value: e.target.value })
+                  }}
+                  placeholder="Season"
+                  className="w-32 rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Phase</span>
+                <select
+                  value={phase}
+                  onChange={(e) => {
+                    const value = e.target.value as 'OFFENSE' | 'DEFENSE' | 'ALL'
+                    setPhase(value)
+                    track('scouting_filter_change', { field: 'phase', value })
+                  }}
+                  className="min-w-[130px] rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                  disabled={filtersDisabled}
+                >
+                  <option value="ALL">All phases</option>
+                  <option value="OFFENSE">Offense</option>
+                  <option value="DEFENSE">Defense</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Tag filter</span>
+                <input
+                  value={tagFilter}
+                  onChange={(e) => {
+                    setTagFilter(e.target.value)
+                    track('scouting_filter_change', { field: 'tags', value: e.target.value })
+                  }}
+                  placeholder="Filter tags"
+                  className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                  disabled={filtersDisabled}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Tag logic</span>
+                <select
+                  value={tagLogic}
+                  onChange={(e) => {
+                    const value = e.target.value as 'AND' | 'OR'
+                    setTagLogic(value)
+                    track('scouting_filter_change', { field: 'tagLogic', value })
+                  }}
+                  className="min-w-[110px] rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                  disabled={filtersDisabled}
+                >
+                  <option value="OR">Tags: OR</option>
+                  <option value="AND">Tags: AND</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Hash</span>
+                <select
+                  value={hashFilter}
+                  onChange={(e) => {
+                    setHashFilter(e.target.value)
+                    track('scouting_filter_change', { field: 'hash', value: e.target.value })
+                  }}
+                  className="min-w-[110px] rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                  disabled={filtersDisabled}
+                >
+                  <option value="ALL">Hash: All</option>
+                  <option value="L">Left</option>
+                  <option value="M">Middle</option>
+                  <option value="R">Right</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Field spot</span>
+                <select
+                  value={fieldBucket}
+                  onChange={(e) => {
+                    setFieldBucket(e.target.value)
+                    track('scouting_filter_change', { field: 'fieldBucket', value: e.target.value })
+                  }}
+                  className="min-w-[130px] rounded border border-slate-700 bg-slate-800 px-3 py-1 text-slate-100"
+                  disabled={filtersDisabled}
+                >
+                  <option value="ALL">Field position</option>
+                  <option value="RZ">Red zone (20+)</option>
+                  <option value="MIDFIELD">Midfield</option>
+                  <option value="BACKED_UP">Backed up</option>
+                </select>
+              </div>
               <div className="flex flex-wrap gap-1">
                 <input
                   value={viewName}
@@ -585,6 +629,9 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                   Clear filters
                 </button>
               </div>
+              {filtersDisabled && (
+                <span className="text-[0.65rem] text-slate-500">Select opponent and season to enable filters.</span>
+              )}
               {tendencyExportUrl && (
                 <a
                   href={tendencyExportUrl}
@@ -605,11 +652,17 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
               )}
             </div>
           </div>
-          {error && <div className="text-xs text-red-300">{error}</div>}
+          {errorMessages.length > 0 && (
+            <div className="space-y-1 text-xs text-red-300">
+              {errorMessages.map((msg, idx) => (
+                <div key={`${msg}-${idx}`}>{msg}</div>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-slate-100">Tendencies</h4>
+                <h4 className="text-sm font-semibold text-slate-100">Tendency reads</h4>
                 {loadingTendencies && <span className="text-[0.7rem] text-slate-500">Loading...</span>}
               </div>
               {loadingTendencies ? (
@@ -619,7 +672,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                   ))}
                 </div>
               ) : tendencies.length === 0 ? (
-                <p className="text-xs text-slate-500">No data yet.</p>
+                <p className="text-xs text-slate-500">No tendencies yet. Upload scouting files for this opponent.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-xs text-slate-100">
@@ -657,7 +710,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
             </div>
             <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-slate-100">Recent plays</h4>
+                <h4 className="text-sm font-semibold text-slate-100">Recent calls</h4>
                 {loadingRecent && <span className="text-[0.7rem] text-slate-500">Loading...</span>}
               </div>
               <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
@@ -668,7 +721,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
                     ))}
                   </div>
                 ) : recent.length === 0 ? (
-                  <p className="text-xs text-slate-500">No recent plays yet.</p>
+                  <p className="text-xs text-slate-500">No recent calls yet. Upload scouting data for this opponent.</p>
                 ) : (
                   recent.map((p) => (
                     <div key={p.id} className="rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-100">
@@ -703,7 +756,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
         <h3 className="mb-3 text-sm font-semibold text-slate-100">Recent imports</h3>
         {imports.length === 0 ? (
-          <p className="text-xs text-slate-500">No imports yet.</p>
+          <p className="text-xs text-slate-500">No uploads yet. Import scouting CSVs to fill the board.</p>
         ) : (
           <div className="overflow-x-auto text-xs text-slate-100">
             <table className="min-w-full">

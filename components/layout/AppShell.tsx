@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { Suspense } from 'react'
 
 export type NavItem = {
   href: string
@@ -86,7 +87,7 @@ export function AppShell({
             isAuthVariant ? 'w-full' : 'app-container py-6'
           }
         >
-          {children}
+          <Suspense fallback={null}>{children}</Suspense>
         </div>
       </main>
 
