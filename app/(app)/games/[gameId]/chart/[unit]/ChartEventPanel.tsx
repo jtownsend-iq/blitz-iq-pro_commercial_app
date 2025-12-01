@@ -28,16 +28,21 @@ type EventRow = {
   result: string | null
   gained_yards: number | null
   created_at: string | null
+  offensive_personnel_code?: string | null
+  offensive_formation_id?: string | null
+  backfield_code?: string | null
   play_family?: 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | null
   run_concept?: string | null
   wr_concept_id?: string | null
   st_play_type?: string | null
   st_variant?: string | null
+  st_return_yards?: number | null
   front_code?: string | null
   defensive_structure_id?: string | null
   coverage_shell_pre?: string | null
   coverage_shell_post?: string | null
   strength?: string | null
+  pressure_code?: string | null
   drive_number?: number | null
   series_tag?: string | null
   explosive?: boolean | null
@@ -360,16 +365,21 @@ function buildOptimisticEvent(formData: FormData, sequence: number, seriesTag?: 
     result: formData.get('result')?.toString() || null,
     gained_yards: formData.get('gainedYards') ? Number(formData.get('gainedYards')) : null,
     drive_number: formData.get('driveNumber') ? Number(formData.get('driveNumber')) : null,
+    offensive_personnel_code: formData.get('offensive_personnel_code')?.toString() || null,
+    offensive_formation_id: formData.get('offensive_formation_id')?.toString() || null,
+    backfield_code: formData.get('backfield_code')?.toString() || null,
     play_family: (formData.get('play_family')?.toString() as EventRow['play_family']) || null,
     run_concept: formData.get('run_concept')?.toString() || null,
     wr_concept_id: formData.get('wr_concept_id')?.toString() || null,
     st_play_type: formData.get('st_play_type')?.toString() || null,
     st_variant: formData.get('st_variant')?.toString() || null,
+    st_return_yards: formData.get('st_return_yards') ? Number(formData.get('st_return_yards')) : null,
     front_code: formData.get('front_code')?.toString() || null,
     defensive_structure_id: formData.get('defensive_structure_id')?.toString() || null,
     coverage_shell_pre: formData.get('coverage_shell_pre')?.toString() || null,
     coverage_shell_post: formData.get('coverage_shell_post')?.toString() || null,
     strength: formData.get('strength')?.toString() || null,
+    pressure_code: formData.get('pressure_code')?.toString() || null,
     series_tag: seriesTag || formData.get('series_tag')?.toString() || null,
     created_at: new Date().toISOString(),
   }
@@ -392,16 +402,23 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     play_call: (payload.play_call as string) ?? null,
     result: (payload.result as string) ?? null,
     gained_yards: (payload.gained_yards as number) ?? null,
+    offensive_personnel_code:
+      (payload.offensive_personnel_code as string) ?? (payload.offensive_personnel as string) ?? null,
+    offensive_formation_id:
+      (payload.offensive_formation_id as string) ?? (payload.offensive_formation_label as string) ?? (payload.formation as string) ?? null,
+    backfield_code: (payload.backfield_code as string) ?? null,
     play_family: (payload.play_family as EventRow['play_family']) ?? null,
     run_concept: (payload.run_concept as string) ?? null,
     wr_concept_id: (payload.wr_concept_id as string) ?? null,
     st_play_type: (payload.st_play_type as string) ?? null,
     st_variant: (payload.st_variant as string) ?? null,
-    front_code: (payload.front_code as string) ?? null,
+    st_return_yards: (payload.st_return_yards as number) ?? null,
+    front_code: (payload.front_code as string) ?? (payload.front as string) ?? null,
     defensive_structure_id: (payload.defensive_structure_id as string) ?? null,
     coverage_shell_pre: (payload.coverage_shell_pre as string) ?? null,
-    coverage_shell_post: (payload.coverage_shell_post as string) ?? null,
+    coverage_shell_post: (payload.coverage_shell_post as string) ?? (payload.coverage as string) ?? null,
     strength: (payload.strength as string) ?? null,
+    pressure_code: (payload.pressure_code as string) ?? (payload.pressure as string) ?? null,
     drive_number: (payload.drive_number as number) ?? null,
     series_tag: null,
     created_at: (payload.created_at as string) ?? null,
@@ -444,6 +461,7 @@ export function ChartEventPanel({
   const [markFirstDown, setMarkFirstDown] = useState<boolean>(false)
   const [markScoring, setMarkScoring] = useState<boolean>(false)
   const [markTurnover, setMarkTurnover] = useState<boolean>(false)
+  const [resultValue, setResultValue] = useState<string>('')
   const [seriesTag, setSeriesTag] = useState<string>('')
   const [seriesLookup, setSeriesLookup] = useState<Record<number, string>>({})
   const [gainedYardsValue, setGainedYardsValue] = useState<string>('')
@@ -473,11 +491,6 @@ export function ChartEventPanel({
     selectedPersonnel && selectedPersonnel.length > 0
       ? offenseFormationsUnique.filter((f) => f.personnel === selectedPersonnel)
       : offenseFormationsUnique
-  const stickyDefaults = useMemo(() => {
-    return {
-      offensive_personnel_code: latestEvent?.play_family !== 'SPECIAL_TEAMS' ? latestEvent?.play_call ? undefined : latestEvent?.play_call : latestEvent?.play_call,
-    }
-  }, [latestEvent])
 
   const selectedBackfieldMeta = selectedBackfield
     ? backfieldOptions.find((b) => b.code === selectedBackfield)
@@ -570,6 +583,158 @@ export function ChartEventPanel({
       ? 'Capture coverage and front quickly; log pressure when bringing heat.'
       : 'Track kick type/variant first; tag return yardage and ball spot.'
   const lens = useMemo(() => buildTendencyLens(events, unit), [events, unit])
+
+  const renderFieldControl = (field: FieldConfig) => {
+    const prettify = (opt: string) =>
+      opt
+        .split('_')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ')
+    const baseOptions =
+      field.name === 'offensive_personnel_code'
+        ? offensePersonnel.map((code) => ({ value: code, label: code }))
+        : field.name === 'offensive_formation_id'
+        ? filteredFormations.map((f) => ({ value: f.id, label: `${f.personnel} | ${f.formation}` }))
+        : field.name === 'backfield_code'
+        ? backfieldOptions.map((b) => ({
+            value: b.code,
+            label: b.description ? `${b.code} | ${b.description}` : b.code,
+          }))
+        : field.name === 'wr_concept_id'
+        ? wrConcepts.map((w) => ({
+            value: w.id,
+            label: w.family ? `${w.family} | ${w.name}` : w.name,
+          }))
+        : field.name === 'front_code'
+        ? frontOptions.map((name) => ({ value: name, label: name }))
+        : field.name === 'defensive_structure_id'
+        ? defenseStructures.map((d) => ({ value: d.id, label: d.name || d.id }))
+        : field.name === 'coverage_shell_pre'
+        ? coverageShellOptions.map((c) => ({ value: c.value, label: c.label }))
+        : field.name === 'coverage_shell_post'
+        ? coveragePostOptions.map((c) => ({ value: c.value, label: c.label }))
+        : (field.options || []).map((opt) => ({ value: opt, label: prettify(opt) }))
+    const error = inlineErrors[field.name]
+    const warning = inlineWarnings[field.name]
+    const baseInputClass =
+      'w-full rounded-xl border px-4 py-3 text-sm transition duration-base ease-smooth ' +
+      (error
+        ? 'border-red-500 bg-red-950/30 text-red-50'
+        : warning
+        ? 'border-amber-500 bg-amber-950/30 text-amber-50'
+        : 'border-slate-800 bg-surface-muted text-slate-100')
+    const handleChange = (value: string | boolean) => {
+      touchedFields.current.add(field.name)
+      setFormData((prev) => ({ ...prev, [field.name]: value }))
+      if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
+      if (field.name === 'backfield_code') setSelectedBackfield(String(value))
+    }
+
+    return (
+      <label key={field.name} className="space-y-1 text-xs text-slate-200 block">
+        <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">{field.label}</span>
+        {field.type === 'select' && (
+          <select
+            name={field.name}
+            value={(formData[field.name] as string) ?? ''}
+            onChange={(e) => handleChange(e.target.value)}
+            className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus`}
+          >
+            <option value="">Select</option>
+            {baseOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        )}
+        {field.type === 'text' && (
+          <input
+            type="text"
+            name={field.name}
+            value={(formData[field.name] as string) ?? ''}
+            onChange={(e) => handleChange(e.target.value)}
+            className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus`}
+          />
+        )}
+        {field.type === 'checkbox' && (
+          <input
+            type="checkbox"
+            name={field.name}
+            checked={Boolean(formData[field.name])}
+            onChange={(e) => handleChange(e.target.checked)}
+            className="h-4 w-4"
+          />
+        )}
+        {field.type === 'number' && (
+          <input
+            type="number"
+            name={field.name}
+            value={(formData[field.name] as string) ?? ''}
+            onChange={(e) => handleChange(e.target.value)}
+            className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus`}
+          />
+        )}
+        {error && <p className="text-[0.7rem] text-red-300">{error}</p>}
+        {!error && warning && <p className="text-[0.7rem] text-amber-300">{warning}</p>}
+      </label>
+    )
+  }
+
+  const applyLastOffenseLook = () => {
+    if (!latestEvent) return
+    const nextData: Record<string, string | number> = {}
+    if (latestEvent.offensive_personnel_code) nextData.offensive_personnel_code = latestEvent.offensive_personnel_code
+    if (latestEvent.offensive_formation_id) nextData.offensive_formation_id = latestEvent.offensive_formation_id
+    if (latestEvent.backfield_code) nextData.backfield_code = latestEvent.backfield_code
+    if (latestEvent.run_concept) nextData.run_concept = latestEvent.run_concept
+    if (latestEvent.wr_concept_id) nextData.wr_concept_id = latestEvent.wr_concept_id
+    if (latestEvent.strength) nextData.strength = latestEvent.strength
+    setFormData((prev) => ({ ...prev, ...nextData }))
+    setSelectedPersonnel(latestEvent.offensive_personnel_code || '')
+    setSelectedBackfield(latestEvent.backfield_code || '')
+  }
+
+  const applyLastDefenseCall = () => {
+    if (!latestEvent || unit !== 'DEFENSE') return
+    const nextData: Record<string, string | number> = {}
+    if (latestEvent.front_code) nextData.front_code = latestEvent.front_code
+    if (latestEvent.defensive_structure_id) nextData.defensive_structure_id = latestEvent.defensive_structure_id
+    if (latestEvent.coverage_shell_pre) nextData.coverage_shell_pre = latestEvent.coverage_shell_pre
+    if (latestEvent.coverage_shell_post) nextData.coverage_shell_post = latestEvent.coverage_shell_post
+    if (latestEvent.pressure_code) nextData.pressure_code = latestEvent.pressure_code
+    if (latestEvent.play_call) nextData.playCall = latestEvent.play_call
+    setFormData((prev) => ({ ...prev, ...nextData }))
+  }
+  const coverageCodeSet = useMemo(
+    () => new Set([...coverageShellOptions.map((c) => c.value), ...coveragePostOptions.map((c) => c.value)]),
+    []
+  )
+  const frontCodeSet = new Set(frontOptions)
+  const applySuggestion = (label: string) => {
+    if (coverageCodeSet.has(label)) {
+      touchedFields.current.add('coverage_shell_post')
+      setFormData((prev) => ({ ...prev, coverage_shell_post: label }))
+      return
+    }
+    if (frontCodeSet.has(label)) {
+      touchedFields.current.add('front_code')
+      setFormData((prev) => ({ ...prev, front_code: label }))
+    }
+  }
+  const setField = (name: string, value: string | number) => {
+    touchedFields.current.add(name)
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+  const setResultHelper = (value: string) => {
+    setResultValue(value)
+    setField('result', value)
+  }
+  const appendResultToken = (token: string) => {
+    const value = resultValue ? `${resultValue} | ${token}` : token
+    setResultHelper(value)
+  }
+  const stPhase = (formData.st_play_type as string) || stPlayTypes[0]
   const gainedError = inlineErrors.gainedYards
   const gainedWarning = inlineWarnings.gainedYards
   const situationLabel = latestEvent
@@ -586,6 +751,8 @@ export function ChartEventPanel({
 
   const resetDynamicFieldsForEventType = () => {
     const defaults: Record<string, string | number | boolean> = {}
+    const previousPersonnel = (formData.offensive_personnel_code as string) || ''
+    const previousBackfield = (formData.backfield_code as string) || ''
     const stickyKeys = new Set([
       'offensive_personnel_code',
       'offensive_formation_id',
@@ -600,14 +767,31 @@ export function ChartEventPanel({
       'st_variant',
       'strength',
     ])
+    if (unit === 'DEFENSE') {
+      stickyKeys.add('pressure_code')
+      stickyKeys.add('playCall')
+    }
     FIELD_CONFIG[eventType].forEach((field) => {
       if (!stickyKeys.has(field.name)) {
         defaults[field.name] = field.type === 'checkbox' ? false : ''
       }
     })
-    setFormData((prev) => ({ ...defaults, ...prev }))
-    setSelectedPersonnel('')
-    setSelectedBackfield('')
+    setFormData((prev) => {
+      const next = { ...defaults, ...prev }
+      if (unit !== 'DEFENSE') {
+        next.playCall = ''
+        next.pressure_code = ''
+      }
+      next.result = ''
+      return next
+    })
+    if (unit !== 'SPECIAL_TEAMS') {
+      setSelectedPersonnel(previousPersonnel)
+      setSelectedBackfield(previousBackfield)
+    } else {
+      setSelectedPersonnel('')
+      setSelectedBackfield('')
+    }
     setHasMotion(false)
     setMotionType('NONE')
     setHasShift(false)
@@ -616,6 +800,7 @@ export function ChartEventPanel({
     setMarkFirstDown(false)
     setMarkScoring(false)
     setMarkTurnover(false)
+    setResultValue('')
     setSeriesTag('')
     setGainedYardsValue('')
     setHasQuarterEdited(false)
@@ -696,20 +881,67 @@ export function ChartEventPanel({
       if (last.play_family && !touchedFields.current.has('play_family')) {
         seeds.play_family = last.play_family
       }
-      if (last.drive_number && !touchedFields.current.has('driveNumber')) {
-        seeds.driveNumber = last.drive_number
+      if (last.drive_number && !touchedFields.current.has('driveNumber')) seeds.driveNumber = last.drive_number
+      if (unit === 'OFFENSE') {
+        if (last.offensive_personnel_code && !touchedFields.current.has('offensive_personnel_code'))
+          seeds.offensive_personnel_code = last.offensive_personnel_code
+        if (last.offensive_formation_id && !touchedFields.current.has('offensive_formation_id'))
+          seeds.offensive_formation_id = last.offensive_formation_id
+        if (last.backfield_code && !touchedFields.current.has('backfield_code')) seeds.backfield_code = last.backfield_code
+        if (last.run_concept && !touchedFields.current.has('run_concept')) seeds.run_concept = last.run_concept
+        if (last.wr_concept_id && !touchedFields.current.has('wr_concept_id')) seeds.wr_concept_id = last.wr_concept_id
+        if (last.strength && !touchedFields.current.has('strength')) seeds.strength = last.strength
+      }
+      if (unit === 'DEFENSE') {
+        if (last.offensive_personnel_code && !touchedFields.current.has('offensive_personnel_code'))
+          seeds.offensive_personnel_code = last.offensive_personnel_code
+        if (last.offensive_formation_id && !touchedFields.current.has('offensive_formation_id'))
+          seeds.offensive_formation_id = last.offensive_formation_id
+        if (last.backfield_code && !touchedFields.current.has('backfield_code')) seeds.backfield_code = last.backfield_code
+        if (last.run_concept && !touchedFields.current.has('run_concept')) seeds.run_concept = last.run_concept
+        if (last.wr_concept_id && !touchedFields.current.has('wr_concept_id')) seeds.wr_concept_id = last.wr_concept_id
+        if (last.strength && !touchedFields.current.has('strength')) seeds.strength = last.strength
+        if (last.front_code && !touchedFields.current.has('front_code')) seeds.front_code = last.front_code
+        if (last.defensive_structure_id && !touchedFields.current.has('defensive_structure_id'))
+          seeds.defensive_structure_id = last.defensive_structure_id
+        if (last.coverage_shell_pre && !touchedFields.current.has('coverage_shell_pre')) seeds.coverage_shell_pre = last.coverage_shell_pre
+        if (last.coverage_shell_post && !touchedFields.current.has('coverage_shell_post'))
+          seeds.coverage_shell_post = last.coverage_shell_post
+        if (!touchedFields.current.has('pressure_code')) {
+          if (last.pressure_code) seeds.pressure_code = last.pressure_code
+          else if (formData.pressure_code) seeds.pressure_code = formData.pressure_code as string
+        }
+        if (last.play_call && !touchedFields.current.has('playCall')) seeds.playCall = last.play_call
       }
       if (last.coverage_shell_pre && !touchedFields.current.has('coverage_shell_pre')) seeds.coverage_shell_pre = last.coverage_shell_pre
       if (last.coverage_shell_post && !touchedFields.current.has('coverage_shell_post')) seeds.coverage_shell_post = last.coverage_shell_post
       if (last.front_code && !touchedFields.current.has('front_code')) seeds.front_code = last.front_code
       if (last.defensive_structure_id && !touchedFields.current.has('defensive_structure_id')) seeds.defensive_structure_id = last.defensive_structure_id
+      if (last.play_call && !touchedFields.current.has('playCall')) seeds.playCall = last.play_call
+      if (last.pressure_code && !touchedFields.current.has('pressure_code')) seeds.pressure_code = last.pressure_code
       if (last.st_play_type && !touchedFields.current.has('st_play_type')) seeds.st_play_type = last.st_play_type
       if (last.st_variant && !touchedFields.current.has('st_variant')) seeds.st_variant = last.st_variant
-      if (last.run_concept && !touchedFields.current.has('run_concept')) seeds.run_concept = last.run_concept
-      if (last.wr_concept_id && !touchedFields.current.has('wr_concept_id')) seeds.wr_concept_id = last.wr_concept_id
     }
-    if (Object.keys(seeds).length > 0) {
-      setFormData((prev) => ({ ...seeds, ...prev }))
+    if (
+      Object.keys(seeds).length > 0 ||
+      (last?.result && !touchedFields.current.has('result')) ||
+      (last?.offensive_personnel_code && !touchedFields.current.has('offensive_personnel_code')) ||
+      (last?.backfield_code && !touchedFields.current.has('backfield_code'))
+    ) {
+      startTransition(() => {
+        if (Object.keys(seeds).length > 0) {
+          setFormData((prev) => ({ ...seeds, ...prev }))
+        }
+        if (last?.result && !touchedFields.current.has('result')) {
+          setResultValue(last.result)
+        }
+        if (last?.offensive_personnel_code && !touchedFields.current.has('offensive_personnel_code')) {
+          setSelectedPersonnel(last.offensive_personnel_code)
+        }
+        if (last?.backfield_code && !touchedFields.current.has('backfield_code')) {
+          setSelectedBackfield(last.backfield_code)
+        }
+      })
     }
 
     if (last?.drive_number) {
@@ -723,68 +955,72 @@ export function ChartEventPanel({
         setSeriesTag(String(seriesSeed.current))
       }
     }
-  }, [latestEvent, formData.driveNumber])
+  }, [latestEvent, formData.driveNumber, formData.pressure_code, unit])
 
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = event.currentTarget
-    const formData = new FormData(form)
-    formData.set('sessionId', sessionId)
-    formData.set('play_family', playFamily)
+    const payload = new FormData(form)
+    payload.set('sessionId', sessionId)
+    payload.set('play_family', playFamily)
+    if (resultValue) payload.set('result', resultValue)
+    if (formData.result && !resultValue) payload.set('result', String(formData.result))
     const seriesValue = seriesTag.trim() || ''
     if (seriesValue) {
-      formData.set('series_tag', seriesValue)
+      payload.set('series_tag', seriesValue)
       setSeriesLookup((prev) => ({ ...prev, [sequenceCounter]: seriesValue }))
     }
     // Ensure advanced tags are always present in the payload, even if the Advanced section is collapsed.
-    formData.set('qb_alignment', qbAlignmentValue)
-    formData.set('motion_type', hasMotion ? motionType : 'NONE')
-    formData.set('has_motion', String(hasMotion))
-    formData.set('has_shift', String(hasShift))
-    formData.set('is_play_action', String(isPlayAction))
-    formData.set('is_shot_play', String(isShotPlay))
+    payload.set('qb_alignment', qbAlignmentValue)
+    payload.set('motion_type', hasMotion ? motionType : 'NONE')
+    payload.set('has_motion', String(hasMotion))
+    payload.set('has_shift', String(hasShift))
+    payload.set('is_play_action', String(isPlayAction))
+    payload.set('is_shot_play', String(isShotPlay))
+    if (formData.pressure_code) payload.set('pressure_code', String(formData.pressure_code))
+    if (formData.playCall) payload.set('playCall', String(formData.playCall))
     if (selectedBackfieldMeta?.backs != null) {
-      formData.set('backs_count', String(selectedBackfieldMeta.backs))
+      payload.set('backs_count', String(selectedBackfieldMeta.backs))
     }
     const formationMeta = offenseFormations.find(
-      (formation) => formation.id === formData.get('offensive_formation_id')?.toString()
+      (formation) => formation.id === payload.get('offensive_formation_id')?.toString()
     )
     if (formationMeta) {
-      formData.set('offensive_formation_label', `${formationMeta.personnel} | ${formationMeta.formation}`)
+      payload.set('offensive_formation_label', `${formationMeta.personnel} | ${formationMeta.formation}`)
     }
-    const wrConceptMeta = wrConcepts.find((w) => w.id === formData.get('wr_concept_id')?.toString())
+    const wrConceptMeta = wrConcepts.find((w) => w.id === payload.get('wr_concept_id')?.toString())
     if (wrConceptMeta) {
-      formData.set('wr_concept_label', wrConceptMeta.name)
-      if (wrConceptMeta.family) formData.set('wr_concept_family', wrConceptMeta.family)
-      if (wrConceptMeta.qbDrop) formData.set('qb_drop', wrConceptMeta.qbDrop)
+      payload.set('wr_concept_label', wrConceptMeta.name)
+      if (wrConceptMeta.family) payload.set('wr_concept_family', wrConceptMeta.family)
+      if (wrConceptMeta.qbDrop) payload.set('qb_drop', wrConceptMeta.qbDrop)
       if (wrConceptMeta.coverageBeater?.length) {
-        formData.set('primary_coverage_beater', wrConceptMeta.coverageBeater[0])
+        payload.set('primary_coverage_beater', wrConceptMeta.coverageBeater[0])
       }
     }
-    const gainedValue = formData.get('gainedYards')
+    const gainedValue = payload.get('gainedYards')
     const gainedNumber = gainedValue !== null && gainedValue !== '' ? Number(gainedValue) : undefined
-    const distanceValue = formData.get('distance')
+    const distanceValue = payload.get('distance')
     const distanceNumber = distanceValue !== null && distanceValue !== '' ? Number(distanceValue) : undefined
     const validationInput = {
       unit,
       play_family: playFamily,
-      offensive_personnel_code: formData.get('offensive_personnel_code')?.toString() || undefined,
-      offensive_formation_id: formData.get('offensive_formation_id')?.toString() || undefined,
-      backfield_code: formData.get('backfield_code')?.toString() || undefined,
+      offensive_personnel_code: payload.get('offensive_personnel_code')?.toString() || undefined,
+      offensive_formation_id: payload.get('offensive_formation_id')?.toString() || undefined,
+      backfield_code: payload.get('backfield_code')?.toString() || undefined,
       backs_count: selectedBackfieldMeta?.backs ?? null,
-      wr_concept_id: formData.get('wr_concept_id')?.toString() || undefined,
-      run_concept: formData.get('run_concept')?.toString() || undefined,
+      wr_concept_id: payload.get('wr_concept_id')?.toString() || undefined,
+      run_concept: payload.get('run_concept')?.toString() || undefined,
       is_rpo: playFamily === 'RPO',
-      coverage_shell_pre: formData.get('coverage_shell_pre')?.toString() || undefined,
-      coverage_shell_post: formData.get('coverage_shell_post')?.toString() || undefined,
-      st_play_type: formData.get('st_play_type')?.toString() || undefined,
-      st_variant: formData.get('st_variant')?.toString() || undefined,
+      coverage_shell_pre: payload.get('coverage_shell_pre')?.toString() || undefined,
+      coverage_shell_post: payload.get('coverage_shell_post')?.toString() || undefined,
+      st_play_type: payload.get('st_play_type')?.toString() || undefined,
+      st_variant: payload.get('st_variant')?.toString() || undefined,
       gained_yards: gainedNumber,
-      pass_result: formData.get('pass_result')?.toString() || undefined,
+      pass_result: payload.get('pass_result')?.toString() || undefined,
       st_return_yards:
-        formData.get('st_return_yards') && formData.get('st_return_yards') !== ''
-          ? Number(formData.get('st_return_yards'))
+        payload.get('st_return_yards') && payload.get('st_return_yards') !== ''
+          ? Number(payload.get('st_return_yards'))
           : undefined,
     }
     const validation = validateChartEventInput(validationInput, dictionaryBundle)
@@ -813,24 +1049,24 @@ export function ChartEventPanel({
     setInlineWarnings(fieldWarnings)
 
     if (markFirstDown || (distanceNumber != null && gainedNumber != null && gainedNumber >= distanceNumber)) {
-      formData.set('first_down', 'true')
+      payload.set('first_down', 'true')
     }
     if (markScoring) {
-      formData.set('scoring_play', 'true')
+      payload.set('scoring_play', 'true')
     }
     if (markTurnover) {
-      formData.set('turnover', 'true')
+      payload.set('turnover', 'true')
     }
     if (gainedNumber != null && gainedNumber >= 20) {
-      formData.set('explosive', 'true')
+      payload.set('explosive', 'true')
     }
 
-    const optimisticEvent = buildOptimisticEvent(formData, sequenceCounter, seriesValue || undefined)
+    const optimisticEvent = buildOptimisticEvent(payload, sequenceCounter, seriesValue || undefined)
     upsertEvent(optimisticEvent)
     setSequenceCounter((prev) => prev + 1)
 
     startTransition(async () => {
-      const result = await recordAction(formData)
+      const result = await recordAction(payload)
       if (!result.success) {
         setErrorMessage(mapError(result.error))
         router.refresh()
@@ -841,6 +1077,7 @@ export function ChartEventPanel({
       formRef.current?.reset()
       resetDynamicFieldsForEventType()
       setPassResult('')
+      setResultValue('')
       setInlineWarnings({})
       router.refresh()
     })
@@ -885,10 +1122,18 @@ export function ChartEventPanel({
               <div className="flex items-baseline justify-between">
                 <div>
                   <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Situation</h3>
-                  <p className="text-xs text-slate-400">Quarter, clock, down & distance, spot, hash</p>
+                  <p className="text-xs text-slate-400">
+                    {unit === 'DEFENSE'
+                      ? 'Quarter, clock, down & distance, spot, hash, and offensive series context.'
+                      : 'Quarter, clock, down & distance, spot, hash'}
+                  </p>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div
+                className={`grid gap-3 ${
+                  unit === 'DEFENSE' ? 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7' : 'sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5'
+                }`}
+              >
                 <label className="space-y-1">
                   <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Quarter</span>
                   <select
@@ -988,6 +1233,23 @@ export function ChartEventPanel({
                     className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                   />
                 </label>
+
+                <label className="space-y-1">
+                  <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">
+                    {unit === 'DEFENSE' ? 'Series # (offense)' : 'Series #'}
+                  </span>
+                  <input
+                    name="series_tag"
+                    value={seriesTag}
+                    onChange={(e) => {
+                      touchedFields.current.add('series_tag')
+                      setSeriesTag(e.target.value)
+                    }}
+                    type="number"
+                    min={1}
+                    className="h-11 w-full rounded-xl border border-slate-800 bg-surface-muted px-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                  />
+                </label>
               </div>
             </section>
 
@@ -1038,111 +1300,278 @@ export function ChartEventPanel({
           </section>
 
           <section className="space-y-4 border-t border-slate-900/70 pt-6">
-              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">
-                Formation & tags
-              </h3>
-              <p className="text-xs text-slate-400">
-                Tag formation, structure, and concepts for quick scouting across units.
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-              {FIELD_CONFIG[eventType].map((field: FieldConfig) => {
-                const prettify = (opt: string) =>
-                  opt
-                    .split('_')
-                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                    .join(' ')
-                const baseOptions =
-                  field.name === 'offensive_personnel_code'
-                    ? offensePersonnel.map((code) => ({ value: code, label: code }))
-                    : field.name === 'offensive_formation_id'
-                    ? filteredFormations.map((f) => ({ value: f.id, label: `${f.personnel} | ${f.formation}` }))
-                    : field.name === 'backfield_code'
-                    ? backfieldOptions.map((b) => ({
-                        value: b.code,
-                        label: b.description ? `${b.code} | ${b.description}` : b.code,
-                      }))
-                    : field.name === 'wr_concept_id'
-                    ? wrConcepts.map((w) => ({
-                        value: w.id,
-                        label: w.family ? `${w.family} | ${w.name}` : w.name,
-                      }))
-                    : field.name === 'front_code'
-                    ? frontOptions.map((name) => ({ value: name, label: name }))
-                    : field.name === 'defensive_structure_id'
-                    ? defenseStructures.map((d) => ({ value: d.id, label: d.name || d.id }))
-                    : field.name === 'coverage_shell_pre'
-                    ? coverageShellOptions.map((c) => ({ value: c.value, label: c.label }))
-                    : field.name === 'coverage_shell_post'
-                    ? coveragePostOptions.map((c) => ({ value: c.value, label: c.label }))
-                    : (field.options || []).map((opt) => ({ value: opt, label: prettify(opt) }))
-                const error = inlineErrors[field.name]
-                const warning = inlineWarnings[field.name]
-                const baseInputClass =
-                  'w-full rounded-xl border px-4 py-3 text-sm transition duration-base ease-smooth ' +
-                  (error
-                    ? 'border-red-500 bg-red-950/30 text-red-50'
-                    : warning
-                    ? 'border-amber-500 bg-amber-950/30 text-amber-50'
-                    : 'border-slate-800 bg-surface-muted text-slate-100')
-    const handleChange = (value: string | boolean) => {
-                  touchedFields.current.add(field.name)
-                  setFormData((prev) => ({ ...prev, [field.name]: value }))
-                  if (field.name === 'offensive_personnel_code') setSelectedPersonnel(String(value))
-                  if (field.name === 'backfield_code') setSelectedBackfield(String(value))
-                }
-                return (
-                  <label key={field.name} className="space-y-1 text-xs text-slate-200 block">
-                    <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">{field.label}</span>
-                    {field.type === 'select' && (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">
+                  Formation & tags
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {unit === 'DEFENSE'
+                    ? 'Log the offensive look you see, then tag the defensive call without leaving this view.'
+                    : 'Tag formation, structure, and concepts for quick scouting across units.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {latestEvent && unit !== 'SPECIAL_TEAMS' && (
+                  <button
+                    type="button"
+                    onClick={applyLastOffenseLook}
+                    className="text-xs text-slate-200 underline decoration-dotted underline-offset-4 hover:text-white"
+                  >
+                    Use last look
+                  </button>
+                )}
+                {unit === 'DEFENSE' && latestEvent && (
+                  <button
+                    type="button"
+                    onClick={applyLastDefenseCall}
+                    className="text-xs text-slate-200 underline decoration-dotted underline-offset-4 hover:text-white"
+                  >
+                    Use last defensive call
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {unit === 'DEFENSE' ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-3 rounded-2xl border border-slate-900/60 bg-surface-muted/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Opponent offense</p>
+                      {latestEvent && (
+                        <button
+                          type="button"
+                          onClick={applyLastOffenseLook}
+                          className="text-[0.7rem] text-slate-300 underline decoration-dotted underline-offset-4 hover:text-white"
+                        >
+                          Last look
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {FIELD_CONFIG.Offense.map((field: FieldConfig) => renderFieldControl(field))}
+                      <label className="space-y-1 text-xs text-slate-200 block">
+                        <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Strength</span>
+                        <select
+                          name="strength"
+                          value={(formData.strength as string) ?? ''}
+                          onChange={(e) => {
+                            touchedFields.current.add('strength')
+                            setFormData((prev) => ({ ...prev, strength: e.target.value }))
+                          }}
+                          className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                        >
+                          <option value="">Select</option>
+                          {strengthOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {prettifyLabel(opt)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="space-y-3 rounded-2xl border border-slate-900/60 bg-surface-muted/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Our defense</p>
+                      {latestEvent && (
+                        <button
+                          type="button"
+                          onClick={applyLastDefenseCall}
+                          className="text-[0.7rem] text-slate-300 underline decoration-dotted underline-offset-4 hover:text-white"
+                        >
+                          Last call
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {FIELD_CONFIG.Defense.map((field: FieldConfig) => renderFieldControl(field))}
+                    </div>
+                    {lens.options.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {lens.options.slice(0, 3).map((opt) => (
+                          <button
+                            key={opt.label}
+                            type="button"
+                            onClick={() => applySuggestion(opt.label)}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-surface-muted px-3 py-1 text-[0.7rem] text-slate-200 hover:border-slate-700 focus-visible:shadow-focus focus-visible:outline-none"
+                          >
+                            <span>{prettyLabel(opt.label)}</span>
+                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] text-emerald-200">
+                              AI
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : unit === 'SPECIAL_TEAMS' ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-900/60 bg-surface-muted/50 p-4 space-y-4">
+                  <input type="hidden" name="st_play_type" value={(formData.st_play_type as string) ?? ''} />
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Special teams phase</p>
+                      <p className="text-xs text-slate-400">
+                        Pick the phase, then speed through direction, variant, hang/distance, and return outcome.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {stPlayTypes.map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setField('st_play_type', type)}
+                          className={toggleChipClass((formData.st_play_type as string) === type)}
+                        >
+                          {prettifyLabel(type)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <label className="space-y-1 text-xs text-slate-200 block">
+                      <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Variant</span>
                       <select
-                        name={field.name}
-                        value={(formData[field.name] as string) ?? ''}
-                        onChange={(e) => handleChange(e.target.value)}
-                        className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus`}
+                        name="st_variant"
+                        value={(formData.st_variant as string) ?? ''}
+                        onChange={(e) => setField('st_variant', e.target.value)}
+                        className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                       >
                         <option value="">Select</option>
-                        {baseOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {stVariants.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {prettifyLabel(opt)}
                           </option>
                         ))}
                       </select>
-                    )}
-                    {field.type === 'text' && (
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-200 block">
+                      <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">
+                        Return yards
+                      </span>
                       <input
-                        type="text"
-                        name={field.name}
-                        value={(formData[field.name] as string) ?? ''}
-                        onChange={(e) => handleChange(e.target.value)}
-                        className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus`}
-                      />
-                    )}
-                    {field.type === 'checkbox' && (
-                      <input
-                        type="checkbox"
-                        name={field.name}
-                        checked={Boolean(formData[field.name])}
-                        onChange={(e) => handleChange(e.target.checked)}
-                        className="h-4 w-4"
-                      />
-                    )}
-                    {field.type === 'number' && (
-                      <input
+                        name="st_return_yards"
                         type="number"
-                        name={field.name}
-                        value={(formData[field.name] as string) ?? ''}
-                        onChange={(e) => handleChange(e.target.value)}
-                        className={`${baseInputClass} hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus`}
+                        value={
+                          formData.st_return_yards != null
+                            ? String(formData.st_return_yards)
+                            : (formData.st_return_yards as string) || ''
+                        }
+                        onChange={(e) => setField('st_return_yards', e.target.value)}
+                        className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
+                        placeholder="0, 15, TD..."
                       />
-                    )}
-                    {error && <p className="text-[0.7rem] text-red-300">{error}</p>}
-                    {!error && warning && (
-                      <p className="text-[0.7rem] text-amber-300">{warning}</p>
-                    )}
-                  </label>
-                )
-              })}
-                {(unit === 'OFFENSE' || unit === 'DEFENSE') && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {[0, 5, 10, 20, 40].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setField('st_return_yards', String(val))}
+                            className={toggleChipClass((formData.st_return_yards as string) === String(val))}
+                          >
+                            {val === 40 ? 'TD' : val}
+                          </button>
+                        ))}
+                      </div>
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-200 block">
+                      <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Outcome helper</span>
+                      <div className="flex flex-wrap gap-2">
+                        {['Touchback', 'Fair catch', 'Returned', 'OB / Downed'].map((label) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setResultHelper(label)}
+                            className={toggleChipClass(resultValue === label)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </label>
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-3">
+                    <div className="space-y-2 rounded-2xl border border-slate-900/60 bg-surface-muted px-3 py-3">
+                      <p className="text-[0.7rem] uppercase tracking-[0.18em] text-slate-400">Direction</p>
+                      <div className="flex flex-wrap gap-2">
+                        {['FIELD', 'MIDDLE', 'BOUNDARY'].map((dir) => {
+                          const label = prettifyLabel(dir)
+                          return (
+                            <button
+                              key={dir}
+                              type="button"
+                              onClick={() => appendResultToken(label)}
+                              className={toggleChipClass(resultValue.includes(label))}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="space-y-2 rounded-2xl border border-slate-900/60 bg-surface-muted px-3 py-3">
+                      <p className="text-[0.7rem] uppercase tracking-[0.18em] text-slate-400">
+                        {stPhase.startsWith('PUNT') ? 'Punt style' : 'Kick type'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {(stPhase.startsWith('PUNT')
+                          ? ['DIRECTIONAL', 'MIDDLE', 'RUGBY', 'SKY']
+                          : ['DEEP', 'SQUIB', 'POOCH', 'ONSIDE']
+                        ).map((item) => {
+                          const label = prettifyLabel(item)
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => {
+                                appendResultToken(label)
+                                if (item === 'ONSIDE') setField('st_variant', 'ONSIDE')
+                                if (item === 'RUGBY') setField('st_variant', 'RUGBY')
+                              }}
+                              className={toggleChipClass(resultValue.includes(label))}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="space-y-2 rounded-2xl border border-slate-900/60 bg-surface-muted px-3 py-3">
+                      <p className="text-[0.7rem] uppercase tracking-[0.18em] text-slate-400">Landing / hang</p>
+                      <div className="flex flex-wrap gap-2">
+                        {['Inside 5', 'Goal line', 'Numbers', 'Hashes'].map((zone) => (
+                          <button
+                            key={zone}
+                            type="button"
+                            onClick={() => appendResultToken(zone)}
+                            className={toggleChipClass(resultValue.includes(zone))}
+                          >
+                            {zone}
+                          </button>
+                        ))}
+                        {['<3.8s', '3.8-4.2s', '>4.2s'].map((ht) => (
+                          <button
+                            key={ht}
+                            type="button"
+                            onClick={() => appendResultToken(`Hang ${ht}`)}
+                            className={toggleChipClass(resultValue.includes(ht))}
+                          >
+                            {ht}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {FIELD_CONFIG[eventType].map((field: FieldConfig) => renderFieldControl(field))}
+                {unit === 'OFFENSE' && (
                   <label className="space-y-1 text-xs text-slate-200 block">
                     <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Strength</span>
                     <select
@@ -1163,20 +1592,32 @@ export function ChartEventPanel({
                     </select>
                   </label>
                 )}
-            </div>
+              </div>
+            )}
           </section>
 
           <section className="space-y-4 border-t border-slate-900/70 pt-6">
             <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-slate-300">Result & gain</h3>
-            <p className="text-xs text-slate-400">Capture the call, a quick note, yardage, and pass result.</p>
+            <p className="text-xs text-slate-400">
+              {unit === 'DEFENSE'
+                ? 'Capture your defensive call/code, quick result, yardage, and any pass outcome.'
+                : 'Capture the call, a quick note, yardage, and pass result.'}
+            </p>
             <div className="space-y-3">
               <label className="space-y-1 block">
-                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Play call</span>
+                <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">
+                  {unit === 'DEFENSE' ? 'Defensive call / code' : 'Play call'}
+                </span>
                 <input
                   name="playCall"
-                  placeholder="Trips Right 92 Mesh"
+                  value={(formData.playCall as string) ?? ''}
+                  onChange={(e) => {
+                    touchedFields.current.add('playCall')
+                    setFormData((prev) => ({ ...prev, playCall: e.target.value }))
+                  }}
+                  placeholder={unit === 'DEFENSE' ? 'Mint 4-2-5, Fire Zone 3' : 'Trips Right 92 Mesh'}
                   className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:border-brand/60 focus:shadow-focus"
-                  required
+                  required={unit !== 'DEFENSE'}
                 />
               </label>
 
@@ -1184,6 +1625,11 @@ export function ChartEventPanel({
                 <span className="uppercase tracking-[0.18em] text-[0.7rem] text-slate-300">Result (short note)</span>
                 <input
                   name="result"
+                  value={resultValue}
+                  onChange={(e) => {
+                    touchedFields.current.add('result')
+                    setResultHelper(e.target.value)
+                  }}
                   placeholder="Complete, +8"
                   className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:outline-none focus:border-brand/60 focus:shadow-focus"
                 />
@@ -1354,7 +1800,9 @@ export function ChartEventPanel({
                 </div>
 
                 <label className="space-y-1 text-xs text-slate-200 block">
-                  <span className="uppercase tracking-[0.18em]">Series # (within drive)</span>
+                  <span className="uppercase tracking-[0.18em]">
+                    {unit === 'DEFENSE' ? 'Series # (offense drive)' : 'Series # (within drive)'}
+                  </span>
                   <input
                     name="series_tag"
                     value={seriesTag}
@@ -1372,6 +1820,11 @@ export function ChartEventPanel({
                     <span className="uppercase tracking-[0.18em]">Pressure tag</span>
                     <input
                       name="pressure_code"
+                      value={(formData.pressure_code as string) ?? ''}
+                      onChange={(e) => {
+                        touchedFields.current.add('pressure_code')
+                        setFormData((prev) => ({ ...prev, pressure_code: e.target.value }))
+                      }}
                       placeholder="Fire zone, SIM, boundary..."
                       className="w-full rounded-xl border border-slate-800 bg-surface-muted px-4 py-3 text-sm text-slate-100 hover:border-slate-700 focus:border-brand/60 focus:outline-none focus:shadow-focus"
                     />

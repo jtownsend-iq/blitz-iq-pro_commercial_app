@@ -40,10 +40,14 @@ type EventRow = {
   wr_concept_id?: string | null
   st_play_type?: string | null
   st_variant?: string | null
+  offensive_personnel_code?: string | null
+  offensive_formation_id?: string | null
+  backfield_code?: string | null
   front_code?: string | null
   defensive_structure_id?: string | null
   coverage_shell_pre?: string | null
   coverage_shell_post?: string | null
+  pressure_code?: string | null
   drive_number?: number | null
   explosive?: boolean | null
   turnover?: boolean | null
@@ -140,7 +144,7 @@ export default async function ChartUnitPage({
   const { data: eventData, error: eventError } = await supabase
     .from('chart_events')
     .select(
-      'id, sequence, quarter, clock_seconds, down, distance, ball_on, play_call, result, gained_yards, created_at, drive_number, explosive, turnover'
+      'id, sequence, quarter, clock_seconds, down, distance, ball_on, play_call, result, gained_yards, created_at, drive_number, explosive, turnover, offensive_personnel_code:offensive_personnel, front_code:front, coverage_shell_post:coverage, pressure_code:pressure'
     )
     .eq('game_session_id', session.id)
     .order('sequence', { ascending: false })
