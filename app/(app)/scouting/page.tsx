@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { Clock3, Crosshair, ShieldAlert, Table2 } from 'lucide-react'
 import ScoutingBoard from '@/components/scout/ScoutingBoard'
@@ -37,11 +37,11 @@ type PlayRow = {
 }
 
 const navItems = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'overview', label: 'Status & health' },
   { id: 'workspace', label: 'Scouting workspace' },
-  { id: 'imports', label: 'CSV imports' },
+  { id: 'imports', label: 'Data inbox' },
   { id: 'ai', label: 'AI & reports' },
-  { id: 'help', label: 'How it works' },
+  { id: 'help', label: 'Weekly workflow' },
 ]
 
 export default async function ScoutingPage() {
@@ -192,30 +192,30 @@ export default async function ScoutingPage() {
 
   return (
       <main className="mx-auto max-w-7xl space-y-10 px-4 py-10">
-      <SectionHeader
-        eyebrow="Scouting"
-        title="Opponent scouting workspace"
-        description="Coaches and analysts can drop in opponent CSVs, clean errors fast, and jump straight into tendencies, reports, and next-call insights."
-        badge="Premium"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <CTAButton href="#workspace" variant="primary" size="sm">
-              Open scouting workspace
-            </CTAButton>
-            <CTAButton href="#imports" variant="secondary" size="sm">
-              View CSV imports
-            </CTAButton>
-            <Pill label="Scouting ready" tone="slate" icon={<Crosshair className="h-3 w-3" />} />
-          </div>
-        }
-      />
+    <SectionHeader
+      eyebrow="Scouting"
+      title="Scout Friday night with a clean, live board"
+      description="Upload opponent film exports, clean them fast, and open the workspace for trustworthy tendencies and reports in minutes."
+      badge="Scouting ready"
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <CTAButton href="#workspace" variant="primary" size="sm">
+            Open scouting workspace
+          </CTAButton>
+          <CTAButton href="#imports" variant="secondary" size="sm">
+            Go to data inbox
+          </CTAButton>
+          <Pill label="Ready this week" tone="emerald" icon={<Crosshair className="h-3 w-3" />} />
+        </div>
+      }
+    />
 
       <GlassCard>
         <div className="grid gap-4 md:grid-cols-4">
-          <StatBadge label="Opponents ready" value={summaryStats.opponents} tone="emerald" />
-          <StatBadge label="Seasons logged" value={summaryStats.opponentSeasons} tone="cyan" />
-          <StatBadge label="CSV imports" value={summaryStats.imports} tone="amber" />
-          <StatBadge label="Imports to fix" value={summaryStats.failedImports} tone="slate" />
+          <StatBadge label="Opponents on tape" value={summaryStats.opponents} tone="emerald" />
+          <StatBadge label="Seasons tracked" value={summaryStats.opponentSeasons} tone="cyan" />
+          <StatBadge label="Scouting files processed" value={summaryStats.imports} tone="amber" />
+          <StatBadge label="Files needing cleanup" value={summaryStats.failedImports} tone="slate" />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
           <Clock3 className="h-3.5 w-3.5 text-slate-500" />
@@ -224,7 +224,7 @@ export default async function ScoutingPage() {
             {lastSuccessTs ? new Date(lastSuccessTs).toLocaleString() : 'No successful imports yet'}
           </span>
           <span className="text-slate-600">|</span>
-          <span>Stay current: upload the next opponent on tape and clear any fixes before reports.</span>
+          <span>Upload the next opponent on tape and clear fixes before you pull reports.</span>
         </div>
       </GlassCard>
 
@@ -236,10 +236,10 @@ export default async function ScoutingPage() {
                   {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
                 </h2>
                 <p className="text-sm text-slate-400">
-              Quick, coach-ready reads for offense, defense, and special teams. Click below to jump into the workspace and drill this opponent.
+              Phase-by-phase reads for the next opponentâ€”offense, defense, and special teams. Jump into the workspace to drill calls by season, game, and situation.
                 </p>
               </div>
-              <Pill label="Tendencies" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
+              <Pill label="Next opponent ready" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
           {tendencyPanels.map((panel) => (
@@ -280,30 +280,30 @@ export default async function ScoutingPage() {
           </aside>
 
           <div className="space-y-12">
-          <ScoutingSection id="overview" title="Overview">
+          <ScoutingSection id="overview" title="Status & health">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Quick health check for this week: opponents ready, clean vs. broken imports, and how much data is fueling your live board.
+                Health check for this week: who&apos;s on tape, what&apos;s clean, and what needs attention before you trust the board.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
-                <StatBadge label="Clean imports" value={summaryStats.imports - summaryStats.failedImports} tone="emerald" />
-                <StatBadge label="Imports needing fixes" value={summaryStats.failedImports} tone="amber" />
-                <StatBadge label="Opponents in queue" value={summaryStats.opponents} tone="cyan" />
+                <StatBadge label="Clean scouting files" value={summaryStats.imports - summaryStats.failedImports} tone="emerald" />
+                <StatBadge label="Files to fix" value={summaryStats.failedImports} tone="amber" />
+                <StatBadge label="Opponents ready" value={summaryStats.opponents} tone="cyan" />
               </div>
               <p className="text-xs text-slate-400">
-                Fix any red items before Friday so the workspace and AI pulls are fully trustworthy.
+                Clear amber items before Friday so the workspace and AI pulls stay trustworthy.
               </p>
             </GlassCard>
           </ScoutingSection>
 
-          <ScoutingSection id="imports" title="CSV imports">
+          <ScoutingSection id="imports" title="Data inbox">
             <GlassCard className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Imports</p>
                   <h3 className="text-base font-semibold text-slate-100">Workspace inbox</h3>
                   <p className="text-sm text-slate-400">
-                    Upload CSVs, check status, and quickly grasp issues so coaches can fix headers, tags, or formats without extra help.
+                    Upload film exports, check status, and quickly see what to fix so the workspace stays clean.
                   </p>
                 </div>
                 <Pill label="CSV" tone="cyan" icon={<Table2 className="h-3 w-3" />} />
@@ -318,7 +318,7 @@ export default async function ScoutingPage() {
               {imports.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
                   <p className="text-sm font-semibold text-slate-200">No imports yet</p>
-                  <p className="text-xs text-slate-500">Upload scouting CSVs to power BlitzIQ&apos;s LLM analysis for pregame reports and in-game tendencies.</p>
+                  <p className="text-xs text-slate-500">Upload scouting CSVs from your film system to power reports and tendencies.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -380,7 +380,7 @@ export default async function ScoutingPage() {
                             </td>
                             <td className="px-3 py-2 text-xs">
                               <CTAButton href="#workspace" size="sm" variant="secondary">
-                                View in workspace
+                                Open in workspace
                               </CTAButton>
                             </td>
                           </tr>
@@ -402,7 +402,7 @@ export default async function ScoutingPage() {
                     Upload, map, and clean in one place
                   </h3>
                   <p className="text-sm text-slate-400">
-                    Select opponents, upload CSVs, map to BlitzIQ tags, resolve errors, and explore tendencies—your daily hub for Friday packets and game-day calls.
+                    Select opponents, upload CSVs, map to BlitzIQ tags, resolve errors, and explore tendencies — your daily hub for Friday packets and game-day calls.â€”your daily hub for Friday packets and game-day calls.
                   </p>
                 </div>
                 <Pill label={`Live data${upcomingOpponent ? ` | ${upcomingOpponent}` : ''}`} tone="emerald" />
@@ -421,26 +421,26 @@ export default async function ScoutingPage() {
           <ScoutingSection id="ai" title="AI & reports">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                After your workspace is clean, BlitzIQ uses OpenAI to deliver Friday packets, situation-ready cutups, and call sheet insights—down-and-distance tendencies, personnel tells, formation trends, and pressure looks for the next opponent.
+                After your workspace is clean, BlitzIQ uses OpenAI to deliver Friday packets, situation-ready cutups, and call sheet insightsâ€”down-and-distance tendencies, personnel tells, formation trends, and pressure looks for the next opponent.
               </p>
               <p className="text-sm text-slate-300">
-                Use your existing reports and exports to spin up phase-by-phase packets in one click; every output stays in sync with what you cleaned in the workspace.
+                Use your reports and exports to spin up phase-by-phase packets in one click; every output stays synced to the data you cleaned in the workspace.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <CTAButton href="#workspace" size="sm" variant="primary">
                   Open workspace
                 </CTAButton>
                 <CTAButton href="#imports" size="sm" variant="secondary">
-                  View imports
+                  Review imports
                 </CTAButton>
               </div>
             </GlassCard>
           </ScoutingSection>
 
-          <ScoutingSection id="help" title="How it works">
+          <ScoutingSection id="help" title="Weekly workflow">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Export scouting CSVs, upload and map to BlitzIQ tags, clear any header or row errors, and then let the workspace drive your Friday packet and call sheet. Repeat weekly for the next opponent on tape.
+                Export scouting CSVs, upload and map to BlitzIQ tags, clean any header or row issues, and let the workspace drive your Friday packet and call sheet. Repeat weekly for the next opponent on tape.
               </p>
               <p className="text-sm text-slate-300">
                 If an import fails, use the log summary to fix headers or tags, then reupload so AI summaries and live charts stay reliable.
@@ -608,5 +608,9 @@ function topValue(values: Array<string | null | undefined>) {
   })
   return best
 }
+
+
+
+
 
 
