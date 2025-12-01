@@ -228,20 +228,20 @@ export default async function ScoutingPage() {
         </div>
       </GlassCard>
 
-      <GlassCard>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent tendencies</p>
-            <h2 className="text-xl font-semibold text-slate-100">
-              {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
-            </h2>
-            <p className="text-sm text-slate-400">
-              Quick, coach-ready reads for offense, defense, and special teams so you can script early downs, third down, and the kick game in seconds.
-            </p>
-          </div>
-          <Pill label="Tendencies" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <GlassCard>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Upcoming opponent tendencies</p>
+                <h2 className="text-xl font-semibold text-slate-100">
+                  {upcomingOpponent || 'Set your next opponent'} {upcomingSeason ? `| ${upcomingSeason}` : ''}
+                </h2>
+                <p className="text-sm text-slate-400">
+              Quick, coach-ready reads for offense, defense, and special teams. Click below to jump into the workspace and drill this opponent.
+                </p>
+              </div>
+              <Pill label="Tendencies" tone="cyan" icon={<Crosshair className="h-3 w-3" />} />
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
           {tendencyPanels.map((panel) => (
             <GlassCard key={panel.label} padding="md" className="h-full bg-black/20">
               <div className="flex items-center justify-between">
@@ -266,7 +266,7 @@ export default async function ScoutingPage() {
             </GlassCard>
           ))}
         </div>
-      </GlassCard>
+          </GlassCard>
 
       <div className="space-y-8">
         <div className="lg:hidden">
@@ -283,9 +283,7 @@ export default async function ScoutingPage() {
           <ScoutingSection id="overview" title="Overview">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Export CSVs from your film or analytics tools, pick the opponent and season, upload and
-                map columns, clear any errors, and BlitzIQ&apos;s OpenAI-powered layer will surface
-                tendencies for pregame reports and in-game calls.
+                Quick health check for this week: opponents ready, clean vs. broken imports, and how much data is fueling your live board.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
                 <StatBadge label="Clean imports" value={summaryStats.imports - summaryStats.failedImports} tone="emerald" />
@@ -293,7 +291,7 @@ export default async function ScoutingPage() {
                 <StatBadge label="Opponents in queue" value={summaryStats.opponents} tone="cyan" />
               </div>
               <p className="text-xs text-slate-400">
-                Clean imports fuel every tendency panel and pregame report. Triage any fixes before game week so AI reports stay trustworthy.
+                Fix any red items before Friday so the workspace and AI pulls are fully trustworthy.
               </p>
             </GlassCard>
           </ScoutingSection>
@@ -303,8 +301,8 @@ export default async function ScoutingPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Imports</p>
-                  <h3 className="text-base font-semibold text-slate-100">History & cleanup</h3>
-                <p className="text-sm text-slate-400">
+                  <h3 className="text-base font-semibold text-slate-100">Workspace inbox</h3>
+                  <p className="text-sm text-slate-400">
                     Upload CSVs, check status, and quickly grasp issues so coaches can fix headers, tags, or formats without extra help.
                   </p>
                 </div>
@@ -369,7 +367,7 @@ export default async function ScoutingPage() {
                                   <summary className="cursor-pointer text-amber-200">View log</summary>
                                   <p className="text-[0.75rem] text-amber-100">
                                     {imp.error_log
-                                      ? `Detected ${Object.keys(imp.error_log).length} issue type(s). Check headers, tags, or row formatting, then reupload.`
+                                      ? `Found ${Object.keys(imp.error_log).length} issue type(s). Fix headers/tags and reupload before scouting this opponent.`
                                       : 'Issues detected. Expand for details.'}
                                   </p>
                                   <pre className="whitespace-pre-wrap break-words text-[0.7rem] text-slate-200">
@@ -423,10 +421,10 @@ export default async function ScoutingPage() {
           <ScoutingSection id="ai" title="AI & reports">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                Once CSVs are clean, BlitzIQ pushes your scouting cutups to OpenAI on demand—no model training needed—to surface down-and-distance call tendencies, personnel and formation tells, and pressure looks for the upcoming opponent.
+                After your workspace is clean, BlitzIQ uses OpenAI to deliver Friday packets, situation-ready cutups, and call sheet insights—down-and-distance tendencies, personnel tells, formation trends, and pressure looks for the next opponent.
               </p>
               <p className="text-sm text-slate-300">
-                Use your existing reports and exports to spin up Friday packets and game-ready cutups in one click, organized by phase and situation for the next opponent on tape.
+                Use your existing reports and exports to spin up phase-by-phase packets in one click; every output stays in sync with what you cleaned in the workspace.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <CTAButton href="#workspace" size="sm" variant="primary">
@@ -442,7 +440,7 @@ export default async function ScoutingPage() {
           <ScoutingSection id="help" title="How it works">
             <GlassCard className="space-y-3">
               <p className="text-sm text-slate-300">
-                1) Export scouting CSVs from your film/analytics tools. 2) Upload and map to BlitzIQ tags. 3) Clear any header or row errors. 4) Trust the tendencies feeding your Friday packet and call sheet. 5) Repeat weekly for each opponent on tape.
+                Export scouting CSVs, upload and map to BlitzIQ tags, clear any header or row errors, and then let the workspace drive your Friday packet and call sheet. Repeat weekly for the next opponent on tape.
               </p>
               <p className="text-sm text-slate-300">
                 If an import fails, use the log summary to fix headers or tags, then reupload so AI summaries and live charts stay reliable.
@@ -506,9 +504,9 @@ function buildTendencyPanels(plays: PlayRow[], opponent: string, season: string 
   const special = plays.filter((p) => (p.phase || '').toUpperCase().includes('SPECIAL'))
 
   return [
-    buildPanel('Offense', offense, opponent, season, 'Open offense workspace'),
-    buildPanel('Defense', defense, opponent, season, 'Open defense workspace'),
-    buildPanel('Special teams', special, opponent, season, 'Open special teams workspace'),
+    buildPanel('Offense', offense, opponent, season, 'Open offense in workspace'),
+    buildPanel('Defense', defense, opponent, season, 'Open defense in workspace'),
+    buildPanel('Special teams', special, opponent, season, 'Open special teams in workspace'),
   ]
 }
 
