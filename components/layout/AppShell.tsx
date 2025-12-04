@@ -112,6 +112,7 @@ export function TopNav({ navItems }: TopNavProps) {
               src="/blitziq-logo.png"
               alt="BlitzIQ Pro"
               fill
+              sizes="(max-width: 768px) 120px, 180px"
               className="object-contain drop-shadow-[0_8px_24px_rgba(0,229,255,0.35)]"
               priority
             />
