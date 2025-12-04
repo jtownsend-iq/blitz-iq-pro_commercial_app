@@ -42,42 +42,47 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
           if (!payload.new) return
           const incoming = payload.new as EventSummary
 
-          const { data } = await supabase
-            .from('chart_events')
-            .select(
-              'id, sequence, play_call, result, gained_yards, explosive, turnover, created_at, game_sessions!inner(unit, game_id)'
-            )
-            .eq('id', incoming.id)
-            .maybeSingle()
+          let hydratedEvent: EventSummary = {
+            id: incoming.id,
+            sequence: incoming.sequence,
+            play_call: incoming.play_call,
+            result: incoming.result,
+            gained_yards: incoming.gained_yards,
+            explosive: incoming.explosive,
+            turnover: incoming.turnover,
+            created_at: incoming.created_at,
+            game_sessions: normalizeEventSession(
+              (incoming as Partial<EventSummary> | null)?.game_sessions ?? null
+            ),
+          }
 
-          const hydratedEvent: EventSummary =
-            (data && {
-              ...data,
-              game_sessions: normalizeEventSession(data.game_sessions),
-            }) ||
-            ({
-              id: incoming.id,
-              sequence: incoming.sequence,
-              play_call: incoming.play_call,
-              result: incoming.result,
-              gained_yards: incoming.gained_yards,
-              explosive: incoming.explosive,
-              turnover: incoming.turnover,
-              created_at: incoming.created_at,
-              game_sessions: normalizeEventSession(
-                // incoming may not contain joined session; fallback to null
-            (incoming as Partial<EventSummary> | null)?.game_sessions ?? null
-          ),
-        } as EventSummary)
+          try {
+            const { data } = await supabase
+              .from('chart_events')
+              .select(
+                'id, sequence, play_call, result, gained_yards, explosive, turnover, created_at, game_sessions!inner(unit, game_id)'
+              )
+              .eq('id', incoming.id)
+              .maybeSingle()
 
-      if (!isMounted) return
+            if (data) {
+              hydratedEvent = {
+                ...data,
+                game_sessions: normalizeEventSession(data.game_sessions),
+              }
+            }
+          } catch (err) {
+            console.warn('LiveEventFeed hydration failed', err)
+          }
 
-      setEvents((prev) => {
-        if (prev.some((item) => item.id === hydratedEvent.id)) return prev
-        return [hydratedEvent, ...prev].slice(0, 40)
-      })
-      onNewEvent?.(hydratedEvent)
-    }
+          if (!isMounted) return
+
+          setEvents((prev) => {
+            if (prev.some((item) => item.id === hydratedEvent.id)) return prev
+            return [hydratedEvent, ...prev].slice(0, 40)
+          })
+          onNewEvent?.(hydratedEvent)
+        }
       )
       .subscribe()
 
@@ -123,7 +128,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
           <p className="text-sm">No plays yet. Start a session in Games to see the live feed.</p>
         </div>
       ) : (
-        <div className="mt-5 max-h-[460px] space-y-3 overflow-y-auto pr-1">
+        <div className="mt-5 max-h-[460px] space-y-3 overflow-y-auto pr-1" role="list" aria-live="polite">
           <AnimatePresence initial={false}>
             {events.map((event) => (
               <motion.article
@@ -133,13 +138,13 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
                 exit={{ opacity: 0, y: 12 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
                 className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-200 shadow-lg backdrop-blur hover:border-cyan-400/30"
+                role="listitem"
+                aria-label={`Unit ${formatUnitLabel(event.game_sessions?.unit)} sequence ${event.sequence}`}
               >
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent opacity-70" />
                 <div className="relative flex flex-wrap items-center justify-between gap-2 text-[0.7rem] uppercase tracking-[0.24em] text-slate-400">
                   <span>{formatUnitLabel(event.game_sessions?.unit)}</span>
-                  <span className="tabular-nums">
-                    Seq {event.sequence} • {formatEventTimestamp(event.created_at)}
-                  </span>
+                  <span className="tabular-nums">Seq {event.sequence} • {formatEventTimestamp(event.created_at)}</span>
                 </div>
                 <div className="relative mt-1 flex items-center gap-2 text-base font-semibold text-slate-100">
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.7rem] uppercase tracking-[0.24em] text-cyan-200">

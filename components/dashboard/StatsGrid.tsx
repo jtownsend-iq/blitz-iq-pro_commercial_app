@@ -17,6 +17,7 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
       label: 'Total plays logged',
       value: totals.totalPlays,
       helper: 'All-time snaps',
+      live: true,
       tooltip: 'Play velocity',
       suffix: 'plays',
       icon: <Activity className="h-4 w-4 text-cyan-300" strokeWidth={1.5} />,
@@ -28,6 +29,7 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
       label: 'Explosive plays',
       value: totals.explosivePlays,
       helper: 'Tagged explosive',
+      live: true,
       tooltip: 'Explosive momentum',
       suffix: 'explosive',
       icon: <Flame className="h-4 w-4 text-amber-300" strokeWidth={1.5} />,
@@ -39,6 +41,7 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
       label: 'Turnovers recorded',
       value: totals.turnovers,
       helper: 'Fumbles & INTs',
+      live: true,
       tooltip: 'Disruption spikes',
       suffix: 'takeaways',
       icon: <Shield className="h-4 w-4 text-rose-200" strokeWidth={1.5} />,
@@ -50,6 +53,7 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
       label: 'Active sessions',
       value: totals.activeSessions,
       helper: 'Analysts charting now',
+      live: true,
       tooltip: 'Live session heat',
       suffix: 'live',
       icon: <Timer className="h-4 w-4 text-emerald-200" strokeWidth={1.5} />,
@@ -77,18 +81,22 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
             />
           </div>
 
-          <div className="relative space-y-2">
-            <div className="flex items-center justify-between text-xs uppercase tracking-[0.24em] text-slate-400">
-              <span>{card.label}</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.6rem] text-slate-200">
-                live
-              </span>
+          <div className="relative flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2 text-[0.65rem] uppercase tracking-[0.24em] text-slate-400">
+              <span className="truncate">{card.label}</span>
+              {card.live ? (
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.6rem] text-slate-200">
+                  live
+                </span>
+              ) : null}
             </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="flex items-center gap-2 text-3xl font-semibold text-slate-50 tabular-nums">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="flex items-baseline gap-2 text-2xl md:text-3xl font-semibold text-slate-50 tabular-nums">
                   {card.value.toLocaleString()}
-                  <span className="text-xs font-normal text-slate-400">{card.suffix}</span>
+                  <span className="text-xs font-normal uppercase tracking-wide text-slate-400">
+                    {card.suffix}
+                  </span>
                 </p>
                 <p className="text-xs text-slate-400">{card.helper}</p>
               </div>

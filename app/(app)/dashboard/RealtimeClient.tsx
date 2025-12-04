@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, Bolt, Radio, Shield } from 'lucide-react'
-import { useDashboardRealtime } from './hooks/useDashboardRealtime'
+import { DashboardEvent, useDashboardRealtime } from './hooks/useDashboardRealtime'
 import { DashboardCounts, SessionSummary } from './types'
 import { formatUnitLabel } from './utils'
+import { trackEvent } from '@/utils/telemetry'
 
 type DashboardRealtimeProps = {
   teamId: string
@@ -14,17 +15,13 @@ type DashboardRealtimeProps = {
 
 export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions }: DashboardRealtimeProps) {
   const [metrics, setMetrics] = useState<DashboardCounts>(initialCounts)
-  const [sessionState, setSessionState] = useState<Record<string, string>>(() =>
-    initialSessions.reduce<Record<string, string>>((acc, session) => {
-      acc[session.unit] = session.status
-      return acc
-    }, {})
-  )
+  const [sessions, setSessions] = useState<SessionSummary[]>(initialSessions)
   const [livePulse, setLivePulse] = useState(0)
+  const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'degraded' | 'disconnected'>('connected')
+  const lastStatusRef = useRef<'connected' | 'degraded' | 'disconnected'>('connected')
 
-  useDashboardRealtime({
-    teamId,
-    onEvent: (event) => {
+  const handleRealtimeEvent = useCallback(
+    (event: DashboardEvent) => {
       if (event.type === 'event') {
         setMetrics((prev) => ({
           totalPlays: prev.totalPlays + 1,
@@ -32,24 +29,56 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
           turnovers: event.payload.turnover ? prev.turnovers + 1 : prev.turnovers,
           activeSessions: prev.activeSessions,
         }))
+        setRealtimeStatus('connected')
         setLivePulse((prev) => prev + 1)
+        return
       }
 
       if (event.type === 'session') {
-        setSessionState((prev) => {
-          const next = {
-            ...prev,
-            [event.payload.unit]: event.payload.status,
+        setSessions((prev) => {
+          const idx = prev.findIndex((session) => session.id === event.payload.id)
+          const existing: SessionSummary | undefined = idx >= 0 ? prev[idx] : undefined
+          const nextSession: SessionSummary = existing
+            ? existing
+            : {
+                id: event.payload.id,
+                unit: event.payload.unit,
+                status: event.payload.status,
+                started_at: event.payload.started_at,
+                game_id: '',
+                games: null,
+              }
+
+          const updatedSession: SessionSummary = {
+            ...nextSession,
+            unit: event.payload.unit || nextSession.unit,
+            status: event.payload.status,
+            started_at: event.payload.started_at ?? nextSession.started_at,
           }
+
+          const next = idx >= 0 ? [...prev.slice(0, idx), updatedSession, ...prev.slice(idx + 1)] : [...prev, updatedSession]
+          const activeCount = next.filter((session) => session.status === 'active').length
           setMetrics((current) => ({
             ...current,
-            activeSessions: Object.values(next).filter((status) => status === 'active').length,
+            activeSessions: activeCount,
           }))
           return next
         })
+        setRealtimeStatus('connected')
         setLivePulse((prev) => prev + 1)
+        return
+      }
+
+      if (event.type === 'signal') {
+        setRealtimeStatus(event.payload.status)
       }
     },
+    []
+  )
+
+  useDashboardRealtime({
+    teamId,
+    onEvent: handleRealtimeEvent,
   })
 
   useEffect(() => {
@@ -57,7 +86,37 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
     return () => clearInterval(timer)
   }, [])
 
-  const sessionEntries = Object.entries(sessionState)
+  useEffect(() => {
+    if (realtimeStatus !== 'connected' && lastStatusRef.current !== realtimeStatus) {
+      trackEvent('dashboard_realtime_status', { status: realtimeStatus, teamId }, 'dashboard')
+    }
+    lastStatusRef.current = realtimeStatus
+  }, [realtimeStatus, teamId])
+
+  const sessionEntries = useMemo(() => {
+    const byUnit = sessions.reduce<Record<string, string>>((acc, session) => {
+      const unit = session.unit
+      const status = session.status
+      const existing = acc[unit]
+      if (existing === 'active') return acc
+      if (status === 'active') {
+        acc[unit] = 'active'
+      } else if (status === 'pending' && existing !== 'active') {
+        acc[unit] = 'pending'
+      } else if (!existing) {
+        acc[unit] = status
+      }
+      return acc
+    }, {})
+
+    const units = ['OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS']
+    return units
+      .filter((unit) => byUnit[unit])
+      .map((unit) => ({
+        unit,
+        status: byUnit[unit],
+      }))
+  }, [sessions])
 
   return (
     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.7)] backdrop-blur-xl">
@@ -65,6 +124,11 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-emerald-200">
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.15)]" />
           Live telemetry secured
+          {realtimeStatus !== 'connected' && (
+            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[0.65rem] uppercase tracking-[0.18em] text-amber-100">
+              {realtimeStatus === 'degraded' ? 'Signal delayed' : 'Signal lost'}
+            </span>
+          )}
         </div>
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.22em] text-slate-300 tabular-nums">
           {livePulse} new signals
@@ -117,7 +181,7 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
             Waiting for analysts to go live...
           </span>
         ) : (
-          sessionEntries.map(([unit, status]) => (
+          sessionEntries.map(({ unit, status }) => (
             <span
               key={unit}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em] ${

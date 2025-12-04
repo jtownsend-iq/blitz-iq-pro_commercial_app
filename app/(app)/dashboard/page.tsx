@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Suspense } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { LiveEventFeed } from '@/components/dashboard/LiveEventFeed'
@@ -10,6 +10,8 @@ import { requireAuth } from '@/utils/auth/requireAuth'
 import { DashboardRealtimeClient } from './RealtimeClient'
 import { ActionButton } from './ActionButton'
 import { setActiveTeam } from './actions'
+import { DashboardTracker } from './DashboardTracker'
+import { HeroCtaLink } from './HeroCtaLink'
 import {
   buildExplosiveSparkline,
   buildVolumeSparkline,
@@ -25,6 +27,22 @@ import {
   TeamMemberRow,
   TeamRow,
 } from './types'
+import { DashboardViewState, buildDashboardViewState } from './viewModel'
+
+type SurfaceProps = {
+  children: ReactNode
+  className?: string
+}
+
+function Surface({ children, className }: SurfaceProps) {
+  return (
+    <div
+      className={`rounded-3xl border border-slate-800/80 bg-slate-950/60 p-6 shadow-[0_25px_80px_-40px_rgba(0,0,0,0.9)] backdrop-blur-xl ${className || ''}`}
+    >
+      {children}
+    </div>
+  )
+}
 
 export default async function DashboardPage() {
   const { user, activeTeamId } = await requireAuth()
@@ -142,19 +160,6 @@ export default async function DashboardPage() {
     turnovers = turnoverRes.count ?? 0
   }
 
-  const activeRole =
-    memberships.find((m) => m.team_id === activeTeamId)?.role || memberships[0]?.role || 'Coach'
-
-  const statsCounts: DashboardCounts = {
-    totalPlays,
-    explosivePlays,
-    turnovers,
-    activeSessions: sessionSummaries.filter((s) => s.status === 'active').length,
-  }
-
-  const volumeSparkline = buildVolumeSparkline(recentEvents)
-  const explosiveSparkline = buildExplosiveSparkline(recentEvents)
-
   const activeOrPendingSessions = sessionSummaries.filter(
     (session) => session.status === 'active' || session.status === 'pending'
   )
@@ -174,25 +179,6 @@ export default async function DashboardPage() {
   const turnoversThisGame = currentGameEvents.filter((event) => event.turnover).length
   const explosiveRate = playsThisGame ? Math.round((explosiveThisGame / playsThisGame) * 100) : 0
   const liveSessionCount = activeOrPendingSessions.length
-
-  const formatKickoff = (value: string | null | undefined) => {
-    if (!value) return 'Kickoff time TBD'
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(value))
-  }
-
-  const unitSlug = (value: string | null | undefined) =>
-    (value || 'offense').toLowerCase().replace('_', '-')
-
-  const opponentName = currentSession?.games?.opponent_name || 'Opponent TBD'
-  const kickoffLabel = formatKickoff(currentSession?.games?.start_time)
-  const hasUpcomingGame = Boolean(nextGameSession)
-  const hasLiveSession = liveSessionCount > 0
 
   if (activeTeam && currentSession?.games?.opponent_name) {
     const opponentFilter = currentSession.games.opponent_name
@@ -231,85 +217,78 @@ export default async function DashboardPage() {
     }
   }
 
-  let heroTitle = "Set tonight's matchup"
-  let heroSubtitle =
-    'No upcoming game is scheduled. Lock in opponent and kickoff so the staff can chart in one click.'
-
-  if (hasUpcomingGame && !hasLiveSession) {
-    heroTitle = 'Upcoming game locked in'
-    heroSubtitle = `vs ${opponentName} - ${kickoffLabel}. Start charting or assign units before warmups.`
+  const statsCounts: DashboardCounts = {
+    totalPlays,
+    explosivePlays,
+    turnovers,
+    activeSessions: sessionSummaries.filter((s) => s.status === 'active').length,
   }
 
-  if (hasLiveSession) {
-    heroTitle = 'Live game-day control'
-    heroSubtitle = `vs ${opponentName} - ${kickoffLabel}. Active sessions are ready for the staff.`
-  }
+  const volumeSparkline = buildVolumeSparkline(recentEvents)
+  const explosiveSparkline = buildExplosiveSparkline(recentEvents)
 
-  const roleLabel = (activeRole || '').toLowerCase()
-  let ctaLabel = 'Open game-day view'
-  if (roleLabel.includes('offensive') || roleLabel.includes('oc')) {
-    ctaLabel = 'Open offense chart'
-  } else if (roleLabel.includes('defensive') || roleLabel.includes('dc')) {
-    ctaLabel = 'Open defense chart'
-  } else if (roleLabel.includes('special')) {
-    ctaLabel = 'Open special teams chart'
-  } else if (roleLabel.includes('analyst')) {
-    ctaLabel = 'Open charting for tonight'
-  } else if (roleLabel.includes('it') || roleLabel.includes('admin')) {
-    ctaLabel = "Manage tonight's sessions"
-  }
-
-  const ctaHref = currentSession
-    ? `/games/${currentSession.game_id}/chart/${unitSlug(currentSession.unit)}`
-    : '/games'
-
-  const hasSuccessfulImport = scoutingImports.some((imp) => {
-    const status = (imp.status || '').toLowerCase()
-    return status === 'success' || status === 'completed' || status === 'processed'
+  const activeMembership = memberships.find((m) => m.team_id === activeTeam.id) ?? null
+  const viewState: DashboardViewState = buildDashboardViewState({
+    team: activeTeam,
+    membership: activeMembership,
+    sessions: sessionSummaries,
+    events: recentEvents,
+    counts: statsCounts,
+    scoutingImports,
+    scoutingPlaysCount,
   })
-  const hasImports = scoutingImports.length > 0
-  const hasImportErrors =
-    scoutingImports.some((imp) => {
-      const status = (imp.status || '').toLowerCase()
-      return status === 'error' || status === 'failed' || status === 'failure'
-    }) || scoutingImports.some((imp) => Boolean(imp.error_log))
-
-  const scoutingStatusLabel = hasSuccessfulImport ? 'Ready' : hasImports ? 'Incomplete' : 'Missing'
-  const scoutingErrorsLabel = hasImportErrors ? 'Needs fixes' : 'Clean'
+  const hasLiveSession = liveSessionCount > 0
+  const opponentName = viewState.gameContext.opponentName || 'Opponent TBD'
+  const scoutingStatusLabel = formatStatusLabel(viewState.scouting.status)
+  const scoutingErrorsLabel = formatStatusLabel(viewState.scouting.errorsStatus)
 
   return (
     <section className="container space-y-8 py-6">
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/70 to-black/60 p-6 shadow-[0_25px_80px_-40px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+      <div className="grid gap-6 lg:grid-cols-12">
+        <Surface className="relative overflow-hidden lg:col-span-12 xl:col-span-7">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(52,211,153,0.12),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.12),transparent_30%)]" />
-          <div className="relative space-y-4">
+          <div className="relative space-y-5">
+            <DashboardTracker
+              teamId={activeTeam.id}
+              role={viewState.hero.roleLabel}
+              mode={viewState.hero.modeLabel}
+            />
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-[0.26em] text-emerald-100">
               <Sparkles className="h-4 w-4" />
               Game control
             </div>
             <div className="space-y-2">
-              <h1 className="font-display text-3xl font-semibold text-slate-50 md:text-4xl">{heroTitle}</h1>
-              <p className="text-sm text-slate-300">{heroSubtitle}</p>
+              <h1 className="font-display text-3xl font-semibold text-slate-50 md:text-4xl">{viewState.hero.title}</h1>
+              <p className="text-sm text-slate-300">{viewState.hero.subtitle}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[0.75rem] text-slate-200">
               <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
-                Role: {activeRole || 'Coach'}
+                Role: {viewState.hero.roleLabel || 'Coach'}
               </span>
               {activeTeam && (
                 <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
                   Team: {activeTeam.name || 'Unnamed'}
                 </span>
               )}
-              {hasLiveSession ? (
-                <span className="pill bg-emerald-500/10 border-emerald-700/40 text-emerald-300">Live</span>
-              ) : (
-                <span className="pill bg-slate-900/70 border-slate-800 text-slate-200">Not live</span>
-              )}
+              <span
+                className={`pill ${
+                  hasLiveSession
+                    ? 'bg-emerald-500/10 border-emerald-700/40 text-emerald-300'
+                    : 'bg-slate-900/70 border-slate-800 text-slate-200'
+                }`}
+              >
+                {hasLiveSession ? 'Live' : 'Not live'}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Link href={ctaHref} className="btn-primary text-[0.75rem] tracking-[0.18em]">
-                {ctaLabel}
-              </Link>
+              <HeroCtaLink
+                href={viewState.hero.ctaHref}
+                label={viewState.hero.ctaLabel}
+                teamId={activeTeam.id}
+                role={viewState.hero.roleLabel}
+                mode={viewState.hero.modeLabel}
+                className="btn-primary text-[0.75rem] tracking-[0.18em]"
+              />
               <Link
                 href="/games"
                 className="inline-flex items-center text-xs uppercase tracking-[0.2em] text-slate-400 hover:text-white"
@@ -342,9 +321,9 @@ export default async function DashboardPage() {
               </form>
             )}
           </div>
-        </div>
+        </Surface>
 
-        <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-[0_25px_80px_-40px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+        <Surface className="lg:col-span-12 xl:col-span-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.2em] text-slate-500">Game snapshot</p>
@@ -354,7 +333,7 @@ export default async function DashboardPage() {
               {hasLiveSession ? 'Live' : 'Staged'}
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Plays this game</p>
               <p className="mt-2 text-2xl font-semibold text-slate-50">{playsThisGame}</p>
@@ -376,37 +355,118 @@ export default async function DashboardPage() {
               <p className="text-xs text-slate-400">Active or pending units</p>
             </div>
           </div>
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Weekly prep</p>
-                <p className="text-xs text-slate-300">Scouting for {opponentName}</p>
-              </div>
-              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[0.68rem] uppercase tracking-[0.24em] text-emerald-100">
-                {scoutingStatusLabel}
-              </div>
+        </Surface>
+
+        <Surface className="lg:col-span-12 xl:col-span-7 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Performance pulse</p>
+              <p className="text-sm text-slate-300">Momentum for tonight</p>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">Scouting CSVs</p>
-                <p className="mt-1 text-base font-semibold text-slate-50">{scoutingStatusLabel}</p>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.68rem] uppercase tracking-[0.22em] text-slate-200">
+              {opponentName}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[...(viewState.globalMetrics.drives || []), ...(viewState.globalMetrics.efficiency || []), ...(viewState.globalMetrics.fieldPosition || [])].map((tile) => (
+              <div key={tile.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{tile.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-50">{tile.value}</p>
+                {tile.context && <p className="text-xs text-slate-400">{tile.context}</p>}
               </div>
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">Scouting errors</p>
-                <p className="mt-1 text-base font-semibold text-slate-50">{scoutingErrorsLabel}</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">Scouted plays</p>
-                <p className="mt-1 text-base font-semibold text-slate-50">
-                  {scoutingPlaysCount} for {opponentName}
-                </p>
-              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Units</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {viewState.perUnit.map((unit) => (
+                <div key={unit.unit} className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{unit.unit.replace('_', ' ')}</p>
+                  </div>
+                  <div className="space-y-2">
+                    {unit.primaryStats.map((stat) => (
+                      <div key={stat.id}>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
+                        <p className="text-2xl font-semibold text-slate-50">{stat.value}</p>
+                      </div>
+                    ))}
+                    {unit.secondaryStats.map((stat) => (
+                      <div key={stat.id}>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
+                        <p className="text-base font-semibold text-slate-100">{stat.value}</p>
+                        {stat.context && <p className="text-xs text-slate-400">{stat.context}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
+        </Surface>
 
-      <StatsGrid totals={statsCounts} volumeTrend={volumeSparkline} explosiveTrend={explosiveSparkline} />
+        <Surface className="lg:col-span-12 xl:col-span-5">
+          <StatsGrid totals={viewState.rawCounts} volumeTrend={volumeSparkline} explosiveTrend={explosiveSparkline} />
+        </Surface>
+
+        <Surface className="lg:col-span-12 xl:col-span-7 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Weekly prep</p>
+              <p className="text-sm text-slate-300">Scouting for {opponentName}</p>
+            </div>
+            <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[0.68rem] uppercase tracking-[0.24em] text-emerald-100">
+              {scoutingStatusLabel}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">Scouting CSVs</p>
+              <p className="mt-1 text-base font-semibold text-slate-50">{scoutingStatusLabel}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">Scouting errors</p>
+              <p className="mt-1 text-base font-semibold text-slate-50">{scoutingErrorsLabel}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">Scouted plays</p>
+              <p className="mt-1 text-base font-semibold text-slate-50">
+                {viewState.scouting.playsCount} for {opponentName}
+              </p>
+            </div>
+          </div>
+        </Surface>
+
+        {teams.length > 1 && (
+          <Surface className="lg:col-span-12 xl:col-span-5">
+            <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+              {teams.map((team) => {
+                const membership = memberships.find((m) => m.team_id === team.id)
+                return (
+                  <li
+                    key={team.id}
+                    className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-100">{team.name || 'Unnamed Team'}</p>
+                      <p className="text-xs text-slate-500">
+                        {team.school_name || 'School TBD'}
+                        {team.level && ` | ${team.level}`}
+                      </p>
+                    </div>
+                    {membership?.role && (
+                      <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
+                        {membership.role}
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </Surface>
+        )}
+      </div>
 
       <Suspense
         fallback={
@@ -420,45 +480,57 @@ export default async function DashboardPage() {
         <DashboardRealtimeClient
           key={activeTeam.id}
           teamId={activeTeam.id}
-          initialCounts={statsCounts}
+          initialCounts={viewState.rawCounts}
           initialSessions={sessionSummaries}
         />
       </Suspense>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <LiveSessionList sessions={sessionSummaries} />
-        <LiveEventFeed key={activeTeam.id} teamId={activeTeam.id} initialEvents={recentEvents} />
-      </div>
-
-      {teams.length > 1 && (
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-6 shadow-[0_25px_80px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
-          <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-            {teams.map((team) => {
-              const membership = memberships.find((m) => m.team_id === team.id)
-              return (
-                <li
-                  key={team.id}
-                  className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-100">{team.name || 'Unnamed Team'}</p>
-                    <p className="text-xs text-slate-500">
-                      {team.school_name || 'School TBD'}
-                      {team.level && ` | ${team.level}`}
-                    </p>
-                  </div>
-                  {membership?.role && (
-                    <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                      {membership.role}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+        <div>
+          <LiveSessionList sessions={sessionSummaries} />
         </div>
-      )}
+        <div className="space-y-6">
+          <LiveEventFeed key={activeTeam.id} teamId={activeTeam.id} initialEvents={recentEvents} />
+          {teams.length > 1 && (
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-6 shadow-[0_25px_80px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+              <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                {teams.map((team) => {
+                  const membership = memberships.find((m) => m.team_id === team.id)
+                  return (
+                    <li
+                      key={team.id}
+                      className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-100">{team.name || 'Unnamed Team'}</p>
+                        <p className="text-xs text-slate-500">
+                          {team.school_name || 'School TBD'}
+                          {team.level && ` | ${team.level}`}
+                        </p>
+                      </div>
+                      {membership?.role && (
+                        <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
+                          {membership.role}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   )
+}
+
+function formatStatusLabel(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ')
 }

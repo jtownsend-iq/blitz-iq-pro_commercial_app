@@ -2,11 +2,20 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 const setEnv = (key: string, value?: string) => {
-  (process.env as Record<string, string | undefined>)[key] = value
+  if (value === undefined) {
+    delete (process.env as Record<string, string | undefined>)[key]
+    return
+  }
+  ;(process.env as Record<string, string | undefined>)[key] = value
+}
+
+const loadConfig = async () => {
+  const mod = await import(`../../utils/supabase/publicConfig?ts=${Date.now()}`)
+  return mod.getSupabasePublicConfig
 }
 
 test('getSupabasePublicConfig throws when missing in production', async () => {
-  const { getSupabasePublicConfig } = await import('../../utils/supabase/publicConfig')
+  const getSupabasePublicConfig = await loadConfig()
   const originalEnv = { ...process.env }
   setEnv('NODE_ENV', 'production')
   setEnv('NEXT_PUBLIC_SUPABASE_URL', undefined)
@@ -20,7 +29,7 @@ test('getSupabasePublicConfig throws when missing in production', async () => {
 })
 
 test('getSupabasePublicConfig returns null when allowed in dev', async () => {
-  const { getSupabasePublicConfig } = await import('../../utils/supabase/publicConfig')
+  const getSupabasePublicConfig = await loadConfig()
   const originalEnv = { ...process.env }
   setEnv('NODE_ENV', 'development')
   setEnv('NEXT_PUBLIC_SUPABASE_URL', undefined)
@@ -32,7 +41,7 @@ test('getSupabasePublicConfig returns null when allowed in dev', async () => {
 })
 
 test('getSupabasePublicConfig returns canonical anon key when present', async () => {
-  const { getSupabasePublicConfig } = await import('../../utils/supabase/publicConfig')
+  const getSupabasePublicConfig = await loadConfig()
   const originalEnv = { ...process.env }
   setEnv('NODE_ENV', 'development')
   setEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
@@ -45,7 +54,7 @@ test('getSupabasePublicConfig returns canonical anon key when present', async ()
 })
 
 test('getSupabasePublicConfig falls back to publishable key when anon key missing', async () => {
-  const { getSupabasePublicConfig } = await import('../../utils/supabase/publicConfig')
+  const getSupabasePublicConfig = await loadConfig()
   const originalEnv = { ...process.env }
   setEnv('NODE_ENV', 'development')
   setEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
