@@ -1,5 +1,6 @@
 import { AppShell, type NavItem } from '@/components/layout/AppShell'
 import { AuthProvider } from '@/components/auth/AuthProvider'
+import { TelemetryBootstrap } from '@/components/telemetry/TelemetryBootstrap'
 import { requireAuth } from '@/utils/auth/requireAuth'
 import type { ReactNode } from 'react'
 
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <AuthProvider value={auth}>
+      <TelemetryBootstrap />
       <AppShell
         navItems={navItems}
         shellConfig={{ variant: 'app', showFooter: true }}

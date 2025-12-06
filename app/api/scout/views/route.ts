@@ -1,34 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-  return supabase
-}
+import { guardTenantAction } from '@/utils/tenant/limits'
+import { requireTenantContext } from '@/utils/tenant/context'
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-
-    const { searchParams } = new URL(request.url)
-    const teamId = searchParams.get('teamId')
-    if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
-
-    await assertMembership(teamId, user.id)
+    const tenant = await requireTenantContext({ auditEvent: 'scout_views_read' })
+    await guardTenantAction(tenant, 'default')
+    const supabase = tenant.supabase
+    const teamId = tenant.teamId
 
     const { data, error } = await supabase
       .from('scout_views')
@@ -47,37 +26,30 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const tenant = await requireTenantContext({ auditEvent: 'scout_views_write' })
+    await guardTenantAction(tenant, 'write')
+    const supabase = tenant.supabase
 
     const body = await request.json()
-    const teamId: string | undefined = body.teamId
     const name: string | undefined = body.name
     const opponent: string | undefined = body.opponent
     const season: string | undefined = body.season
     const filters = body.filters as Record<string, unknown> | undefined
 
-    if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
     if (!name || name.trim().length === 0) return NextResponse.json({ error: 'name is required' }, { status: 400 })
     if (name.length > 120) return NextResponse.json({ error: 'name too long (max 120)' }, { status: 400 })
-
-    await assertMembership(teamId, user.id)
 
     const safeFilters = filters && typeof filters === 'object' ? filters : {}
 
     const { data, error } = await supabase
       .from('scout_views')
       .insert({
-        team_id: teamId,
+        team_id: tenant.teamId,
         name: name.trim(),
         opponent_name: opponent,
         season,
         filters: safeFilters,
-        created_by: user.id,
+        created_by: tenant.userId,
       })
       .select('id')
       .maybeSingle()

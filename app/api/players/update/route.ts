@@ -1,44 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { jsonError, jsonOk } from '@/utils/api/responses'
-
-async function assertMembership(playerId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data: player, error: playerError } = await supabase
-    .from('players')
-    .select('team_id')
-    .eq('id', playerId)
-    .maybeSingle()
-
-  if (playerError || !player?.team_id) {
-    throw new Error('Player not found or team missing')
-  }
-
-  const { data: membership, error: membershipError } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', player.team_id)
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (membershipError || !membership) {
-    throw new Error('You do not have access to this team')
-  }
-
-  return { supabase, teamId: player.team_id as string }
-}
+import { sendServerTelemetry } from '@/utils/telemetry.server'
+import { assertTeamScope, requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
+import { fetchPlayerTeamId } from '@/utils/tenant/player'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return jsonError('Not authenticated', 401)
-    }
+    const tenant = await requireTenantContext({ auditEvent: 'player_update' })
+    await guardTenantAction(tenant, 'write')
 
     const body = await request.json()
     const playerId: string | undefined = body.playerId
@@ -46,7 +16,8 @@ export async function POST(request: Request) {
       return jsonError('playerId is required', 400)
     }
 
-    const { supabase: svc } = await assertMembership(playerId, user.id)
+    const playerTeamId = await fetchPlayerTeamId(tenant.supabase, playerId)
+    assertTeamScope(tenant.teamId, playerTeamId, 'player_update')
 
     const update: Record<string, unknown> = {}
     if (typeof body.status === 'string') {
@@ -94,8 +65,13 @@ export async function POST(request: Request) {
     if (Array.isArray(body.tags)) update.tags = normalizeArray(validateStringArray(body.tags, 'tags') ?? [])
     if (typeof body.scoutTeam === 'boolean') update.scout_team = body.scoutTeam
 
-    const { error } = await svc.from('players').update(update).eq('id', playerId)
+    const { error } = await tenant.supabase.from('players').update(update).eq('id', playerId)
     if (error) {
+      await sendServerTelemetry('player_update_error', {
+        teamId: tenant.teamId,
+        userId: tenant.userId,
+        message: error.message,
+      })
       return jsonError(error.message, 400)
     }
 

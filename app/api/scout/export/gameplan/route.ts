@@ -17,42 +17,23 @@ if (!swcHelpers.initializerDefineProperty && swcHelpers._initializer_define_prop
 // Use the CJS build to avoid ESM helper resolution issues.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit/js/pdfkit.js') as typeof PDFKitDocument
-import { createSupabaseServerClient } from '@/utils/supabase/server'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-  return supabase
-}
+import { guardTenantAction } from '@/utils/tenant/limits'
+import { requireTenantContext } from '@/utils/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const tenant = await requireTenantContext({ auditEvent: 'scout_gameplan_export' })
+    await guardTenantAction(tenant, 'default')
+    const supabase = tenant.supabase
 
     const { searchParams } = new URL(request.url)
-    const teamId = searchParams.get('teamId')
     const opponent = searchParams.get('opponent')
     const season = searchParams.get('season')
     const phase = (searchParams.get('phase') || undefined) as 'OFFENSE' | 'DEFENSE' | undefined
 
-    if (!teamId || !opponent || !season) {
-      return NextResponse.json({ error: 'teamId, opponent, and season are required' }, { status: 400 })
+    if (!opponent || !season) {
+      return NextResponse.json({ error: 'opponent and season are required' }, { status: 400 })
     }
-
-    await assertMembership(teamId, user.id)
 
     const tagsParam = searchParams.get('tags')
     const tagLogic = (searchParams.get('tagLogic') || 'OR').toUpperCase() as 'AND' | 'OR'
@@ -68,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     const [tendRes, recentRes] = await Promise.all([
       supabase.rpc('get_scout_tendencies', {
-        p_team: teamId,
+        p_team: tenant.teamId,
         p_opponent: opponent,
         p_season: season,
         p_phase: phase ?? null,
@@ -78,7 +59,7 @@ export async function GET(request: NextRequest) {
         p_field_bucket: fieldBucket,
       }),
       supabase.rpc('get_scout_recent', {
-        p_team: teamId,
+        p_team: tenant.teamId,
         p_opponent: opponent,
         p_season: season,
         p_limit: 100,

@@ -4,22 +4,17 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { sendServerTelemetry } from '@/utils/telemetry.server'
+import { guardTenantAction } from '@/utils/tenant/limits'
+import { requireTenantContext } from '@/utils/tenant/context'
 
 const setActiveTeamSchema = z.object({
   teamId: z.string().uuid(),
 })
 
 export async function setActiveTeam(formData: FormData) {
+  const { userId, teamId: currentTeamId } = await requireTenantContext({ auditEvent: 'dashboard_set_active_team' })
   const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/login?error=unauthorized')
-  }
 
   const parsed = setActiveTeamSchema.safeParse({
     teamId: formData.get('teamId')?.toString(),
@@ -29,11 +24,13 @@ export async function setActiveTeam(formData: FormData) {
     return { success: false, error: 'invalid_input' }
   }
 
+  await guardTenantAction({ supabase, userId, teamId: currentTeamId, membershipRole: null, teamTier: null }, 'default')
+
   const { data: membership, error: membershipError } = await supabase
     .from('team_members')
     .select('team_id')
     .eq('team_id', parsed.data.teamId)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle()
 
   if (membershipError) {
@@ -48,10 +45,14 @@ export async function setActiveTeam(formData: FormData) {
   const { error: updateError } = await supabase
     .from('users')
     .update({ active_team_id: parsed.data.teamId })
-    .eq('id', user.id)
+    .eq('id', userId)
 
   if (updateError) {
     console.error('setActiveTeam update error:', updateError.message)
+    await sendServerTelemetry('dashboard_set_active_team_error', {
+      reason: updateError.message,
+      targetTeam: parsed.data.teamId,
+    })
     return { success: false, error: 'server_error' }
   }
 
@@ -65,15 +66,8 @@ const setActiveTeamAndGoSchema = z.object({
 })
 
 export async function setActiveTeamAndGo(formData: FormData) {
+  const { userId, teamId: currentTeamId } = await requireTenantContext({ auditEvent: 'dashboard_set_active_team_go' })
   const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/login?error=unauthorized')
-  }
 
   const parsed = setActiveTeamAndGoSchema.safeParse({
     teamId: formData.get('teamId')?.toString(),
@@ -86,11 +80,13 @@ export async function setActiveTeamAndGo(formData: FormData) {
 
   const { teamId, redirectTo } = parsed.data
 
+  await guardTenantAction({ supabase, userId, teamId: currentTeamId, membershipRole: null, teamTier: null }, 'default')
+
   const { data: membership, error: membershipError } = await supabase
     .from('team_members')
     .select('team_id')
     .eq('team_id', teamId)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle()
 
   if (membershipError) {
@@ -105,10 +101,14 @@ export async function setActiveTeamAndGo(formData: FormData) {
   const { error: updateError } = await supabase
     .from('users')
     .update({ active_team_id: teamId })
-    .eq('id', user.id)
+    .eq('id', userId)
 
   if (updateError) {
     console.error('setActiveTeamAndGo update error:', updateError.message)
+    await sendServerTelemetry('dashboard_set_active_team_error', {
+      reason: updateError.message,
+      targetTeam: teamId,
+    })
     return { success: false, error: 'server_error' }
   }
 

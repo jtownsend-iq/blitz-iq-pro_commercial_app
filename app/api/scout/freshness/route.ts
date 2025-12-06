@@ -1,41 +1,21 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-  return supabase
-}
+import { guardTenantAction } from '@/utils/tenant/limits'
+import { requireTenantContext } from '@/utils/tenant/context'
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const tenant = await requireTenantContext({ auditEvent: 'scout_freshness_read' })
+    await guardTenantAction(tenant, 'default')
+    const supabase = tenant.supabase
 
     const { searchParams } = new URL(request.url)
-    const teamId = searchParams.get('teamId')
     const opponent = searchParams.get('opponent')
     const season = searchParams.get('season')
-
-    if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
-    await assertMembership(teamId, user.id)
 
     const query = supabase
       .from('scout_tendencies_mv')
       .select('opponent_name, season, updated_at')
-      .eq('team_id', teamId)
+      .eq('team_id', tenant.teamId)
       .order('updated_at', { ascending: false })
 
     if (opponent) query.eq('opponent_name', opponent)

@@ -5,9 +5,11 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import {
-  createSupabaseServerClient,
   createSupabaseServiceRoleClient,
 } from '@/utils/supabase/server'
+import { sendServerTelemetry } from '@/utils/telemetry.server'
+import { assertTenantRole, requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
 import {
   DEFAULT_CUSTOM_TAGS,
   DEFAULT_EXPLOSIVE_THRESHOLDS,
@@ -123,16 +125,9 @@ function parseCheckbox(value: FormDataEntryValue | null): boolean {
 }
 
 export async function updateProfileIdentity(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/login?error=unauthorized')
-  }
+  const tenant = await requireTenantContext({ auditEvent: 'settings_update_profile' })
+  await guardTenantAction(tenant, 'write')
+  const supabase = tenant.supabase
 
   const raw = {
     full_name: normalizeString(formData.get('full_name')),
@@ -159,7 +154,7 @@ export async function updateProfileIdentity(formData: FormData) {
   const { error } = await supabase
     .from('users')
     .update(payload)
-    .eq('id', user.id)
+    .eq('id', tenant.userId)
 
   if (error) {
     console.error('updateProfileIdentity error:', error.message)
@@ -171,16 +166,9 @@ export async function updateProfileIdentity(formData: FormData) {
 }
 
 export async function updateNotificationPreferences(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/login?error=unauthorized')
-  }
+  const tenant = await requireTenantContext({ auditEvent: 'settings_update_notifications' })
+  await guardTenantAction(tenant, 'write')
+  const supabase = tenant.supabase
 
   const rawEntries = notificationToggleFields.map((field) => [
     field,
@@ -201,7 +189,7 @@ export async function updateNotificationPreferences(formData: FormData) {
   const { error } = await supabase
     .from('users')
     .update(parsed.data)
-    .eq('id', user.id)
+    .eq('id', tenant.userId)
 
   if (error) {
     console.error('updateNotificationPreferences error:', error.message)
@@ -218,70 +206,21 @@ type TeamContextUser = {
 }
 
 type TeamContext = {
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  supabase: Awaited<ReturnType<typeof requireTenantContext>>['supabase']
   user: TeamContextUser
   teamId: string
   role: string | null
 }
 
-async function requireTeamManager(): Promise<TeamContext> {
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/login?error=unauthorized')
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('active_team_id')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    console.error('Failed to fetch profile in settings action:', profileError.message)
-  }
-
-  const activeTeamId = profile?.active_team_id as string | null
-
-  if (!activeTeamId) {
-    redirect('/onboarding/team')
-  }
-
-  const { data: membership, error: membershipError } = await supabase
-    .from('team_members')
-    .select('role')
-    .eq('team_id', activeTeamId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (membershipError) {
-    console.error('Failed to fetch membership in settings action:', membershipError.message)
-  }
-
-  if (!membership) {
-    redirect('/dashboard')
-  }
-
-  const rawRole = (membership.role as string | null) ?? null
-  const normalizedRole = rawRole ? rawRole.toUpperCase() : null
-
-  if (
-    normalizedRole &&
-    !TEAM_MANAGER_ROLES.includes(normalizedRole as (typeof TEAM_MANAGER_ROLES)[number])
-  ) {
-    redirect('/settings?error=forbidden')
-  }
-
+async function requireTeamManager(auditEvent = 'settings_action'): Promise<TeamContext> {
+  const tenant = await requireTenantContext({ auditEvent })
+  assertTenantRole(tenant, TEAM_MANAGER_ROLES, auditEvent)
+  await guardTenantAction(tenant, 'write')
   return {
-    supabase,
-    user: { id: user.id, email: user.email ?? null },
-    teamId: activeTeamId,
-    role: normalizedRole,
+    supabase: tenant.supabase,
+    user: { id: tenant.userId, email: tenant.email ?? null },
+    teamId: tenant.teamId,
+    role: tenant.membershipRole ?? null,
   }
 }
 

@@ -1,30 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-  return supabase
-}
+import { assertTeamScope, requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const resolved = await params
     const importId = resolved.id
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const tenant = await requireTenantContext({ auditEvent: 'scout_import_errors' })
+    await guardTenantAction(tenant, 'default')
+    const supabase = tenant.supabase
 
     if (!importId) return NextResponse.json({ error: 'importId is required' }, { status: 400 })
 
@@ -35,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .maybeSingle()
     if (impErr || !imp) return NextResponse.json({ error: 'Import not found' }, { status: 404 })
 
-    await assertMembership(imp.team_id as string, user.id)
+    assertTeamScope(tenant.teamId, imp.team_id as string, 'scout_import_errors')
 
     const { data: rows, error: rowsErr } = await supabase
       .from('scout_import_rows')

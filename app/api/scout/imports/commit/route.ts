@@ -1,29 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/utils/supabase/server'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-}
+import { createSupabaseServiceRoleClient } from '@/utils/supabase/server'
+import { assertTeamScope, requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
+    const tenant = await requireTenantContext({ auditEvent: 'scout_import_commit' })
+    await guardTenantAction(tenant, 'ingest')
 
     const body = await request.json()
     const importId: string | undefined = body.importId
@@ -37,7 +20,7 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (importErr || !imp) return NextResponse.json({ error: 'Import not found' }, { status: 404 })
 
-    await assertMembership(imp.team_id as string, user.id)
+    assertTeamScope(tenant.teamId, imp.team_id as string, 'scout_import_commit')
 
     const { data: rows, error: rowsErr } = await svc
       .from('scout_import_rows')

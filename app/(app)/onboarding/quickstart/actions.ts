@@ -1,48 +1,21 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { POSITIONAL_GROUP_DEFAULTS } from '@/app/(app)/settings/constants'
+import { requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
 
 type TeamContext = {
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  supabase: Awaited<ReturnType<typeof requireTenantContext>>['supabase']
   userId: string
   teamId: string
 }
 
 async function requireTeamContext(): Promise<TeamContext> {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login?error=unauthorized')
-  }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('active_team_id')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  const teamId = (profile?.active_team_id as string | null) ?? null
-  if (!teamId) {
-    redirect('/onboarding/team')
-  }
-
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('role')
-    .eq('team_id', teamId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!membership) {
-    redirect('/dashboard')
-  }
-
-  return { supabase, userId: user.id, teamId }
+  const tenant = await requireTenantContext({ auditEvent: 'quickstart_action' })
+  await guardTenantAction(tenant, 'write')
+  if (!tenant.teamId) redirect('/onboarding/team')
+  return { supabase: tenant.supabase, userId: tenant.userId, teamId: tenant.teamId }
 }
 
 async function markProgress(

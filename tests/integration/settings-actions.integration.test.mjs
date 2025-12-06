@@ -2,14 +2,25 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
+import dotenv from 'dotenv'
+
+dotenv.config({ path: '.env.local' })
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const TEST_TEAM_ID = process.env.TEST_TEAM_ID
 
+const missingEnv = [
+  ['NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL],
+  ['SUPABASE_SERVICE_ROLE_KEY', SERVICE_ROLE_KEY],
+  ['TEST_TEAM_ID', TEST_TEAM_ID],
+]
+  .filter(([, value]) => !value)
+  .map(([key]) => key)
+
 const shouldSkip =
-  !SUPABASE_URL || !SERVICE_ROLE_KEY || !TEST_TEAM_ID
-    ? `Missing env (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TEST_TEAM_ID)`
+  missingEnv.length > 0
+    ? `Missing env (${missingEnv.join(', ')})`
     : false
 
 const supabase = shouldSkip ? null : createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -39,10 +50,12 @@ test('settings actions integration: chart tags + thresholds', async (t) => {
   assert.equal(deleteErr, null, `cleanup failed: ${deleteErr?.message}`)
 
   // Insert default tags (offense personnel + formations + custom)
+  const withCtx = (label) => `${label}-${ctx}`
+
   const rows = [
     ...defaultPayload.personnelOffense.map((label, idx) => ({
       team_id: teamId,
-      label,
+      label: withCtx(label),
       category: 'PERSONNEL',
       unit: 'OFFENSE',
       sort_order: idx,
@@ -50,7 +63,7 @@ test('settings actions integration: chart tags + thresholds', async (t) => {
     })),
     ...defaultPayload.formationsOffense.map((label, idx) => ({
       team_id: teamId,
-      label,
+      label: withCtx(label),
       category: 'FORMATION',
       unit: 'OFFENSE',
       sort_order: idx,
@@ -86,18 +99,18 @@ test('settings actions integration: chart tags + thresholds', async (t) => {
     success_4th_pct: 60,
   }
 
-  const { error: upsertNullErr } = await supabase
-    .from('charting_defaults')
-    .upsert([{ team_id: teamId, ...baseThresholds }], { onConflict: 'team_id' })
-  assert.equal(upsertNullErr, null, `upsert null-unit thresholds failed: ${upsertNullErr?.message}`)
+  // Clean any existing thresholds for this team to avoid conflicts
+  await supabase.from('charting_defaults').delete().eq('team_id', teamId)
 
-  const { error: upsertOffenseErr } = await supabase
+  const { error: insertNullErr } = await supabase
     .from('charting_defaults')
-    .upsert(
-      [{ team_id: teamId, unit: 'OFFENSE', ...baseThresholds }],
-      { onConflict: 'team_id,unit' }
-    )
-  assert.equal(upsertOffenseErr, null, `upsert offense thresholds failed: ${upsertOffenseErr?.message}`)
+    .insert([{ team_id: teamId, ...baseThresholds }])
+  assert.equal(insertNullErr, null, `insert null-unit thresholds failed: ${insertNullErr?.message}`)
+
+  const { error: insertOffenseErr } = await supabase
+    .from('charting_defaults')
+    .insert([{ team_id: teamId, unit: 'OFFENSE', ...baseThresholds }])
+  assert.equal(insertOffenseErr, null, `insert offense thresholds failed: ${insertOffenseErr?.message}`)
 
   const { data: fetchedDefaults, error: defaultsErr } = await supabase
     .from('charting_defaults')

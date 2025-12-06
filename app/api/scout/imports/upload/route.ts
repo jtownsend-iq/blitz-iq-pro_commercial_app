@@ -1,49 +1,29 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/utils/supabase/server'
+import { createSupabaseServiceRoleClient } from '@/utils/supabase/server'
 import { hashBuffer, normalizeRow, parseCsvRows } from '@/utils/scout/ingest'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-}
+import { requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
+    const tenant = await requireTenantContext({ auditEvent: 'scout_import_upload' })
+    await guardTenantAction(tenant, 'ingest')
 
     const form = await request.formData()
     const file = form.get('file')
-    const teamId = (form.get('teamId') as string | null)?.trim()
     const opponentName =
       (form.get('opponent') as string | null)?.trim() || (form.get('opponent_name') as string | null)?.trim()
     const season = (form.get('season') as string | null)?.trim() || ''
     const defaultPhase = ((form.get('phase') as string | null)?.toUpperCase() || 'OFFENSE') as 'OFFENSE' | 'DEFENSE'
 
-    if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
     if (!opponentName) return NextResponse.json({ error: 'opponent is required' }, { status: 400 })
     if (!file || !(file instanceof File)) return NextResponse.json({ error: 'file is required' }, { status: 400 })
-
-    await assertMembership(teamId, user.id)
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const fileHash = hashBuffer(buffer)
 
     const svc = createSupabaseServiceRoleClient()
+    const teamId = tenant.teamId
 
     const { data: existing } = await svc
       .from('scout_imports')
@@ -68,7 +48,7 @@ export async function POST(request: Request) {
           status: 'pending',
           original_filename: file.name,
           file_hash: fileHash,
-          created_by: user.id,
+          created_by: tenant.userId,
         })
         .select('id')
         .maybeSingle()

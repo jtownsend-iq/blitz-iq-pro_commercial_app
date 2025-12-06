@@ -24,6 +24,14 @@ export async function POST(req: Request) {
     const payload = typed.payload ?? {}
     const source = typeof typed.source === 'string' ? typed.source : 'app'
     const ts = typeof typed.ts === 'number' ? typed.ts : Date.now()
+    const teamId =
+      (typeof (payload as any)?.teamId === 'string' && (payload as any).teamId) ||
+      (typeof (payload as any)?.team_id === 'string' && (payload as any).team_id) ||
+      null
+    const tier =
+      (typeof (payload as any)?.tier === 'string' && (payload as any).tier) ||
+      (typeof (payload as any)?.teamTier === 'string' && (payload as any).teamTier) ||
+      null
     const userAgent = req.headers.get('user-agent') ?? ''
     const ip =
       req.headers.get('x-forwarded-for')?.split(',')?.[0]?.trim() ||
@@ -36,6 +44,8 @@ export async function POST(req: Request) {
         event,
         source,
         payload,
+        team_id: teamId,
+        tier,
         ts,
         user_agent: userAgent,
         ip,

@@ -1,30 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
-
-async function assertMembership(teamId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('team_id', teamId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) {
-    throw new Error('You do not have access to this team')
-  }
-  return supabase
-}
+import { assertTeamScope, requireTenantContext } from '@/utils/tenant/context'
+import { guardTenantAction } from '@/utils/tenant/limits'
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const resolved = await params
     const viewId = resolved.id
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const tenant = await requireTenantContext({ auditEvent: 'scout_view_delete' })
+    await guardTenantAction(tenant, 'write')
+    const supabase = tenant.supabase
 
     if (!viewId) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
@@ -35,7 +19,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .maybeSingle()
     if (viewErr || !view) return NextResponse.json({ error: 'View not found' }, { status: 404 })
 
-    await assertMembership(view.team_id as string, user.id)
+    assertTeamScope(tenant.teamId, view.team_id as string, 'scout_view_delete')
 
     const { error: delErr } = await supabase.from('scout_views').delete().eq('id', viewId)
     if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 })

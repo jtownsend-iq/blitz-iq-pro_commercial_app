@@ -6,6 +6,12 @@ const rateLimit = 300
 let rateWindowStart = Date.now()
 let rateCount = 0
 
+let defaultContext: TelemetryPayload = {}
+
+export function setTelemetryContext(context: TelemetryPayload) {
+  defaultContext = { ...context }
+}
+
 /**
  * Lightweight client-side telemetry sender using sendBeacon when available.
  * Falls back to a keepalive fetch to avoid blocking UI. Drops events if rate limit is exceeded.
@@ -23,10 +29,12 @@ export function trackEvent(event: string, payload: TelemetryPayload = {}, source
     return
   }
 
+  const enrichedPayload = { ...defaultContext, ...payload }
+
   try {
     const body = JSON.stringify({
       event,
-      payload,
+      payload: enrichedPayload,
       source,
       ts: now,
     })
