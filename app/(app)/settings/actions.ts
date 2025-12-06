@@ -2,12 +2,10 @@
 
 import { randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import {
   createSupabaseServiceRoleClient,
 } from '@/utils/supabase/server'
-import { sendServerTelemetry } from '@/utils/telemetry.server'
 import { assertTenantRole, requireTenantContext } from '@/utils/tenant/context'
 import { guardTenantAction } from '@/utils/tenant/limits'
 import {

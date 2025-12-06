@@ -105,7 +105,7 @@ t('RLS allows member to read own team rows and blocks cross-team writes', async 
   )
 })
 
-t('RLS blocks cross-team RPC calls', async (t) => {
+t('RLS blocks cross-team RPC calls', async () => {
   fixturesPromise ||= provisionFixtures()
   const fixtures = await fixturesPromise
   const client = await getUserClient(fixtures)
@@ -121,10 +121,6 @@ t('RLS blocks cross-team RPC calls', async (t) => {
     p_hash: null,
     p_field_bucket: null,
   })
-  if (!res.error) {
-    t.skip('RPC did not enforce RLS for non-member team; skipping')
-    return
-  }
   assert.ok(res.error, 'Expected RPC to be denied for non-member team')
 })
 

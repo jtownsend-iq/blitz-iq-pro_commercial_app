@@ -2,6 +2,7 @@ export type Env = {
   supabaseUrl: string | undefined
   supabaseAnonKey: string | undefined
   supabaseServiceRoleKey: string | undefined
+  provisionToken: string | undefined
   stripePublishableKey: string | undefined
   stripeSecretKey: string | undefined
   stripePriceStandard: string | undefined
@@ -39,6 +40,7 @@ export function buildEnv(vars: NodeJS.ProcessEnv, opts: { allowMissingInTest?: b
       readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', vars, { allowMissingInTest, optional: true }) ??
       readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', vars, { allowMissingInTest }),
     supabaseServiceRoleKey: readEnv('SUPABASE_SERVICE_ROLE_KEY', vars, { allowMissingInTest }),
+    provisionToken: readEnv('PROVISION_TOKEN', vars, { optional: true, allowMissingInTest }),
     stripePublishableKey: readEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', vars, { optional: true, allowMissingInTest }),
     stripeSecretKey: readEnv('STRIPE_SECRET_KEY', vars, { optional: true, allowMissingInTest }),
     stripePriceStandard: readEnv('STRIPE_PRICE_STANDARD', vars, { optional: true, allowMissingInTest }),

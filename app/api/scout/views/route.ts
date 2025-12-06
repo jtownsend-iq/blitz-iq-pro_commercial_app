@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { guardTenantAction } from '@/utils/tenant/limits'
 import { requireTenantContext } from '@/utils/tenant/context'
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const tenant = await requireTenantContext({ auditEvent: 'scout_views_read' })
     await guardTenantAction(tenant, 'default')

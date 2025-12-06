@@ -3,7 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/utils/supabase/server'
 import { assertTenantRole, requireTenantContext } from '@/utils/tenant/context'
 import { guardTenantAction } from '@/utils/tenant/limits'
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const tenant = await requireTenantContext({ auditEvent: 'scout_refresh' })
     assertTenantRole(tenant, ['admin', 'owner', 'coach'], 'scout_refresh')

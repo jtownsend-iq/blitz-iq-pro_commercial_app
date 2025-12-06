@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const headers = ['row_number', 'errors', 'raw']
     const csvLines = [
       headers.join(','),
-      ...(rows ?? []).map((r) => {
+      ...(rows ?? []).map((r: { raw_row: unknown; errors: unknown }) => {
         const raw = r.raw_row as Record<string, unknown> | null
         const rowNum = (raw?.row_number as number | string | undefined) ?? ''
         const errs = Array.isArray(r.errors) ? r.errors.join('|') : ''

@@ -23,6 +23,9 @@ test('createTenantRateLimiter throws with 429 metadata when exceeded', async () 
 
   await assert.rejects(
     limiter.guard('tenant-123'),
-    (err: any) => err instanceof Error && err.status === 429 && typeof err.retryAt === 'number'
+    (err: unknown) => {
+      const e = err as { status?: unknown; retryAt?: unknown }
+      return e instanceof Error && e.status === 429 && typeof e.retryAt === 'number'
+    }
   )
 })
