@@ -1,3 +1,13 @@
+-- Normalize tags to lowercase for consistent comparisons and indexing
+create or replace function public.lower_text_array(input text[])
+returns text[]
+language sql
+immutable
+as $$
+  select coalesce(array_agg(lower(t)), '{}'::text[])
+  from unnest(coalesce(input, '{}'::text[])) as t;
+$$;
+
 -- Enforce membership inside RPC to avoid accidental bypass via parameters
 create or replace function public.get_scout_recent(
   p_team uuid,
@@ -33,6 +43,13 @@ language plpgsql
 stable
 security invoker
 as $$
+declare
+  v_limit int := least(greatest(coalesce(p_limit, 25), 1), 200);
+  v_offset int := greatest(coalesce(p_offset, 0), 0);
+  v_tag_logic text := upper(coalesce(p_tag_logic, 'OR'));
+  v_tags text[] := case when p_tags is null then null else public.lower_text_array(p_tags) end;
+  v_hash text := lower(nullif(p_hash, ''));
+  v_field_bucket text := upper(nullif(p_field_bucket, ''));
 begin
   if not public.is_team_member(p_team) then
     raise exception 'RLS: not a member of this team' using errcode = '42501';
@@ -62,14 +79,13 @@ begin
     and sp.opponent_name = p_opponent
     and coalesce(sp.season, '') = coalesce(p_season, '')
     and (
-      p_hash is null
-      or lower(coalesce(sp.hash, '')) = lower(p_hash)
+      v_hash is null
+      or lower(coalesce(sp.hash, '')) = v_hash
     )
     and (
-      p_field_bucket is null
-      or p_field_bucket = ''
+      v_field_bucket is null
       or (
-        case upper(p_field_bucket)
+        case v_field_bucket
           when 'RZ' then sp.field_position >= 80
           when 'BACKED_UP' then sp.field_position <= 20
           when 'MIDFIELD' then sp.field_position between 21 and 79
@@ -78,26 +94,27 @@ begin
       )
     )
     and (
-      p_tags is null
-      or cardinality(p_tags) = 0
+      v_tags is null
+      or cardinality(v_tags) = 0
       or (
-        case when upper(coalesce(p_tag_logic, 'OR')) = 'AND'
-          then array(
-            select lower(t)
-            from unnest(coalesce(sp.tags, '{}')) t
-          ) @> array(
-            select lower(t) from unnest(p_tags) t
-          )
-          else exists (
-            select 1
-            from unnest(p_tags) t
-            where lower(t) = any(array(select lower(x) from unnest(coalesce(sp.tags, '{}')) x))
-          )
+        case when v_tag_logic = 'AND'
+          then public.lower_text_array(sp.tags) @> v_tags
+          else public.lower_text_array(sp.tags) && v_tags
         end
       )
     )
   order by sp.created_at desc, sp.id desc
-  limit greatest(p_limit, 0)
-  offset greatest(p_offset, 0);
+  limit v_limit
+  offset v_offset;
 end;
 $$;
+
+-- Indexes to support get_scout_recent filters and ordering without full scans
+create index if not exists scout_plays_team_opponent_season_created_idx
+  on public.scout_plays(team_id, opponent_name, season, created_at desc, id desc);
+
+create index if not exists scout_plays_team_hash_lower_idx
+  on public.scout_plays(team_id, lower(hash));
+
+create index if not exists scout_plays_tags_lower_gin
+  on public.scout_plays using gin (public.lower_text_array(tags));
