@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { buildLocalNumericSummary, getAiTendenciesAndNextCall } from '@/utils/ai/getTendencies'
 import {
   buildTendencyLens,
-  computeBoxScore,
+  buildStatsStack,
   mapChartEventToPlayEvent,
   sumYards,
   yardLineFromBallOn,
@@ -173,11 +173,12 @@ export default async function ChartUnitPage({
   )
   const nextSequence = (events[0]?.sequence ?? 0) + 1
   const unitLabel = unitLabels[normalizedUnit.toLowerCase()] || normalizedUnit.replace('_', ' ')
-  const box = computeBoxScore(events)
-  const totalPlays = box.plays
-  const totalYards = box.totalYards
-  const explosives = box.explosives
-  const turnovers = box.turnovers
+  const statsStack = buildStatsStack({ events, unit: normalizedUnit })
+  const { base: baseCounts, box } = statsStack
+  const totalPlays = baseCounts.plays
+  const totalYards = baseCounts.totalYards
+  const explosives = baseCounts.explosives
+  const turnovers = baseCounts.turnovers
   const ypp = box.yardsPerPlay
   const currentDrive = events[0]?.drive_number ?? null
   const lastResult = events[0]?.result || '--'
@@ -189,7 +190,7 @@ export default async function ChartUnitPage({
   const currentDriveEvents = currentDrive ? events.filter((ev) => ev.drive_number === currentDrive) : []
   const currentDriveYards = sumYards(currentDriveEvents)
   const lastThreeYards = sumYards(events.slice(0, 3))
-  const scoringPlays = box.scoringPlays
+  const scoringPlays = baseCounts.scoringPlays
   const lens = buildTendencyLens(events, normalizedUnit)
   const numericSummary = buildLocalNumericSummary(normalizedUnit, events)
   const aiResult = await getAiTendenciesAndNextCall({

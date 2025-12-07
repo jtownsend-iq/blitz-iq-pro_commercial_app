@@ -1,12 +1,29 @@
 // Central domain types for charting, scouting, and stats computation.
 
 export type ChartUnit = 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'
+export type PlayFamily = 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS'
 
 export type FieldZone = 'BACKED_UP' | 'COMING_OUT' | 'OPEN_FIELD' | 'SCORING_RANGE' | 'RED_ZONE'
 
 export type ScoreState = {
   team: number | null
   opponent: number | null
+}
+
+export type TimeoutState = {
+  team: number | null
+  opponent: number | null
+  offense: number | null
+  defense: number | null
+}
+
+export type BoundaryFlags = {
+  is_drive_start?: boolean
+  is_drive_end?: boolean
+  is_half_start?: boolean
+  is_half_end?: boolean
+  is_game_start?: boolean
+  is_game_end?: boolean
 }
 
 export type PenaltyEvent = {
@@ -23,6 +40,8 @@ export type PenaltyEvent = {
 export type TurnoverEvent = {
   type: 'INTERCEPTION' | 'FUMBLE' | 'DOWNS' | 'BLOCKED_KICK' | 'OTHER' | null
   lostBy: ChartUnit | null
+  lostBySide?: 'TEAM' | 'OPPONENT' | null
+  turnover_team_id?: string | null
   returnYards: number | null
   recoveredBy?: string | null
   forcedBy?: string | null
@@ -30,10 +49,47 @@ export type TurnoverEvent = {
 
 export type ScoringEvent = {
   team: ChartUnit | null
+  scoring_team_id?: string | null
+  scoring_team_side?: 'TEAM' | 'OPPONENT' | null
   points: number
   creditedTo: ChartUnit | null
   type: 'TD' | 'FG' | 'PAT' | 'TWO_POINT' | 'SAFETY' | 'DEF_TD' | 'ST_TD' | 'OTHER'
   returnYards?: number | null
+}
+
+export type OffensiveContext = {
+  personnel_code?: string | null
+  formation_id?: string | null
+  backfield_code?: string | null
+  qb_alignment?: string | null
+  play_family?: PlayFamily | null
+  run_concept?: string | null
+  run_concept_id?: string | null
+  pass_concept?: string | null
+  pass_concept_id?: string | null
+  motion?: boolean | null
+  shift?: boolean | null
+  play_action?: boolean | null
+  shot?: boolean | null
+  tempo_tag?: string | null
+  hash_preference?: string | null
+}
+
+export type DefensiveContext = {
+  front_code?: string | null
+  defensive_structure_id?: string | null
+  coverage_shell_pre?: string | null
+  coverage_shell_post?: string | null
+  pressure_code?: string | null
+  strength?: string | null
+  alignment_tags?: string[] | null
+}
+
+export type SpecialTeamsContext = {
+  play_type?: string | null
+  variant?: string | null
+  return_yards?: number | null
+  unit_on_field?: ChartUnit | null
 }
 
 export type PlayerParticipation = {
@@ -54,6 +110,7 @@ export type PlayerParticipation = {
   holder?: string | null
   returner?: string | null
   coverage?: string[] | null
+  primaryCoverage?: string | null
 }
 
 export type PlayEvent = {
@@ -65,6 +122,7 @@ export type PlayEvent = {
   game_session_id?: string | null
   season_id?: string | null
   season_label?: string | null
+  possession_team_id?: string | null
   sequence?: number | null
   quarter: number | null
   clock_seconds: number | null
@@ -72,14 +130,22 @@ export type PlayEvent = {
   down: number | null
   distance: number | null
   ball_on: string | null
+  ball_spot?: string | null
   hash_mark?: string | null
   field_position?: number | null
   field_zone?: FieldZone | null
   possession?: ChartUnit | string | null
+  score_before?: ScoreState | null
+  score_after?: ScoreState | null
   offense_score_before?: number | null
   defense_score_before?: number | null
   offense_score_after?: number | null
   defense_score_after?: number | null
+  team_score_before?: number | null
+  opponent_score_before?: number | null
+  team_score_after?: number | null
+  opponent_score_after?: number | null
+  timeouts_before?: TimeoutState | null
   offense_timeouts?: number | null
   defense_timeouts?: number | null
   drive_number?: number | null
@@ -91,15 +157,18 @@ export type PlayEvent = {
   is_half_end?: boolean
   is_game_start?: boolean
   is_game_end?: boolean
+  boundaries?: BoundaryFlags
   play_call?: string | null
   result?: string | null
   gained_yards?: number | null
   explosive?: boolean | null
   turnover?: boolean | null
   first_down?: boolean | null
-  play_family?: 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | null
+  play_family?: PlayFamily | null
   run_concept?: string | null
+  run_concept_id?: string | null
   pass_concept?: string | null
+  pass_concept_id?: string | null
   wr_concept_id?: string | null
   st_play_type?: string | null
   st_variant?: string | null
@@ -114,6 +183,7 @@ export type PlayEvent = {
   offensive_formation_id?: string | null
   backfield_code?: string | null
   qb_alignment?: string | null
+  offensive_context?: OffensiveContext | null
   defensive_structure_id?: string | null
   front_code?: string | null
   coverage_shell_pre?: string | null
@@ -121,6 +191,8 @@ export type PlayEvent = {
   pressure_code?: string | null
   strength?: string | null
   alignment_tags?: string[] | null
+  defensive_context?: DefensiveContext | null
+  special_teams_context?: SpecialTeamsContext | null
   scoring?: ScoringEvent | null
   turnover_detail?: TurnoverEvent | null
   penalties?: PenaltyEvent[]
@@ -130,12 +202,28 @@ export type PlayEvent = {
   created_at?: string | null
 }
 
+export type DriveResultType =
+  | 'TD'
+  | 'FG'
+  | 'MISS_FG'
+  | 'PUNT'
+  | 'DOWNS'
+  | 'TURNOVER'
+  | 'END_HALF'
+  | 'END_GAME'
+  | 'SAFETY'
+  | 'UNKNOWN'
+
 export type DriveRecord = {
   id?: string | null
   drive_number: number
   team_id: string
+  opponent_id?: string | null
   game_id: string
+  season_id?: string | null
   unit: ChartUnit
+  unit_on_field?: ChartUnit | null
+  possession_team_id?: string | null
   play_ids: string[]
   start_field_position: number | null
   end_field_position: number | null
@@ -144,7 +232,7 @@ export type DriveRecord = {
   start_score: ScoreState | null
   end_score: ScoreState | null
   yards: number
-  result: string | null
+  result: DriveResultType | string | null
 }
 
 export type BaseCounts = {
@@ -156,6 +244,10 @@ export type BaseCounts = {
   penalties: { count: number; yards: number }
   firstDowns: number
   drives: number
+  pointsFor: number
+  pointsAllowed: number
+  scoringEvents: ScoringEvent[]
+  turnoverEvents: TurnoverEvent[]
 }
 
 export type BoxScoreMetrics = {
