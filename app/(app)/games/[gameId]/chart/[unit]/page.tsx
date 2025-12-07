@@ -11,7 +11,15 @@ import { StatBadge } from '@/components/ui/StatBadge'
 import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { buildNumericSummary, getAiTendenciesAndNextCall } from '@/utils/ai/getTendencies'
+import { buildLocalNumericSummary, getAiTendenciesAndNextCall } from '@/utils/ai/getTendencies'
+import {
+  buildTendencyLens,
+  computeBoxScore,
+  mapChartEventToPlayEvent,
+  sumYards,
+  yardLineFromBallOn,
+} from '@/utils/stats/engine'
+import type { PlayEvent } from '@/utils/stats/types'
 
 type GameRow = {
   id: string
@@ -21,36 +29,6 @@ type GameRow = {
   location: string | null
   season_label: string | null
   team_id: string
-}
-
-type EventRow = {
-  id: string
-  sequence: number
-  quarter: number | null
-  clock_seconds: number | null
-  down: number | null
-  distance: number | null
-  ball_on: string | null
-  play_call: string | null
-  result: string | null
-  gained_yards: number | null
-  created_at: string | null
-  play_family?: 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | null
-  run_concept?: string | null
-  wr_concept_id?: string | null
-  st_play_type?: string | null
-  st_variant?: string | null
-  offensive_personnel_code?: string | null
-  offensive_formation_id?: string | null
-  backfield_code?: string | null
-  front_code?: string | null
-  defensive_structure_id?: string | null
-  coverage_shell_pre?: string | null
-  coverage_shell_post?: string | null
-  pressure_code?: string | null
-  drive_number?: number | null
-  explosive?: boolean | null
-  turnover?: boolean | null
 }
 
 const unitLabels: Record<string, string> = {
@@ -144,7 +122,42 @@ export default async function ChartUnitPage({
   const { data: eventData, error: eventError } = await supabase
     .from('chart_events')
     .select(
-      'id, sequence, quarter, clock_seconds, down, distance, ball_on, play_call, result, gained_yards, created_at, drive_number, explosive, turnover, offensive_personnel_code:offensive_personnel, front_code:front, coverage_shell_post:coverage, pressure_code:pressure'
+      [
+        'id',
+        'team_id',
+        'game_id',
+        'sequence',
+        'quarter',
+        'clock_seconds',
+        'down',
+        'distance',
+        'ball_on',
+        'hash_mark',
+        'play_call',
+        'result',
+        'gained_yards',
+        'created_at',
+        'drive_number',
+        'explosive',
+        'turnover',
+        'play_family',
+        'run_concept',
+        'wr_concept_id',
+        'st_play_type',
+        'st_variant',
+        'st_return_yards',
+        'offensive_personnel_code:offensive_personnel',
+        'offensive_formation_id',
+        'backfield_code',
+        'qb_alignment',
+        'front_code:front',
+        'defensive_structure_id',
+        'coverage_shell_pre',
+        'coverage_shell_post:coverage',
+        'pressure_code:pressure',
+        'strength',
+        'tags',
+      ].join(', ')
     )
     .eq('game_session_id', session.id)
     .order('sequence', { ascending: false })
@@ -154,31 +167,31 @@ export default async function ChartUnitPage({
     console.error('Chart page events error:', eventError.message)
   }
 
-  const events: EventRow[] = (eventData as EventRow[] | null) ?? []
+  const rawEvents: PlayEvent[] = (eventData as PlayEvent[] | null) ?? []
+  const events: PlayEvent[] = rawEvents.map((ev) =>
+    mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })
+  )
   const nextSequence = (events[0]?.sequence ?? 0) + 1
   const unitLabel = unitLabels[normalizedUnit.toLowerCase()] || normalizedUnit.replace('_', ' ')
-  const totalPlays = events.length
-  const totalYards = events.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
-  const explosives = events.filter((ev) => ev.explosive || (ev.gained_yards ?? 0) >= 20).length
-  const turnovers = events.filter((ev) => ev.turnover || (ev.result || '').toLowerCase().includes('int') || (ev.result || '').toLowerCase().includes('fumble')).length
-  const ypp = totalPlays > 0 ? totalYards / totalPlays : 0
+  const box = computeBoxScore(events)
+  const totalPlays = box.plays
+  const totalYards = box.totalYards
+  const explosives = box.explosives
+  const turnovers = box.turnovers
+  const ypp = box.yardsPerPlay
   const currentDrive = events[0]?.drive_number ?? null
   const lastResult = events[0]?.result || '--'
-  const eventsWithContext = events.filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null)
-  const successPlays = eventsWithContext.filter((ev) => isSuccessful(ev))
-  const successRate = eventsWithContext.length > 0 ? successPlays.length / eventsWithContext.length : 0
-  const explosiveRate = totalPlays > 0 ? explosives / totalPlays : 0
-  const lateDownAttempts = eventsWithContext.filter((ev) => (ev.down ?? 0) >= 3)
-  const lateDownConversions = lateDownAttempts.filter(
-    (ev) => (ev.gained_yards ?? 0) >= (ev.distance ?? Number.POSITIVE_INFINITY)
-  )
-  const lateDownRate = lateDownAttempts.length > 0 ? lateDownConversions.length / lateDownAttempts.length : 0
+  const successRate = box.successRate
+  const explosiveRate = box.explosiveRate
+  const lateDownAttempts = box.lateDown.attempts
+  const lateDownConversions = box.lateDown.conversions
+  const lateDownRate = box.lateDown.rate
   const currentDriveEvents = currentDrive ? events.filter((ev) => ev.drive_number === currentDrive) : []
   const currentDriveYards = sumYards(currentDriveEvents)
   const lastThreeYards = sumYards(events.slice(0, 3))
-  const scoringPlays = events.filter((ev) => isScoringPlay(ev.result)).length
+  const scoringPlays = box.scoringPlays
   const lens = buildTendencyLens(events, normalizedUnit)
-  const numericSummary = buildNumericSummary(normalizedUnit, events)
+  const numericSummary = buildLocalNumericSummary(normalizedUnit, events)
   const aiResult = await getAiTendenciesAndNextCall({
     unit: normalizedUnit,
     events,
@@ -254,8 +267,8 @@ export default async function ChartUnitPage({
           <StatBadge
             label="Late-down conv."
             value={
-              lateDownAttempts.length > 0
-                ? `${lateDownConversions.length}/${lateDownAttempts.length} (${Math.round(lateDownRate * 100)}%)`
+              lateDownAttempts > 0
+                ? `${lateDownConversions}/${lateDownAttempts} (${Math.round(lateDownRate * 100)}%)`
                 : '--'
             }
             tone="cyan"
@@ -333,6 +346,7 @@ export default async function ChartUnitPage({
         <ChartEventPanel
           sessionId={session.id}
           gameId={game.id}
+          teamId={activeTeamId}
           unitLabel={unitLabel}
           unit={normalizedUnit}
           initialEvents={events}
@@ -348,160 +362,6 @@ export default async function ChartUnitPage({
       )}
     </section>
   )
-}
-
-function isSuccessful(ev: EventRow) {
-  if (ev.down == null || ev.distance == null || ev.gained_yards == null) return false
-  if (ev.down === 1) return ev.gained_yards >= ev.distance * 0.5
-  if (ev.down === 2) return ev.gained_yards >= ev.distance * 0.7
-  return ev.gained_yards >= ev.distance
-}
-
-function sumYards(list: EventRow[]) {
-  return list.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
-}
-
-function isScoringPlay(result: string | null) {
-  if (!result) return false
-  const normalized = result.toLowerCase()
-  return normalized.includes('td') || normalized.includes('touchdown') || normalized.includes('fg') || normalized.includes('field goal')
-}
-
-type TendencyOption = {
-  label: string
-  success: number
-  explosive: number
-  sample: number
-  note?: string
-}
-
-function buildTendencyLens(events: EventRow[], unit: 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS') {
-  if (events.length === 0) {
-    return { summary: 'No charted plays yet to build tendencies.', options: [] as TendencyOption[] }
-  }
-  const current = events[0]
-  const downBucket = bucketDownDistance(current.down, current.distance)
-  const yardLine = yardLineFromBallOn(current.ball_on)
-  const zone = fieldZone(yardLine)
-  const driveLabel = current.drive_number ? `Drive ${current.drive_number}` : 'current drive'
-  const filtered = events.filter((ev) => bucketDownDistance(ev.down, ev.distance) === downBucket)
-
-  if (unit === 'OFFENSE') {
-    const familyStats = aggregateByKey(filtered, (ev) => ev.play_family || 'UNKNOWN')
-    const conceptStats = aggregateByKey(
-      filtered,
-      (ev) => ev.run_concept || ev.wr_concept_id || ev.play_call || ev.play_family || 'Concept'
-    )
-    const bestConcepts = topOptions(conceptStats)
-    const bestFamily = topOptions(familyStats)[0]
-    const summary = bestFamily
-      ? `On ${downBucket} in ${driveLabel}, ${prettyLabel(bestFamily.label)} has led the way: ${pct(
-          bestFamily.success
-        )}% success, ${pct(bestFamily.explosive)}% explosive. In ${zone} field position, stay with ${prettyLabel(
-          bestConcepts[0]?.label || bestFamily.label
-        )}.`
-      : `On ${downBucket} tonight, stay with your top concepts in this field zone (${zone}).`
-    return { summary, options: bestConcepts.slice(0, 3) }
-  }
-
-  if (unit === 'DEFENSE') {
-    const coverageStats = aggregateByKey(filtered, (ev) => ev.coverage_shell_post || ev.coverage_shell_pre || 'Coverage')
-    const frontStats = aggregateByKey(filtered, (ev) => ev.front_code || 'Front')
-    const bestCoverage = topOptions(coverageStats)[0]
-    const bestFront = topOptions(frontStats)[0]
-    const summary = `On ${downBucket} looks, ${prettyLabel(bestCoverage?.label || 'coverage')} with ${prettyLabel(
-      bestFront?.label || 'front'
-    )} has limited explosives to ${pct(bestCoverage?.explosive ?? 0)}%. Consider mixing those to cap yards.`
-    const options = topOptions([...coverageStats.slice(0, 3), ...frontStats.slice(0, 3)]).slice(0, 3)
-    return { summary, options }
-  }
-
-  const stStats = aggregateByKey(filtered, (ev) => ev.st_play_type || 'ST call')
-  const bestSt = topOptions(stStats)
-  const summary = `In ${zone} field position, your best ST outcomes have come from ${prettyLabel(
-    bestSt[0]?.label || 'this call'
-  )} with avg net ${yppFromStats(bestSt[0])} yds.`
-  return { summary, options: bestSt.slice(0, 3) }
-}
-
-function aggregateByKey(list: EventRow[], keyFn: (ev: EventRow) => string | null | undefined) {
-  const map = new Map<
-    string,
-    { success: number; explosive: number; sample: number; yards: number }
-  >()
-  list.forEach((ev) => {
-    const key = keyFn(ev)
-    if (!key) return
-    const bucket = map.get(key) || { success: 0, explosive: 0, sample: 0, yards: 0 }
-    bucket.sample += 1
-    bucket.success += isSuccessful(ev) ? 1 : 0
-    bucket.explosive += isExplosive(ev) ? 1 : 0
-    bucket.yards += ev.gained_yards ?? 0
-    map.set(key, bucket)
-  })
-  return Array.from(map.entries()).map(([label, stats]) => ({
-    label,
-    success: stats.sample ? stats.success / stats.sample : 0,
-    explosive: stats.sample ? stats.explosive / stats.sample : 0,
-    sample: stats.sample,
-    note: `YPP ${stats.sample ? (stats.yards / stats.sample).toFixed(1) : '0.0'}`,
-  }))
-}
-
-function topOptions(options: TendencyOption[]) {
-  return options
-    .filter((opt) => opt.sample > 0)
-    .sort((a, b) => b.success - a.success || b.sample - a.sample)
-}
-
-function bucketDownDistance(down?: number | null, distance?: number | null) {
-  if (!down || !distance) return 'any down'
-  if (distance <= 2) return `short ${ordinal(down)}`
-  if (distance <= 6) return `medium ${ordinal(down)}`
-  return `long ${ordinal(down)}`
-}
-
-function ordinal(n: number) {
-  const suffix = ['th', 'st', 'nd', 'rd'][((n + 90) % 100 - 10) % 10] || 'th'
-  return `${n}${suffix}`
-}
-
-function pct(n: number) {
-  return Math.round(n * 100)
-}
-
-function prettyLabel(label: string) {
-  return label.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function yardLineFromBallOn(ball_on: string | null) {
-  if (!ball_on) return 50
-  const num = Number(ball_on.replace(/[^0-9]/g, ''))
-  if (Number.isNaN(num)) return 50
-  if (ball_on.toUpperCase().startsWith('O')) {
-    return num
-  }
-  if (ball_on.toUpperCase().startsWith('D') || ball_on.toUpperCase().startsWith('X')) {
-    return 100 - num
-  }
-  return num
-}
-
-function fieldZone(yardLine: number) {
-  if (yardLine <= 20) return 'backed up'
-  if (yardLine <= 40) return 'coming out'
-  if (yardLine <= 60) return 'midfield'
-  if (yardLine <= 80) return 'fringe'
-  return 'red zone'
-}
-
-function isExplosive(ev: EventRow) {
-  return Boolean(ev.explosive) || (ev.gained_yards ?? 0) >= 20
-}
-
-function yppFromStats(opt?: TendencyOption) {
-  if (!opt?.note) return '--'
-  return opt.note.replace('YPP ', '')
 }
 
 function formatKickoffLabel(game: GameRow) {

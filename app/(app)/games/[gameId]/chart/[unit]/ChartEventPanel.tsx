@@ -15,43 +15,19 @@ import { useChartRealtime } from './hooks/useChartRealtime'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { Pill } from '@/components/ui/Pill'
+import {
+  buildTendencyLens as computeTendencyLens,
+  isExplosivePlay,
+  isSuccessfulPlay,
+} from '@/utils/stats/engine'
+import type { PlayEvent } from '@/utils/stats/types'
 
-type EventRow = {
-  id: string
-  sequence: number
-  quarter: number | null
-  clock_seconds: number | null
-  down: number | null
-  distance: number | null
-  ball_on: string | null
-  play_call: string | null
-  result: string | null
-  gained_yards: number | null
-  created_at: string | null
-  offensive_personnel_code?: string | null
-  offensive_formation_id?: string | null
-  backfield_code?: string | null
-  play_family?: 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | null
-  run_concept?: string | null
-  wr_concept_id?: string | null
-  st_play_type?: string | null
-  st_variant?: string | null
-  st_return_yards?: number | null
-  front_code?: string | null
-  defensive_structure_id?: string | null
-  coverage_shell_pre?: string | null
-  coverage_shell_post?: string | null
-  strength?: string | null
-  pressure_code?: string | null
-  drive_number?: number | null
-  series_tag?: string | null
-  explosive?: boolean | null
-  turnover?: boolean | null
-}
+type EventRow = PlayEvent
 
 type ChartEventPanelProps = {
   sessionId: string
   gameId: string
+  teamId: string
   unitLabel: string
   unit: 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'
   initialEvents: EventRow[]
@@ -202,142 +178,8 @@ function formatYards(value: number | null | undefined) {
   return `${prefix}${value}`
 }
 
-function isSuccessful(event: EventRow) {
-  if (event.down == null || event.distance == null || event.gained_yards == null) return false
-  if (event.down === 1) return event.gained_yards >= event.distance * 0.5
-  if (event.down === 2) return event.gained_yards >= event.distance * 0.7
-  return event.gained_yards >= event.distance
-}
-
-function isExplosivePlay(event: EventRow) {
-  return Boolean(event.explosive) || (event.gained_yards ?? 0) >= 20
-}
-
-type TendencyOption = {
-  label: string
-  success: number
-  explosive: number
-  sample: number
-  note?: string
-}
-
-function bucketDownDistance(down?: number | null, distance?: number | null) {
-  if (!down || !distance) return 'any down'
-  if (distance <= 2) return `short ${ordinal(down)}`
-  if (distance <= 6) return `medium ${ordinal(down)}`
-  return `long ${ordinal(down)}`
-}
-
-function ordinal(n: number) {
-  const suffix = ['th', 'st', 'nd', 'rd'][((n + 90) % 100 - 10) % 10] || 'th'
-  return `${n}${suffix}`
-}
-
-function pct(n: number) {
-  return Math.round(n * 100)
-}
-
-function prettyLabel(label: string) {
-  return label.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function aggregateByKey(list: EventRow[], keyFn: (ev: EventRow) => string | null | undefined) {
-  const map = new Map<string, { success: number; explosive: number; sample: number; yards: number }>()
-  list.forEach((ev) => {
-    const key = keyFn(ev)
-    if (!key) return
-    const bucket = map.get(key) || { success: 0, explosive: 0, sample: 0, yards: 0 }
-    bucket.sample += 1
-    bucket.success += isSuccessful(ev) ? 1 : 0
-    bucket.explosive += isExplosivePlay(ev) ? 1 : 0
-    bucket.yards += ev.gained_yards ?? 0
-    map.set(key, bucket)
-  })
-  return Array.from(map.entries()).map(([label, stats]) => ({
-    label,
-    success: stats.sample ? stats.success / stats.sample : 0,
-    explosive: stats.sample ? stats.explosive / stats.sample : 0,
-    sample: stats.sample,
-    note: `YPP ${stats.sample ? (stats.yards / stats.sample).toFixed(1) : '0.0'}`,
-  }))
-}
-
-function topOptions(options: TendencyOption[]) {
-  return options
-    .filter((opt) => opt.sample > 0)
-    .sort((a, b) => b.success - a.success || b.sample - a.sample)
-}
-
-function yardLineFromBallOn(ball_on: string | null) {
-  if (!ball_on) return 50
-  const num = Number(ball_on.replace(/[^0-9]/g, ''))
-  if (Number.isNaN(num)) return 50
-  if (ball_on.toUpperCase().startsWith('O')) return num
-  if (ball_on.toUpperCase().startsWith('D') || ball_on.toUpperCase().startsWith('X')) return 100 - num
-  return num
-}
-
-function fieldZone(yardLine: number) {
-  if (yardLine <= 20) return 'backed up'
-  if (yardLine <= 40) return 'coming out'
-  if (yardLine <= 60) return 'midfield'
-  if (yardLine <= 80) return 'fringe'
-  return 'red zone'
-}
-
-function yppFromStats(opt?: TendencyOption) {
-  if (!opt?.note) return '--'
-  return opt.note.replace('YPP ', '')
-}
-
-function buildTendencyLens(events: EventRow[], unit: 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS') {
-  if (events.length === 0) {
-    return { summary: 'No charted plays yet to build tendencies.', options: [] as TendencyOption[] }
-  }
-  const current = events[0]
-  const downBucket = bucketDownDistance(current.down, current.distance)
-  const yardLine = yardLineFromBallOn(current.ball_on)
-  const zone = fieldZone(yardLine)
-  const driveLabel = current.drive_number ? `Drive ${current.drive_number}` : 'current drive'
-  const filtered = events.filter((ev) => bucketDownDistance(ev.down, ev.distance) === downBucket)
-
-  if (unit === 'OFFENSE') {
-    const familyStats = aggregateByKey(filtered, (ev) => ev.play_family || 'UNKNOWN')
-    const conceptStats = aggregateByKey(
-      filtered,
-      (ev) => ev.run_concept || ev.wr_concept_id || ev.play_call || ev.play_family || 'Concept'
-    )
-    const bestConcepts = topOptions(conceptStats)
-    const bestFamily = topOptions(familyStats)[0]
-    const summary = bestFamily
-      ? `On ${downBucket} in ${driveLabel}, ${prettyLabel(bestFamily.label)} leads: ${pct(
-          bestFamily.success
-        )}% success, ${pct(bestFamily.explosive)}% explosive. In ${zone}, lean on ${prettyLabel(
-          bestConcepts[0]?.label || bestFamily.label
-        )}.`
-      : `On ${downBucket} tonight, stay with your top concepts in this field zone (${zone}).`
-    return { summary, options: bestConcepts.slice(0, 3) }
-  }
-
-  if (unit === 'DEFENSE') {
-    const coverageStats = aggregateByKey(filtered, (ev) => ev.coverage_shell_post || ev.coverage_shell_pre || 'Coverage')
-    const frontStats = aggregateByKey(filtered, (ev) => ev.front_code || 'Front')
-    const bestCoverage = topOptions(coverageStats)[0]
-    const bestFront = topOptions(frontStats)[0]
-    const summary = `On ${downBucket}, ${prettyLabel(bestCoverage?.label || 'coverage')} with ${prettyLabel(
-      bestFront?.label || 'front'
-    )} has capped explosives to ${pct(bestCoverage?.explosive ?? 0)}%.`
-    const options = topOptions([...coverageStats.slice(0, 3), ...frontStats.slice(0, 3)]).slice(0, 3)
-    return { summary, options }
-  }
-
-  const stStats = aggregateByKey(filtered, (ev) => ev.st_play_type || 'ST call')
-  const bestSt = topOptions(stStats)
-  const summary = `In ${zone}, ${prettyLabel(bestSt[0]?.label || 'this call')} has driven best net results (avg ${yppFromStats(
-    bestSt[0]
-  )} yds).`
-  return { summary, options: bestSt.slice(0, 3) }
-}
+const pct = (n: number) => Math.round(n * 100)
+const prettyLabel = (label: string) => label.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
 function mapError(code?: string) {
   if (!code) return 'Unable to record play. Please try again.'
@@ -346,7 +188,13 @@ function mapError(code?: string) {
   return 'Unable to record play. Please retry.'
 }
 
-function buildOptimisticEvent(formData: FormData, sequence: number, seriesTag?: string): EventRow {
+function buildOptimisticEvent(
+  formData: FormData,
+  sequence: number,
+  seriesTag: string | undefined,
+  teamId: string,
+  gameId: string
+): EventRow {
   const clock = formData.get('clock')?.toString()
   let clockSeconds: number | null = null
   if (clock && clockPattern.test(clock)) {
@@ -355,6 +203,8 @@ function buildOptimisticEvent(formData: FormData, sequence: number, seriesTag?: 
   }
   return {
     id: `optimistic-${sequence}-${Date.now()}`,
+    team_id: teamId,
+    game_id: gameId,
     sequence,
     quarter: formData.get('quarter') ? Number(formData.get('quarter')) : null,
     clock_seconds: clockSeconds,
@@ -387,12 +237,14 @@ function buildOptimisticEvent(formData: FormData, sequence: number, seriesTag?: 
 
 const fallbackId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
+function normalizeRealtimeEvent(payload: Record<string, unknown>, defaults: { teamId: string; gameId: string }): EventRow {
   return {
     id:
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? (payload.id as string) ?? crypto.randomUUID()
         : (payload.id as string) ?? fallbackId(),
+    team_id: defaults.teamId,
+    game_id: defaults.gameId,
     sequence: Number(payload.sequence ?? 0),
     quarter: (payload.quarter as number) ?? null,
     clock_seconds: (payload.clock_seconds as number) ?? null,
@@ -420,7 +272,7 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
     strength: (payload.strength as string) ?? null,
     pressure_code: (payload.pressure_code as string) ?? (payload.pressure as string) ?? null,
     drive_number: (payload.drive_number as number) ?? null,
-    series_tag: null,
+    series_tag: (payload.series_tag as string) ?? null,
     created_at: (payload.created_at as string) ?? null,
   }
 }
@@ -428,6 +280,7 @@ function normalizeRealtimeEvent(payload: Record<string, unknown>): EventRow {
 export function ChartEventPanel({
   sessionId,
   gameId,
+  teamId,
   unitLabel,
   unit,
   initialEvents,
@@ -521,7 +374,7 @@ export function ChartEventPanel({
   )
   const successRate = useMemo(() => {
     if (eventsWithContext.length === 0) return 0
-    const successful = eventsWithContext.filter((ev) => isSuccessful(ev)).length
+    const successful = eventsWithContext.filter((ev) => isSuccessfulPlay(ev)).length
     return Math.round((successful / eventsWithContext.length) * 100)
   }, [eventsWithContext])
   const explosiveCount = useMemo(() => events.filter((ev) => isExplosivePlay(ev)).length, [events])
@@ -563,7 +416,7 @@ export function ChartEventPanel({
       active ? 'border-brand bg-brand text-black' : 'border-slate-800 text-slate-200 hover:border-slate-700'
     }`
   const lastFive = useMemo(() => events.slice(0, 5), [events])
-  const lastFiveSuccess = lastFive.filter((ev) => isSuccessful(ev)).length
+  const lastFiveSuccess = lastFive.filter((ev) => isSuccessfulPlay(ev)).length
   const lastFiveExplosive = lastFive.filter((ev) => isExplosivePlay(ev)).length
   const playFamilyCounts = useMemo(() => {
     return events.reduce<Record<NonNullable<EventRow['play_family']>, number>>(
@@ -582,7 +435,7 @@ export function ChartEventPanel({
       : unit === 'DEFENSE'
       ? 'Capture coverage and front quickly; log pressure when bringing heat.'
       : 'Track kick type/variant first; tag return yardage and ball spot.'
-  const lens = useMemo(() => buildTendencyLens(events, unit), [events, unit])
+  const lens = useMemo(() => computeTendencyLens(events, unit), [events, unit])
 
   const renderFieldControl = (field: FieldConfig) => {
     const prettify = (opt: string) =>
@@ -819,7 +672,7 @@ export function ChartEventPanel({
       }
       setEvents((prev) => {
         const filtered = prev.filter((event) => event.id !== seriesPatched.id)
-        return [seriesPatched, ...filtered].sort((a, b) => b.sequence - a.sequence).slice(0, 50)
+        return [seriesPatched, ...filtered].sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0)).slice(0, 50)
       })
       setSequenceCounter((prev) => Math.max(prev, (seriesPatched.sequence ?? 0) + 1))
     },
@@ -828,9 +681,9 @@ export function ChartEventPanel({
 
   const handleRealtimeEvent = useCallback(
     (payload: Record<string, unknown>) => {
-      upsertEvent(normalizeRealtimeEvent(payload))
+      upsertEvent(normalizeRealtimeEvent(payload, { teamId, gameId }))
     },
-    [upsertEvent]
+    [upsertEvent, teamId, gameId]
   )
 
   const handleRealtimeDelete = useCallback((payload: Record<string, unknown>) => {
@@ -1061,7 +914,7 @@ export function ChartEventPanel({
       payload.set('explosive', 'true')
     }
 
-    const optimisticEvent = buildOptimisticEvent(payload, sequenceCounter, seriesValue || undefined)
+    const optimisticEvent = buildOptimisticEvent(payload, sequenceCounter, seriesValue || undefined, teamId, gameId)
     upsertEvent(optimisticEvent)
     setSequenceCounter((prev) => prev + 1)
 
@@ -1935,7 +1788,7 @@ export function ChartEventPanel({
                             Syncing
                           </span>
                         )}
-                        {isSuccessful(event) && (
+                        {isSuccessfulPlay(event) && (
                           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.7rem] text-emerald-200">
                             Success
                           </span>
