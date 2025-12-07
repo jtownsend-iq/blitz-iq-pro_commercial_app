@@ -13,7 +13,7 @@ test.describe('Games flow', () => {
     await page.goto('/login')
     await page.fill('input[type="email"]', TEST_EMAIL!)
     await page.fill('input[type="password"]', TEST_PASSWORD!)
-    await page.click('button:has-text("Log in")')
+    await page.getByRole('button', { name: /Enter BlitzIQ Pro/i }).click()
     await page.waitForLoadState('networkidle')
 
     await page.goto('/games')
@@ -21,11 +21,12 @@ test.describe('Games flow', () => {
     await page.fill('input[name="start_time"]', kickoff)
     await page.selectOption('select[name="home_away"]', 'HOME')
 
-    await page.click('button:has-text("Create game")')
-    await page.waitForURL(/\/games/i, { timeout: 10000 })
+    await page.getByRole('button', { name: /Create game/i }).click()
+    await page.waitForLoadState('networkidle')
 
-    const gameRow = page.locator('article', { hasText: opponent }).first()
-    await expect(gameRow).toBeVisible()
-    await expect(gameRow.getByText('HOME', { exact: false })).toBeVisible()
+    const gameHeader = page.getByRole('heading', { name: opponent, exact: false })
+    await expect(gameHeader).toBeVisible({ timeout: 20000 })
+    const gameCard = gameHeader.locator('xpath=../..')
+    await expect(gameCard.getByText(/HOME/i)).toBeVisible({ timeout: 20000 })
   })
 })

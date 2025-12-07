@@ -1,3 +1,4 @@
+"use client";
 import Link from 'next/link'
 import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react'
 import { forwardRef } from 'react'

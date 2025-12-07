@@ -258,15 +258,17 @@ export default async function DashboardPage() {
               Game control
             </div>
             <div className="space-y-2">
-              <h1 className="font-display text-3xl font-semibold text-slate-50 md:text-4xl">{viewState.hero.title}</h1>
-              <p className="text-sm text-slate-300">{viewState.hero.subtitle}</p>
+              <h1 className="font-display text-3xl font-semibold text-slate-50 md:text-4xl break-words line-clamp-2">
+                {viewState.hero.title}
+              </h1>
+              <p className="text-sm text-slate-300 break-words line-clamp-2">{viewState.hero.subtitle}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[0.75rem] text-slate-200">
-              <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
+              <span className="pill bg-slate-900/70 border-slate-800 text-slate-100 max-w-xs truncate">
                 Role: {viewState.hero.roleLabel || 'Coach'}
               </span>
               {activeTeam && (
-                <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">
+                <span className="pill bg-slate-900/70 border-slate-800 text-slate-100 max-w-xs truncate">
                   Team: {activeTeam.name || 'Unnamed'}
                 </span>
               )}
@@ -325,9 +327,9 @@ export default async function DashboardPage() {
 
         <Surface className="lg:col-span-12 xl:col-span-5 space-y-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-[0.72rem] uppercase tracking-[0.2em] text-slate-500">Game snapshot</p>
-              <p className="text-sm text-slate-300">Fast glance at tonight</p>
+              <p className="text-sm text-slate-300 line-clamp-1 break-words">Fast glance at tonight</p>
             </div>
             <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[0.68rem] uppercase tracking-[0.24em] text-emerald-100">
               {hasLiveSession ? 'Live' : 'Staged'}
@@ -359,9 +361,9 @@ export default async function DashboardPage() {
 
         <Surface className="lg:col-span-12 xl:col-span-7 space-y-5">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Performance pulse</p>
-              <p className="text-sm text-slate-300">Momentum for tonight</p>
+              <p className="text-sm text-slate-300 line-clamp-1 break-words">Momentum for tonight</p>
             </div>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.68rem] uppercase tracking-[0.22em] text-slate-200">
               {opponentName}
@@ -370,9 +372,15 @@ export default async function DashboardPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             {[...(viewState.globalMetrics.drives || []), ...(viewState.globalMetrics.efficiency || []), ...(viewState.globalMetrics.fieldPosition || [])].map((tile) => (
               <div key={tile.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{tile.label}</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-50">{tile.value}</p>
-                {tile.context && <p className="text-xs text-slate-400">{tile.context}</p>}
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 line-clamp-1 break-words">
+                  {tile.label}
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-slate-50 line-clamp-1 break-words">
+                  {tile.value}
+                </p>
+                {tile.context && (
+                  <p className="text-xs text-slate-400 line-clamp-2 break-words">{tile.context}</p>
+                )}
               </div>
             ))}
           </div>
@@ -382,20 +390,30 @@ export default async function DashboardPage() {
               {viewState.perUnit.map((unit) => (
                 <div key={unit.unit} className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{unit.unit.replace('_', ' ')}</p>
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400 line-clamp-1 break-words">
+                      {unit.unit.replace('_', ' ')}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     {unit.primaryStats.map((stat) => (
                       <div key={stat.id}>
-                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
-                        <p className="text-2xl font-semibold text-slate-50">{stat.value}</p>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500 line-clamp-1 break-words">
+                          {stat.label}
+                        </p>
+                        <p className="text-2xl font-semibold text-slate-50 line-clamp-1 break-words">{stat.value}</p>
                       </div>
                     ))}
                     {unit.secondaryStats.map((stat) => (
                       <div key={stat.id}>
-                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
-                        <p className="text-base font-semibold text-slate-100">{stat.value}</p>
-                        {stat.context && <p className="text-xs text-slate-400">{stat.context}</p>}
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500 line-clamp-1 break-words">
+                          {stat.label}
+                        </p>
+                        <p className="text-base font-semibold text-slate-100 line-clamp-1 break-words">
+                          {stat.value}
+                        </p>
+                        {stat.context && (
+                          <p className="text-xs text-slate-400 line-clamp-2 break-words">{stat.context}</p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -411,9 +429,9 @@ export default async function DashboardPage() {
 
         <Surface className="lg:col-span-12 xl:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Weekly prep</p>
-              <p className="text-sm text-slate-300">Scouting for {opponentName}</p>
+              <p className="text-sm text-slate-300 line-clamp-1 break-words">Scouting for {opponentName}</p>
             </div>
             <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[0.68rem] uppercase tracking-[0.24em] text-emerald-100">
               {scoutingStatusLabel}
@@ -449,14 +467,16 @@ export default async function DashboardPage() {
                     className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3"
                   >
                     <div>
-                      <p className="font-semibold text-slate-100">{team.name || 'Unnamed Team'}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="font-semibold text-slate-100 line-clamp-1 break-words">
+                        {team.name || 'Unnamed Team'}
+                      </p>
+                      <p className="text-xs text-slate-500 line-clamp-2 break-words">
                         {team.school_name || 'School TBD'}
                         {team.level && ` | ${team.level}`}
                       </p>
                     </div>
                     {membership?.role && (
-                      <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
+                      <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500 truncate">
                         {membership.role}
                       </span>
                     )}
@@ -491,35 +511,6 @@ export default async function DashboardPage() {
         </div>
         <div className="space-y-6">
           <LiveEventFeed key={activeTeam.id} teamId={activeTeam.id} initialEvents={recentEvents} />
-          {teams.length > 1 && (
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-6 shadow-[0_25px_80px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
-              <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-                {teams.map((team) => {
-                  const membership = memberships.find((m) => m.team_id === team.id)
-                  return (
-                    <li
-                      key={team.id}
-                      className="flex items-center justify-between gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3"
-                    >
-                      <div>
-                        <p className="font-semibold text-slate-100">{team.name || 'Unnamed Team'}</p>
-                        <p className="text-xs text-slate-500">
-                          {team.school_name || 'School TBD'}
-                          {team.level && ` | ${team.level}`}
-                        </p>
-                      </div>
-                      {membership?.role && (
-                        <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                          {membership.role}
-                        </span>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
         </div>
       </div>
     </section>
