@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { useId } from 'react'
 import { Activity, Flame, Shield, Timer } from 'lucide-react'
@@ -9,17 +10,31 @@ type StatsGridProps = {
   totals: DashboardCounts
   volumeTrend: SparkPoint[]
   explosiveTrend: SparkPoint[]
+  cardsOverride?: StatCard[]
 }
 
-export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProps) {
-  const cards = [
+export type StatCard = {
+  label: string
+  value: number | string
+  helper?: string
+  live?: boolean
+  tooltip?: string
+  suffix?: string
+  icon: ReactNode
+  tone: string
+  sparkline?: SparkPoint[]
+  sparkColor?: string
+}
+
+export function StatsGrid({ totals, volumeTrend, explosiveTrend, cardsOverride }: StatsGridProps) {
+  const defaultCards: StatCard[] = [
     {
       label: 'Total plays logged',
       value: totals.totalPlays,
-      helper: 'All-time snaps',
+      helper: 'All-time snaps • plays',
       live: true,
       tooltip: 'Play velocity',
-      suffix: 'plays',
+      suffix: '',
       icon: <Activity className="h-4 w-4 text-cyan-300" strokeWidth={1.5} />,
       tone: 'from-cyan-500/20 via-blue-500/10 to-transparent',
       sparkline: volumeTrend,
@@ -28,10 +43,10 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
     {
       label: 'Explosive plays',
       value: totals.explosivePlays,
-      helper: 'Tagged explosive',
+      helper: 'Tagged explosive • plays',
       live: true,
       tooltip: 'Explosive momentum',
-      suffix: 'explosive',
+      suffix: '',
       icon: <Flame className="h-4 w-4 text-amber-300" strokeWidth={1.5} />,
       tone: 'from-amber-500/25 via-orange-500/15 to-transparent',
       sparkline: explosiveTrend,
@@ -40,10 +55,10 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
     {
       label: 'Turnovers recorded',
       value: totals.turnovers,
-      helper: 'Fumbles & INTs',
+      helper: 'Fumbles & INTs • takeaways',
       live: true,
       tooltip: 'Disruption spikes',
-      suffix: 'takeaways',
+      suffix: '',
       icon: <Shield className="h-4 w-4 text-rose-200" strokeWidth={1.5} />,
       tone: 'from-rose-500/20 via-red-500/10 to-transparent',
       sparkline: volumeTrend,
@@ -52,10 +67,10 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
     {
       label: 'Active sessions',
       value: totals.activeSessions,
-      helper: 'Analysts charting now',
+      helper: 'Analysts charting now • sessions',
       live: true,
       tooltip: 'Live session heat',
-      suffix: 'live',
+      suffix: '',
       icon: <Timer className="h-4 w-4 text-emerald-200" strokeWidth={1.5} />,
       tone: 'from-emerald-500/20 via-teal-500/10 to-transparent',
       sparkline: explosiveTrend,
@@ -63,8 +78,10 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
     },
   ]
 
+  const cards = cardsOverride ?? defaultCards
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => (
         <article
           key={card.label}
@@ -73,32 +90,33 @@ export function StatsGrid({ totals, volumeTrend, explosiveTrend }: StatsGridProp
           <div className="pointer-events-none absolute inset-0 opacity-70">
             <div className={`absolute inset-0 bg-gradient-to-br ${card.tone}`} />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.06),transparent_45%)]" />
-            <MiniSparkline
-              data={card.sparkline}
-              accentClass={card.tone}
-              stroke={card.sparkColor}
-              label={card.tooltip}
-            />
+            {card.sparkline && card.sparkline.length > 0 ? (
+              <MiniSparkline
+                data={card.sparkline}
+                accentClass={card.tone}
+                stroke={card.sparkColor ?? 'rgba(125, 211, 252, 0.95)'}
+                label={card.tooltip ?? ''}
+              />
+            ) : null}
           </div>
 
           <div className="relative flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2 text-[0.65rem] uppercase tracking-[0.24em] text-slate-400">
+            <div className="flex items-center justify-between gap-2 text-[0.78rem] font-semibold text-slate-200">
               <span className="truncate">{card.label}</span>
               {card.live ? (
-                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.6rem] text-slate-200">
-                  live
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.65rem] uppercase tracking-[0.12em] text-slate-200">
+                  Live
                 </span>
               ) : null}
             </div>
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col gap-1">
-                <p className="flex items-baseline gap-2 text-2xl md:text-3xl font-semibold text-slate-50 tabular-nums">
-                  {card.value.toLocaleString()}
-                  <span className="text-xs font-normal uppercase tracking-wide text-slate-400">
-                    {card.suffix}
-                  </span>
+                <p className="flex items-baseline gap-2 text-3xl font-semibold text-slate-50 tabular-nums leading-tight">
+                  {typeof card.value === 'number' ? card.value.toLocaleString() : card.value}
                 </p>
-                <p className="text-xs text-slate-400">{card.helper}</p>
+                {card.helper ? (
+                  <p className="text-xs text-slate-400 line-clamp-1 break-words">{card.helper}</p>
+                ) : null}
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 backdrop-blur">
                 {card.icon}

@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { Suspense, type ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Activity, Flame, Shield, Sparkles } from 'lucide-react'
 import { LiveEventFeed } from '@/components/dashboard/LiveEventFeed'
 import { LiveSessionList } from '@/components/dashboard/LiveSessionList'
-import { StatsGrid } from '@/components/dashboard/StatsGrid'
+import { StatCard, StatsGrid } from '@/components/dashboard/StatsGrid'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { requireAuth } from '@/utils/auth/requireAuth'
 import { DashboardRealtimeClient } from './RealtimeClient'
@@ -241,11 +241,84 @@ export default async function DashboardPage() {
   const opponentName = viewState.gameContext.opponentName || 'Opponent TBD'
   const scoutingStatusLabel = formatStatusLabel(viewState.scouting.status)
   const scoutingErrorsLabel = formatStatusLabel(viewState.scouting.errorsStatus)
+  const hasCurrentGame = !!currentGameId
+
+  const topCards: StatCard[] = hasCurrentGame
+    ? [
+        {
+          label: 'Plays this game',
+          value: playsThisGame,
+          helper: `vs ${opponentName}`,
+          live: true,
+          tooltip: 'Charted snaps in current matchup',
+          icon: <Activity className="h-4 w-4 text-cyan-300" strokeWidth={1.5} />,
+          tone: 'from-cyan-500/20 via-blue-500/10 to-transparent',
+          sparkline: volumeSparkline,
+          sparkColor: 'rgba(125, 211, 252, 0.95)',
+        },
+        {
+          label: 'Explosive rate',
+          value: `${explosiveRate}%`,
+          helper: 'Current matchup',
+          live: true,
+          tooltip: 'Explosive momentum',
+          icon: <Flame className="h-4 w-4 text-amber-300" strokeWidth={1.5} />,
+          tone: 'from-amber-500/25 via-orange-500/15 to-transparent',
+          sparkline: explosiveSparkline,
+          sparkColor: 'rgba(251, 191, 36, 0.95)',
+        },
+        {
+          label: 'Turnovers this game',
+          value: turnoversThisGame,
+          helper: 'Giveaways/Takeaways',
+          live: true,
+          tooltip: 'Disruption count',
+          icon: <Shield className="h-4 w-4 text-rose-200" strokeWidth={1.5} />,
+          tone: 'from-rose-500/20 via-red-500/10 to-transparent',
+          sparkline: volumeSparkline,
+          sparkColor: 'rgba(248, 113, 113, 0.9)',
+        },
+      ]
+    : [
+        {
+          label: 'Total plays logged',
+          value: statsCounts.totalPlays,
+          helper: 'All-time snaps',
+          live: true,
+          tooltip: 'Play velocity',
+          icon: <Activity className="h-4 w-4 text-cyan-300" strokeWidth={1.5} />,
+          tone: 'from-cyan-500/20 via-blue-500/10 to-transparent',
+          sparkline: volumeSparkline,
+          sparkColor: 'rgba(125, 211, 252, 0.95)',
+        },
+        {
+          label: 'Explosive plays',
+          value: statsCounts.explosivePlays,
+          helper: 'Tagged explosive',
+          live: true,
+          tooltip: 'Explosive momentum',
+          icon: <Flame className="h-4 w-4 text-amber-300" strokeWidth={1.5} />,
+          tone: 'from-amber-500/25 via-orange-500/15 to-transparent',
+          sparkline: explosiveSparkline,
+          sparkColor: 'rgba(251, 191, 36, 0.95)',
+        },
+        {
+          label: 'Active sessions',
+          value: statsCounts.activeSessions,
+          helper: 'Analysts charting',
+          live: true,
+          tooltip: 'Live session heat',
+          icon: <Sparkles className="h-4 w-4 text-emerald-200" strokeWidth={1.5} />,
+          tone: 'from-emerald-500/20 via-teal-500/10 to-transparent',
+          sparkline: explosiveSparkline,
+          sparkColor: 'rgba(52, 211, 153, 0.9)',
+        },
+      ]
 
   return (
     <section className="container space-y-8 py-6">
       <div className="grid gap-6 lg:grid-cols-12">
-        <Surface className="relative overflow-hidden lg:col-span-12 xl:col-span-7">
+        <Surface className="relative overflow-hidden lg:col-span-8 xl:col-span-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(52,211,153,0.12),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.12),transparent_30%)]" />
           <div className="relative space-y-5">
             <DashboardTracker
@@ -325,41 +398,17 @@ export default async function DashboardPage() {
           </div>
         </Surface>
 
-        <Surface className="lg:col-span-12 xl:col-span-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-[0.72rem] uppercase tracking-[0.2em] text-slate-500">Game snapshot</p>
-              <p className="text-sm text-slate-300 line-clamp-1 break-words">Fast glance at tonight</p>
-            </div>
-            <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[0.68rem] uppercase tracking-[0.24em] text-emerald-100">
-              {hasLiveSession ? 'Live' : 'Staged'}
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Plays this game</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-50">{playsThisGame}</p>
-              <p className="text-xs text-slate-400">Recent charted plays for this matchup</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Explosive rate</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-50">{explosiveRate}%</p>
-              <p className="text-xs text-slate-400">Explosive plays in this game sample</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Turnovers</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-50">{turnoversThisGame}</p>
-              <p className="text-xs text-slate-400">Giveaways recorded this game</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Live sessions</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-50">{liveSessionCount}</p>
-              <p className="text-xs text-slate-400">Active or pending units</p>
-            </div>
-          </div>
+        <Surface className="lg:col-span-4 xl:col-span-4">
+          <StatsGrid
+            totals={viewState.rawCounts}
+            volumeTrend={volumeSparkline}
+            explosiveTrend={explosiveSparkline}
+            cardsOverride={topCards}
+          />
         </Surface>
 
-        <Surface className="lg:col-span-12 xl:col-span-7 space-y-5">
+
+        <Surface className="lg:col-span-7 xl:col-span-7 space-y-5">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Performance pulse</p>
@@ -423,11 +472,7 @@ export default async function DashboardPage() {
           </div>
         </Surface>
 
-        <Surface className="lg:col-span-12 xl:col-span-5">
-          <StatsGrid totals={viewState.rawCounts} volumeTrend={volumeSparkline} explosiveTrend={explosiveSparkline} />
-        </Surface>
-
-        <Surface className="lg:col-span-12 xl:col-span-7 space-y-4">
+        <Surface className="lg:col-span-7 xl:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-500">Weekly prep</p>
@@ -456,7 +501,7 @@ export default async function DashboardPage() {
         </Surface>
 
         {teams.length > 1 && (
-          <Surface className="lg:col-span-12 xl:col-span-5">
+          <Surface className="lg:col-span-5 xl:col-span-5">
             <h2 className="text-lg font-semibold text-slate-100">Your teams</h2>
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
               {teams.map((team) => {
