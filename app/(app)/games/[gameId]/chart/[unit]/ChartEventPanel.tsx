@@ -40,6 +40,7 @@ type ChartEventPanelProps = {
   backfieldFamilies?: BackfieldFamily[]
   defenseStructures: DefenseStructure[]
   wrConcepts: WRConcept[]
+  showSidebar?: boolean
 }
 
 export const EVENT_TYPES = ['Offense', 'Defense', 'Special Teams'] as const
@@ -293,6 +294,7 @@ export function ChartEventPanel({
   backfieldFamilies = [],
   defenseStructures,
   wrConcepts,
+  showSidebar = true,
 }: ChartEventPanelProps) {
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
@@ -305,6 +307,7 @@ export function ChartEventPanel({
   const [inlineErrors, setInlineErrors] = useState<Record<string, string>>({})
   const [inlineWarnings, setInlineWarnings] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
   const [selectedPersonnel, setSelectedPersonnel] = useState<string>('')
   const [selectedBackfield, setSelectedBackfield] = useState<string>('')
   const [motionType, setMotionType] = useState<string>('NONE')
@@ -911,6 +914,8 @@ export function ChartEventPanel({
       setPassResult('')
       setResultValue('')
       setInlineWarnings({})
+      setSavedMessage('Play saved')
+      setTimeout(() => setSavedMessage(null), 2000)
       router.refresh()
     })
   }
@@ -961,7 +966,13 @@ export function ChartEventPanel({
         </div>
       </GlassCard>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div
+        className={
+          showSidebar
+            ? 'grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]'
+            : 'grid items-start gap-6'
+        }
+      >
         <GlassCard className="space-y-6">
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
             <section className="space-y-4">
@@ -1701,6 +1712,12 @@ export function ChartEventPanel({
             </div>
           )}
 
+          {savedMessage && (
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-100" role="status" aria-live="polite">
+              {savedMessage}
+            </div>
+          )}
+
           <div className="flex justify-end pt-2">
             <CTAButton type="submit" disabled={isPending} variant="primary">
               {isPending ? 'Saving...' : 'Log play'}
@@ -1709,125 +1726,113 @@ export function ChartEventPanel({
           </form>
         </GlassCard>
 
-        <div className="space-y-4 lg:sticky lg:top-0 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
-          <GlassCard className="space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xl font-semibold text-slate-100">AI analyst</h2>
-              <Pill label="Live" tone="emerald" />
-            </div>
-            <p className="text-sm text-slate-300">{lens.summary || unitCue}</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
-                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Mix</p>
-                <p className="text-sm text-slate-100">
-                  Run {playFamilyCounts.RUN} | Pass {playFamilyCounts.PASS} | RPO {playFamilyCounts.RPO} | ST{' '}
-                  {playFamilyCounts.SPECIAL_TEAMS}
-                </p>
+        {showSidebar && (
+          <div className="space-y-4 lg:sticky lg:top-0 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
+            <GlassCard className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-xl font-semibold text-slate-100">AI analyst</h2>
+                <Pill label="Live" tone="emerald" />
               </div>
-              <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
-                <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Last 5</p>
-                <p className="text-sm text-slate-100">
-                  {lastFive.length} plays | {lastFiveSuccess} success | {lastFiveExplosive} explosive | Avg{' '}
-                  {lastFive.length ? (lastFive.reduce((s, ev) => s + (ev.gained_yards ?? 0), 0) / lastFive.length).toFixed(1) : '0.0'}{' '}
-                  yds
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {lens.options.slice(0, 3).map((opt) => (
-                <div
-                  key={opt.label}
-                  className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3 text-sm text-slate-100"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">{prettyLabel(opt.label)}</span>
-                    <span className="text-xs text-slate-400">{opt.sample} plays</span>
-                  </div>
-                  <div className="text-xs text-slate-300">
-                    Success {pct(opt.success)}% | Explosive {pct(opt.explosive)}%
-                  </div>
-                  {opt.note && <div className="text-[0.7rem] text-slate-400 mt-1">{opt.note}</div>}
+              <p className="text-sm text-slate-300">{lens.summary || unitCue}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Mix</p>
+                  <p className="text-sm text-slate-100">
+                    Run {playFamilyCounts.RUN} | Pass {playFamilyCounts.PASS} | RPO {playFamilyCounts.RPO} | ST {playFamilyCounts.SPECIAL_TEAMS}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </GlassCard>
+                <div className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3">
+                  <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-400">Last 5</p>
+                  <p className="text-sm text-slate-100">
+                    {lastFive.length} plays | {lastFiveSuccess} success | {lastFiveExplosive} explosive | Avg{' '}
+                    {lastFive.length ? (lastFive.reduce((s, ev) => s + (ev.gained_yards ?? 0), 0) / lastFive.length).toFixed(1) : '0.0'} yds
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {lens.options.slice(0, 3).map((opt) => (
+                  <div key={opt.label} className="rounded-2xl border border-slate-900/60 bg-surface-muted p-3 text-sm text-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{prettyLabel(opt.label)}</span>
+                      <span className="text-xs text-slate-400">{opt.sample} plays</span>
+                    </div>
+                    <div className="text-xs text-slate-300">
+                      Success {pct(opt.success)}% | Explosive {pct(opt.explosive)}%
+                    </div>
+                    {opt.note && <div className="text-[0.7rem] text-slate-400 mt-1">{opt.note}</div>}
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
 
-          <GlassCard className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
-              <p className="text-sm text-slate-300">
-                Shows the latest plays, including ones still syncing.
-              </p>
-            </div>
-            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {events.length === 0 ? (
-                <div className="empty-state">
-                  <div className="text-sm">No plays logged yet for this game.</div>
-                </div>
-              ) : (
-                events.map((event) => (
-                  <div
-                    key={event.id}
-                    className="rounded-2xl border border-slate-900/60 bg-surface-muted px-4 py-3 text-sm text-slate-200"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-                      <span>
-                        Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)} | Drive{' '}
-                        {event.drive_number ?? '--'}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {event.id.startsWith('optimistic') && (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
-                            Syncing
-                          </span>
-                        )}
-                        {isSuccessfulPlay(event) && (
-                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.7rem] text-emerald-200">
-                            Success
-                          </span>
-                        )}
-                        {isExplosivePlay(event) && (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
-                            Explosive
-                          </span>
-                        )}
-                        {(event.turnover ||
-                          (event.result || '').toLowerCase().includes('int') ||
-                          (event.result || '').toLowerCase().includes('fumble')) && (
-                          <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[0.7rem] text-red-200">
-                            Turnover
-                          </span>
-                        )}
-                        {event.series_tag && (
-                          <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-[0.7rem] text-slate-100">
-                            Series {event.series_tag}
-                          </span>
-                        )}
+            <GlassCard className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-100">Recent plays</h2>
+                <p className="text-sm text-slate-300">Shows the latest plays, including ones still syncing.</p>
+              </div>
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                {events.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="text-sm">No plays logged yet for this game.</div>
+                  </div>
+                ) : (
+                  events.map((event) => (
+                    <div key={event.id} className="rounded-2xl border border-slate-900/60 bg-surface-muted px-4 py-3 text-sm text-slate-200">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                        <span>
+                          Seq {event.sequence} | Q{event.quarter || '--'} {formatClock(event.clock_seconds)} | Drive {event.drive_number ?? '--'}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {event.id.startsWith('optimistic') && (
+                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
+                              Syncing
+                            </span>
+                          )}
+                          {isSuccessfulPlay(event) && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.7rem] text-emerald-200">
+                              Success
+                            </span>
+                          )}
+                          {isExplosivePlay(event) && (
+                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.7rem] text-amber-200">
+                              Explosive
+                            </span>
+                          )}
+                          {(event.turnover || (event.result || '').toLowerCase().includes('int') || (event.result || '').toLowerCase().includes('fumble')) && (
+                            <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[0.7rem] text-red-200">
+                              Turnover
+                            </span>
+                          )}
+                          {event.series_tag && (
+                            <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-[0.7rem] text-slate-100">
+                              Series {event.series_tag}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-base font-semibold text-slate-50">{event.play_call || 'Play call TBD'}</div>
+                      <div className="text-xs text-slate-200 flex items-center gap-2">
+                        <span>
+                          {event.result || 'Result TBD'} | Yardage: {formatYards(event.gained_yards)} | Down/Dist: {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
+                        </span>
+                      </div>
+
+                      <div className="text-[0.7rem] text-slate-400">
+                        Logged{' '}
+                        {event.created_at
+                          ? new Intl.DateTimeFormat('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            }).format(new Date(event.created_at))
+                          : 'Pending...'}
                       </div>
                     </div>
-                    <div className="mt-1 text-base font-semibold text-slate-50">{event.play_call || 'Play call TBD'}</div>
-                    <div className="text-xs text-slate-200 flex items-center gap-2">
-                      <span>
-                        {event.result || 'Result TBD'} | Yardage: {formatYards(event.gained_yards)} | Down/Dist:{' '}
-                        {event.down ? `${event.down} & ${event.distance ?? '?'}` : '--'}
-                      </span>
-                    </div>
-
-                    <div className="text-[0.7rem] text-slate-400">
-                      Logged{' '}
-                      {event.created_at
-                        ? new Intl.DateTimeFormat('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          }).format(new Date(event.created_at))
-                        : 'Pending...'}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </GlassCard>
-        </div>
+                  ))
+                )}
+              </div>
+            </GlassCard>
+          </div>
+        )}
       </div>
     </div>
   )

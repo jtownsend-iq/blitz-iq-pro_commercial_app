@@ -4,6 +4,7 @@ import {
   AdjustedNetYardsPerAttempt,
   BaseCounts,
   BoxScoreMetrics,
+  BoxScoreReport,
   BoundaryFlags,
   ChartUnit,
   CoreWinningMetrics,
@@ -68,6 +69,19 @@ import {
   TurnoverEvent,
   TurnoverSummary,
   YardsPerPlaySummary,
+  PassingStatLine,
+  RushingStatLine,
+  ReceivingStatLine,
+  DefensiveStatLine,
+  KickingStatLine,
+  PuntingStatLine,
+  TeamBoxScoreSummary,
+  PassingBoxScore,
+  RushingBoxScore,
+  ReceivingBoxScore,
+  DefensiveBoxScore,
+  KickingBoxScore,
+  PuntingBoxScore,
 } from './types'
 
 type ChartEventRowLike = Partial<PlayEvent> & {
@@ -1003,6 +1017,502 @@ export function computeCoreWinningMetrics(box: BoxScoreMetrics, opponentBox?: Bo
     explosiveMargin,
     successMargin,
     redZoneEfficiency: box.redZoneTrips ? box.scoringPlays / box.redZoneTrips : 0,
+  }
+}
+
+function classifyOffensivePlay(ev: PlayEvent): 'PASS' | 'RUN' | 'OTHER' {
+  const family = (ev.play_family || '').toUpperCase()
+  if (family === 'PASS') return 'PASS'
+  if (family === 'RUN') return 'RUN'
+  if (family === 'RPO') {
+    if (isSack(ev)) return 'PASS'
+    const passSignals =
+      !!ev.pass_result ||
+      !!ev.participation?.primaryTarget ||
+      !!ev.pass_concept ||
+      (!!ev.result && /pass/i.test(ev.result))
+    return passSignals ? 'PASS' : 'RUN'
+  }
+  return 'OTHER'
+}
+
+function passerRatingFormula(attempts: number, completions: number, yards: number, touchdowns: number, interceptions: number) {
+  if (!attempts) return 0
+  return (8.4 * yards + 330 * touchdowns + 100 * completions - 200 * interceptions) / attempts
+}
+
+function buildPassingStatLine(raw: Omit<PassingStatLine, 'yardsPerAttempt' | 'yardsPerCompletion' | 'passerRating'>): PassingStatLine {
+  const yardsPerAttempt = raw.attempts ? raw.yards / raw.attempts : 0
+  const yardsPerCompletion = raw.completions ? raw.yards / raw.completions : 0
+  const passerRating = passerRatingFormula(raw.attempts, raw.completions, raw.yards, raw.touchdowns, raw.interceptions)
+  return { ...raw, yardsPerAttempt, yardsPerCompletion, passerRating }
+}
+
+function buildRushingStatLine(raw: Omit<RushingStatLine, 'yardsPerCarry'>): RushingStatLine {
+  return {
+    ...raw,
+    yardsPerCarry: raw.attempts ? raw.yards / raw.attempts : 0,
+  }
+}
+
+function buildReceivingStatLine(raw: Omit<ReceivingStatLine, 'yardsPerReception' | 'catchPct'>): ReceivingStatLine {
+  const yardsPerReception = raw.receptions ? raw.yards / raw.receptions : 0
+  const catchPct = raw.targets ? raw.receptions / raw.targets : 0
+  return { ...raw, yardsPerReception, catchPct }
+}
+
+function emptyDefensiveStatLine(): DefensiveStatLine {
+  return {
+    solo: 0,
+    assisted: 0,
+    total: 0,
+    sacks: 0,
+    sackYards: 0,
+    tfl: 0,
+    passesDefended: 0,
+    interceptions: 0,
+    interceptionYards: 0,
+    interceptionTouchdowns: 0,
+    forcedFumbles: 0,
+    fumbleRecoveries: 0,
+    fumbleReturnYards: 0,
+    fumbleReturnTouchdowns: 0,
+    hurries: 0,
+  }
+}
+
+function mapKickingLine(splits: FieldGoalSplits): KickingStatLine {
+  const fgAtt = splits.overall.attempts
+  const fgMade = splits.overall.made
+  const xpAtt = splits.extraPoint.attempts
+  const xpMade = splits.extraPoint.made
+  return {
+    fgMade,
+    fgAtt,
+    fgPct: fgAtt ? fgMade / fgAtt : 0,
+    extraMade: xpMade,
+    extraAtt: xpAtt,
+    extraPct: xpAtt ? xpMade / xpAtt : 0,
+    longestFg: splits.longestMade,
+    points: fgMade * 3 + xpMade,
+    bands: splits.bands,
+  }
+}
+
+function mapPuntingLine(line: PuntingMetrics['team']): PuntingStatLine {
+  return {
+    punts: line.punts,
+    yards: line.yards,
+    gross: line.gross,
+    net: line.net,
+    touchbacks: line.touchbacks,
+    inside20: line.inside20,
+    longest: line.longest,
+  }
+}
+
+function countFirstDowns(events: PlayEvent[]): TeamBoxScoreSummary['firstDowns'] {
+  let rushing = 0
+  let passing = 0
+  let penalty = 0
+  events.forEach((ev) => {
+    const converted = Boolean(ev.first_down) || isSeriesConversion(ev)
+    if (!converted) return
+    const byPenalty = (ev.penalties || []).some(
+      (p) => p.occurred && !p.declined && !p.offsetting && p.automaticFirstDown && p.team === 'DEFENSE'
+    )
+    if (byPenalty) {
+      penalty += 1
+      return
+    }
+    const flavor = classifyOffensivePlay(ev)
+    if (flavor === 'PASS') passing += 1
+    else if (flavor === 'RUN') rushing += 1
+  })
+  return {
+    total: rushing + passing + penalty,
+    rushing,
+    passing,
+    penalty,
+  }
+}
+
+function countTurnovers(events: PlayEvent[]) {
+  let interceptions = 0
+  let fumblesLost = 0
+  events.forEach((ev) => {
+    const turnover = normalizeTurnoverEvent(ev)
+    if (!turnover || !shouldCountTurnover(turnover)) return
+    if ((turnover.lostBySide ?? 'TEAM') !== 'TEAM') return
+    if (turnover.type === 'INTERCEPTION') interceptions += 1
+    if (turnover.type === 'FUMBLE') fumblesLost += 1
+  })
+  return { interceptions, fumblesLost, total: interceptions + fumblesLost }
+}
+
+export function computeBoxScoreReport(
+  events: PlayEvent[],
+  drives: DriveRecord[] = [],
+  unitHint: ChartUnit = 'OFFENSE',
+  qbrRatings?: QuarterbackRatings
+): BoxScoreReport {
+  const offenseEvents = filterOffensivePlays(events, unitHint)
+  const defensiveEvents = filterDefensivePlays(events, 'DEFENSE')
+  const offenseDrives = drives.length ? drives : deriveDriveRecords(offenseEvents, unitHint)
+  const passEvents = offenseEvents.filter((ev) => classifyOffensivePlay(ev) === 'PASS')
+  const rushEvents = offenseEvents.filter((ev) => classifyOffensivePlay(ev) === 'RUN')
+  const passAttempts = passEvents.filter(isPassAttempt)
+  const completions = passAttempts.filter(isPassCompletion)
+  const sacks = passEvents.filter(isSack)
+  const sackYards = sacks.reduce((sum, ev) => sum + Math.abs(ev.gained_yards ?? 0), 0)
+  const passYards = passAttempts.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+  const passTouchdowns = completions.filter((ev) => ev.scoring && isTouchdownEvent(ev.scoring)).length
+  const passInterceptions = passEvents.filter((ev) => {
+    const turnover = normalizeTurnoverEvent(ev)
+    return turnover?.type === 'INTERCEPTION' && (turnover.lostBySide ?? 'TEAM') === 'TEAM'
+  }).length
+  const longestCompletion = completions.reduce((max, ev) => Math.max(max, ev.gained_yards ?? 0), 0)
+
+  const passesByQb = new Map<string, PlayEvent[]>()
+  passEvents.forEach((ev) => {
+    const qb = ev.participation?.quarterback || 'TEAM'
+    const list = passesByQb.get(qb) || []
+    list.push(ev)
+    passesByQb.set(qb, list)
+  })
+
+  const epa = qbrRatings ? null : computeEpaAggregates(offenseEvents, offenseDrives)
+  const qbr = qbrRatings ?? computeQuarterbackRatings(offenseEvents, epa ?? computeEpaAggregates(offenseEvents, offenseDrives), 0)
+
+  const passingPlayers: Record<string, PassingStatLine> = {}
+  passesByQb.forEach((plays, qb) => {
+    const attempts = plays.filter(isPassAttempt)
+    const playerCompletions = attempts.filter(isPassCompletion)
+    const playerSacks = plays.filter(isSack)
+    const playerSackYards = playerSacks.reduce((sum, ev) => sum + Math.abs(ev.gained_yards ?? 0), 0)
+    const yards = attempts.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+    const touchdowns = attempts.filter((ev) => ev.scoring && isTouchdownEvent(ev.scoring)).length
+    const interceptions = plays.filter((ev) => {
+      const turnover = normalizeTurnoverEvent(ev)
+      return turnover?.type === 'INTERCEPTION' && (turnover.lostBySide ?? 'TEAM') === 'TEAM'
+    }).length
+    const longest = playerCompletions.reduce((max, ev) => Math.max(max, ev.gained_yards ?? 0), 0)
+    passingPlayers[qb] = buildPassingStatLine({
+      attempts: attempts.length,
+      completions: playerCompletions.length,
+      yards,
+      touchdowns,
+      interceptions,
+      sacks: playerSacks.length,
+      sackYards: playerSackYards,
+      longest,
+      qbr: qbr.byQuarterback[qb]?.rating,
+    })
+  })
+
+  const passing: PassingBoxScore = {
+    team: buildPassingStatLine({
+      attempts: passAttempts.length,
+      completions: completions.length,
+      yards: passYards,
+      touchdowns: passTouchdowns,
+      interceptions: passInterceptions,
+      sacks: sacks.length,
+      sackYards,
+      longest: longestCompletion,
+      qbr: qbr.teamRating,
+    }),
+    players: passingPlayers,
+  }
+
+  const rushingPlayers: Record<string, RushingStatLine> = {}
+  let rushAttempts = rushEvents.length
+  let rushYards = rushEvents.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+  let rushTouchdowns = 0
+  let rushFumbles = 0
+  let rushFumblesLost = 0
+  let longestRush = 0
+
+  rushEvents.forEach((ev) => {
+    const runner = ev.participation?.primaryBallcarrier || ev.participation?.quarterback || 'TEAM'
+    const line = rushingPlayers[runner] || { attempts: 0, yards: 0, yardsPerCarry: 0, touchdowns: 0, fumbles: 0, fumblesLost: 0, longest: 0 }
+    const yards = ev.gained_yards ?? 0
+    const turnover = normalizeTurnoverEvent(ev)
+    const isFumble = turnover?.type === 'FUMBLE'
+    const lost = isFumble && (turnover.lostBySide ?? 'TEAM') === 'TEAM'
+    line.attempts += 1
+    line.yards += yards
+    if (isFumble) line.fumbles += 1
+    if (lost) line.fumblesLost += 1
+    if (ev.scoring && isTouchdownEvent(ev.scoring)) {
+      line.touchdowns += 1
+      rushTouchdowns += 1
+    }
+    if (yards > line.longest) line.longest = yards
+    rushingPlayers[runner] = line
+    if (isFumble) rushFumbles += 1
+    if (lost) rushFumblesLost += 1
+    if (yards > longestRush) longestRush = yards
+  })
+
+  sacks.forEach((ev) => {
+    const runner = ev.participation?.quarterback || 'TEAM'
+    const loss = Math.abs(ev.gained_yards ?? 0)
+    const line = rushingPlayers[runner] || { attempts: 0, yards: 0, yardsPerCarry: 0, touchdowns: 0, fumbles: 0, fumblesLost: 0, longest: 0 }
+    line.attempts += 1
+    line.yards -= loss
+    rushingPlayers[runner] = line
+    rushAttempts += 1
+    rushYards -= loss
+  })
+
+  const rushing: RushingBoxScore = {
+    team: buildRushingStatLine({
+      attempts: rushAttempts,
+      yards: rushYards,
+      touchdowns: rushTouchdowns,
+      fumbles: rushFumbles,
+      fumblesLost: rushFumblesLost,
+      longest: longestRush,
+    }),
+    players: Object.fromEntries(
+      Object.entries(rushingPlayers).map(([id, line]) => [id, buildRushingStatLine(line)])
+    ),
+  }
+
+  const receivingPlayers: Record<string, ReceivingStatLine> = {}
+  let teamTargets = 0
+  let teamReceptions = 0
+  let teamReceivingYards = 0
+  let teamYac = 0
+  let teamReceivingTouchdowns = 0
+  let longestReception = 0
+
+  passAttempts.forEach((ev) => {
+    const target = ev.participation?.primaryTarget || 'TEAM'
+    const line =
+      receivingPlayers[target] || {
+        targets: 0,
+        receptions: 0,
+        yards: 0,
+        yardsAfterCatch: 0,
+        yardsPerReception: 0,
+        catchPct: 0,
+        touchdowns: 0,
+        longest: 0,
+      }
+    const complete = isPassCompletion(ev)
+    const yards = complete ? ev.gained_yards ?? 0 : 0
+    const yac = complete ? ev.yards_after_catch ?? 0 : 0
+    line.targets += 1
+    if (complete) {
+      line.receptions += 1
+      line.yards += yards
+      line.yardsAfterCatch += yac
+      if (ev.scoring && isTouchdownEvent(ev.scoring)) {
+        line.touchdowns += 1
+        teamReceivingTouchdowns += 1
+      }
+      if (yards > line.longest) line.longest = yards
+      if (yards > longestReception) longestReception = yards
+      teamReceptions += 1
+      teamReceivingYards += yards
+      teamYac += yac
+    }
+    receivingPlayers[target] = line
+    teamTargets += 1
+  })
+
+  const receiving: ReceivingBoxScore = {
+    team: buildReceivingStatLine({
+      targets: teamTargets,
+      receptions: teamReceptions,
+      yards: teamReceivingYards,
+      yardsAfterCatch: teamYac,
+      touchdowns: teamReceivingTouchdowns,
+      longest: longestReception,
+    }),
+    players: Object.fromEntries(
+      Object.entries(receivingPlayers).map(([id, line]) => [id, buildReceivingStatLine(line)])
+    ),
+  }
+
+  const defensePlayers: Record<string, DefensiveStatLine> = {}
+
+  defensiveEvents.forEach((ev) => {
+    const solos = ev.participation?.soloTacklers ?? []
+    const assists = ev.participation?.assistedTacklers ?? []
+    const sackers = ev.participation?.sackers ?? []
+    const pbus = ev.participation?.passDefenders ?? []
+    const hurries = ev.participation?.qbHurries ?? []
+    const interceptors = ev.participation?.interceptors ?? []
+    const turnover = normalizeTurnoverEvent(ev)
+    const isInterception =
+      turnover?.type === 'INTERCEPTION' && (turnover.lostBySide ?? 'TEAM') === 'OPPONENT'
+    const fumbleForcedBy = ev.participation?.forcedFumble
+    const fumbleRecoveredBy = ev.participation?.recovery
+    const fumbleReturnYards = turnover?.type === 'FUMBLE' ? turnover.returnYards ?? ev.gained_yards ?? 0 : 0
+    const intReturnYards = isInterception ? turnover?.returnYards ?? ev.gained_yards ?? 0 : 0
+
+    const ensure = (id: string) => {
+      defensePlayers[id] = defensePlayers[id] || emptyDefensiveStatLine()
+      return defensePlayers[id]
+    }
+
+    solos.forEach((id) => {
+      const line = ensure(id)
+      line.solo += 1
+    })
+    assists.forEach((id) => {
+      const line = ensure(id)
+      line.assisted += 1
+    })
+
+    if (isSack(ev)) {
+      const contributors = sackers.length ? sackers : [...solos, ...assists]
+      const credit = contributors.length ? 1 / contributors.length : 0
+      const yards = Math.abs(ev.gained_yards ?? 0)
+      contributors.forEach((id) => {
+        const line = ensure(id)
+        line.sacks += credit
+        line.tfl += credit
+        line.sackYards += yards * credit
+      })
+    } else if (isTackleForLoss(ev)) {
+      const contributors = [...solos, ...assists]
+      const credit = contributors.length ? 1 / contributors.length : 0
+      contributors.forEach((id) => {
+        const line = ensure(id)
+        line.tfl += credit
+      })
+    }
+
+    pbus.forEach((id) => {
+      const line = ensure(id)
+      line.passesDefended += 1
+    })
+
+    if (isInterception) {
+      interceptors.forEach((id) => {
+        const line = ensure(id)
+        line.interceptions += 1
+        line.passesDefended += 1
+        line.interceptionYards += intReturnYards
+        if (ev.scoring && isTouchdownEvent(ev.scoring)) {
+          line.interceptionTouchdowns += 1
+        }
+      })
+    }
+
+    if (fumbleForcedBy) {
+      const line = ensure(fumbleForcedBy)
+      line.forcedFumbles += 1
+    }
+    if (fumbleRecoveredBy) {
+      const line = ensure(fumbleRecoveredBy)
+      line.fumbleRecoveries += 1
+      line.fumbleReturnYards += fumbleReturnYards
+      if (ev.scoring && isTouchdownEvent(ev.scoring)) {
+        line.fumbleReturnTouchdowns += 1
+      }
+    }
+
+    hurries.forEach((id) => {
+      const line = ensure(id)
+      line.hurries += 1
+    })
+  })
+
+  const defenseTeam = Object.values(defensePlayers).reduce((acc, line) => {
+    acc.solo += line.solo
+    acc.assisted += line.assisted
+    acc.total += line.solo + line.assisted
+    acc.sacks += line.sacks
+    acc.sackYards += line.sackYards
+    acc.tfl += line.tfl
+    acc.passesDefended += line.passesDefended
+    acc.interceptions += line.interceptions
+    acc.interceptionYards += line.interceptionYards
+    acc.interceptionTouchdowns += line.interceptionTouchdowns
+    acc.forcedFumbles += line.forcedFumbles
+    acc.fumbleRecoveries += line.fumbleRecoveries
+    acc.fumbleReturnYards += line.fumbleReturnYards
+    acc.fumbleReturnTouchdowns += line.fumbleReturnTouchdowns
+    acc.hurries += line.hurries
+    return acc
+  }, emptyDefensiveStatLine())
+
+  const defense: DefensiveBoxScore = {
+    team: { ...defenseTeam, total: defenseTeam.solo + defenseTeam.assisted },
+    players: Object.fromEntries(
+      Object.entries(defensePlayers).map(([id, line]) => [
+        id,
+        { ...line, total: line.solo + line.assisted },
+      ])
+    ),
+  }
+
+  const fieldGoals = computeFieldGoalMetrics(events)
+  const kicking: KickingBoxScore = {
+    team: mapKickingLine(fieldGoals),
+    players: Object.fromEntries(
+      Object.entries(fieldGoals.byKicker).map(([id, splits]) => [id, mapKickingLine(splits)])
+    ),
+  }
+
+  const puntingMetrics = computePuntingMetrics(events)
+  const punting: PuntingBoxScore = {
+    team: mapPuntingLine(puntingMetrics.team),
+    players: Object.fromEntries(
+      Object.entries(puntingMetrics.byPunter).map(([id, line]) => [id, mapPuntingLine(line)])
+    ),
+  }
+
+  const kickoffReturns = computeReturnMetrics(
+    events,
+    (ev) => isKickoffPlay(ev) && teamPossessesSpecialTeams(ev) && isReturnPlay(ev)
+  )
+  const puntReturns = computeReturnMetrics(
+    events,
+    (ev) => isPuntPlay(ev) && isReturnPlay(ev) && (ev.st_play_type || '').toUpperCase().includes('RETURN')
+  )
+
+  const base = computeBaseCounts(offenseEvents)
+  const redZone = computeRedZoneMetrics(offenseEvents, offenseDrives, unitHint).offense
+  const possession = computePossessionMetrics(offenseEvents, offenseDrives, 'OFFENSE')
+  const thirdDown = computeThirdDownEfficiency(offenseEvents, 'OFFENSE')
+  const fourthDown = computeFourthDownEfficiency(offenseEvents, 'OFFENSE')
+  const firstDowns = countFirstDowns(offenseEvents)
+  const turnovers = countTurnovers(offenseEvents)
+  const rushingYards = rushing.team.yards
+  const passingYards = passing.team.yards
+  const totalYards = rushingYards + passingYards
+  const plays = offenseEvents.length
+
+  const team: TeamBoxScoreSummary = {
+    totalYards,
+    passingYards,
+    rushingYards,
+    plays,
+    yardsPerPlay: plays ? totalYards / plays : 0,
+    firstDowns,
+    thirdDown,
+    fourthDown,
+    turnovers,
+    penalties: base.penalties,
+    timeOfPossessionSeconds: possession.offense.timeOfPossessionSeconds ?? null,
+    redZone: { trips: redZone.trips, scores: redZone.scores, touchdowns: redZone.touchdowns },
+  }
+
+  return {
+    passing,
+    rushing,
+    receiving,
+    defense,
+    kicking,
+    punting,
+    returns: { kickoff: kickoffReturns, punt: puntReturns },
+    team,
   }
 }
 
@@ -2850,6 +3360,7 @@ export function buildStatsStack(params: {
     params.unit,
     specialTeams
   )
+  const boxScore = computeBoxScoreReport(params.events, allDrives, params.unit ?? 'OFFENSE', advanced.qbr)
   const turnovers = computeTurnoverMetrics(base, { opponentBase, opponentBox: params.opponentBox, unitHint: params.unit })
   const explosives = computeExplosiveMetrics(scopedEvents, params.unit)
   const redZone = computeRedZoneMetrics(scopedEvents, drives, params.unit)
@@ -2875,10 +3386,12 @@ export function buildStatsStack(params: {
       fourthDown: box.fourthDown,
       lateDown: box.lateDown,
     },
+    boxScore,
   }
   return {
     base,
     box,
+    boxScore,
     core,
     advanced,
     drives,

@@ -104,6 +104,7 @@ export type PlayerParticipation = {
   sackers?: string[] | null
   forcedFumble?: string | null
   recovery?: string | null
+  qbHurries?: string[] | null
   kicker?: string | null
   punter?: string | null
   longSnapper?: string | null
@@ -161,6 +162,7 @@ export type PlayEvent = {
   play_call?: string | null
   result?: string | null
   gained_yards?: number | null
+  yards_after_catch?: number | null
   explosive?: boolean | null
   turnover?: boolean | null
   first_down?: boolean | null
@@ -266,6 +268,143 @@ export type BoxScoreMetrics = {
   redZoneTrips: number
   averageStart: number | null
   averageDepth: number | null
+}
+
+export type PassingStatLine = {
+  attempts: number
+  completions: number
+  yards: number
+  yardsPerAttempt: number
+  yardsPerCompletion: number
+  touchdowns: number
+  interceptions: number
+  sacks: number
+  sackYards: number
+  longest: number
+  passerRating: number
+  qbr?: number
+}
+
+export type PassingBoxScore = {
+  team: PassingStatLine
+  players: Record<string, PassingStatLine>
+}
+
+export type RushingStatLine = {
+  attempts: number
+  yards: number
+  yardsPerCarry: number
+  touchdowns: number
+  fumbles: number
+  fumblesLost: number
+  longest: number
+}
+
+export type RushingBoxScore = {
+  team: RushingStatLine
+  players: Record<string, RushingStatLine>
+}
+
+export type ReceivingStatLine = {
+  targets: number
+  receptions: number
+  yards: number
+  yardsAfterCatch: number
+  yardsPerReception: number
+  catchPct: number
+  touchdowns: number
+  longest: number
+}
+
+export type ReceivingBoxScore = {
+  team: ReceivingStatLine
+  players: Record<string, ReceivingStatLine>
+}
+
+export type DefensiveStatLine = {
+  solo: number
+  assisted: number
+  total: number
+  sacks: number
+  sackYards: number
+  tfl: number
+  passesDefended: number
+  interceptions: number
+  interceptionYards: number
+  interceptionTouchdowns: number
+  forcedFumbles: number
+  fumbleRecoveries: number
+  fumbleReturnYards: number
+  fumbleReturnTouchdowns: number
+  hurries: number
+}
+
+export type DefensiveBoxScore = {
+  team: DefensiveStatLine
+  players: Record<string, DefensiveStatLine>
+}
+
+export type KickingStatLine = {
+  fgMade: number
+  fgAtt: number
+  fgPct: number
+  extraMade: number
+  extraAtt: number
+  extraPct: number
+  longestFg: number
+  points: number
+  bands: FieldGoalSplits['bands']
+}
+
+export type KickingBoxScore = {
+  team: KickingStatLine
+  players: Record<string, KickingStatLine>
+}
+
+export type PuntingStatLine = {
+  punts: number
+  yards: number
+  gross: number
+  net: number
+  touchbacks: number
+  inside20: number
+  longest: number
+}
+
+export type PuntingBoxScore = {
+  team: PuntingStatLine
+  players: Record<string, PuntingStatLine>
+}
+
+export type ReturnBoxScore = {
+  kickoff: ReturnMetrics
+  punt: ReturnMetrics
+}
+
+export type TeamBoxScoreSummary = {
+  totalYards: number
+  passingYards: number
+  rushingYards: number
+  plays: number
+  yardsPerPlay: number
+  firstDowns: { total: number; rushing: number; passing: number; penalty: number }
+  thirdDown: ConversionSummary
+  fourthDown: ConversionSummary
+  turnovers: { total: number; interceptions: number; fumblesLost: number }
+  penalties: { count: number; yards: number }
+  timeOfPossessionSeconds: number | null
+  redZone: { trips: number; scores: number; touchdowns: number }
+}
+
+export type BoxScoreReport = {
+  passing: PassingBoxScore
+  rushing: RushingBoxScore
+  receiving: ReceivingBoxScore
+  defense: DefensiveBoxScore
+  kicking: KickingBoxScore
+  punting: PuntingBoxScore
+  returns: ReturnBoxScore
+  team: TeamBoxScoreSummary
 }
 
 export type CoreWinningMetrics = {
@@ -448,6 +587,7 @@ export type GameMetricSnapshot = {
   scoring: ScoringSummary
   redZone: RedZoneSummary
   defense?: DefensiveMetrics
+  boxScore?: BoxScoreReport
   efficiency: {
     yardsPerPlay: YardsPerPlaySummary
     success: SuccessSummary

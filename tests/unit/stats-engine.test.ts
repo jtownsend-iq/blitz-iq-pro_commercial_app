@@ -26,6 +26,7 @@ import {
   computeRushingEfficiency,
   computePossessionMetrics,
   computeSpecialTeamsMetrics,
+  computeBoxScoreReport,
   computeSuccessRate,
   computeYardsPerPlay,
   deriveDriveRecords,
@@ -127,6 +128,98 @@ test('computeBoxScore returns deterministic aggregates', () => {
   strictEqual(Math.round(box.yardsPerPlay * 10) / 10, 11)
   strictEqual(box.successRate, 1)
   strictEqual(box.lateDown.attempts, 0)
+})
+
+test('computeBoxScoreReport builds team and player lines', () => {
+  const events: PlayEvent[] = [
+    { ...basePlays[2], id: 'bx-pass-comp', play_family: 'PASS', gained_yards: 15, yards_after_catch: 5, participation: { quarterback: 'QB1', primaryTarget: 'WR1' } },
+    {
+      ...basePlays[2],
+      id: 'bx-pass-td',
+      play_family: 'PASS',
+      gained_yards: 25,
+      yards_after_catch: 10,
+      participation: { quarterback: 'QB1', primaryTarget: 'WR1' },
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', creditedTo: 'OFFENSE', type: 'TD', points: 6 },
+    },
+    {
+      ...basePlays[2],
+      id: 'bx-pass-int',
+      play_family: 'PASS',
+      gained_yards: 0,
+      participation: { quarterback: 'QB1', primaryTarget: 'WR2' },
+      turnover_detail: { type: 'INTERCEPTION', lostBy: 'OFFENSE', lostBySide: 'TEAM', returnYards: 12 },
+      result: 'Intercepted',
+    },
+    { ...basePlays[2], id: 'bx-sack', play_family: 'PASS', gained_yards: -7, participation: { quarterback: 'QB1' }, result: 'Sack -7' },
+    { ...basePlays[0], id: 'bx-run', play_family: 'RUN', gained_yards: 8, participation: { primaryBallcarrier: 'RB1' }, first_down: true },
+    {
+      ...basePlays[0],
+      id: 'bx-run-fum',
+      play_family: 'RUN',
+      gained_yards: 3,
+      participation: { primaryBallcarrier: 'RB1' },
+      turnover_detail: { type: 'FUMBLE', lostBy: 'OFFENSE', lostBySide: 'TEAM', returnYards: 0 },
+    },
+    {
+      ...basePlays[0],
+      id: 'bx-def-sack',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      play_family: 'PASS',
+      gained_yards: -5,
+      participation: { sackers: ['DL1'], soloTacklers: ['DL1'] },
+      result: 'Sack -5',
+    },
+    {
+      ...basePlays[1],
+      id: 'bx-def-int',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      play_family: 'PASS',
+      gained_yards: 12,
+      participation: { interceptors: ['CB1'], passDefenders: ['CB1'] },
+      turnover_detail: { type: 'INTERCEPTION', lostBy: 'OFFENSE', lostBySide: 'OPPONENT', returnYards: 12 },
+      scoring: { team: 'DEFENSE', scoring_team_side: 'TEAM', creditedTo: 'DEFENSE', type: 'DEF_TD', points: 6 },
+    },
+    {
+      ...basePlays[1],
+      id: 'bx-def-ff',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      play_family: 'RUN',
+      gained_yards: -2,
+      participation: { soloTacklers: ['LB1'], forcedFumble: 'LB1', recovery: 'S1' },
+      turnover_detail: { type: 'FUMBLE', lostBy: 'OFFENSE', lostBySide: 'OPPONENT', returnYards: 20 },
+      scoring: { team: 'DEFENSE', scoring_team_side: 'TEAM', creditedTo: 'DEFENSE', type: 'DEF_TD', points: 6 },
+    },
+    {
+      ...basePlays[0],
+      id: 'bx-fg',
+      play_family: 'SPECIAL_TEAMS',
+      st_play_type: 'FG',
+      participation: { kicker: 'K1' },
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', creditedTo: 'SPECIAL_TEAMS', type: 'FG', points: 3 },
+    },
+    { ...basePlays[0], id: 'bx-punt', play_family: 'SPECIAL_TEAMS', st_play_type: 'PUNT', gained_yards: 45, st_return_yards: 5, participation: { punter: 'P1', returner: 'RET1' } },
+    { ...basePlays[0], id: 'bx-ko-ret', play_family: 'SPECIAL_TEAMS', st_play_type: 'KICKOFF', gained_yards: 60, st_return_yards: 35, participation: { returner: 'RET2' }, possession: 'SPECIAL_TEAMS' },
+  ]
+
+  const boxScore = computeBoxScoreReport(events, [], 'OFFENSE')
+  strictEqual(boxScore.passing.team.attempts, 3)
+  strictEqual(boxScore.passing.team.completions, 2)
+  strictEqual(boxScore.passing.team.interceptions, 1)
+  strictEqual(boxScore.passing.team.sacks, 1)
+  strictEqual(boxScore.passing.players.QB1.touchdowns, 1)
+  strictEqual(boxScore.receiving.players.WR1.receptions, 2)
+  strictEqual(boxScore.rushing.team.fumblesLost, 1)
+  strictEqual(boxScore.rushing.players.RB1.fumbles, 1)
+  strictEqual(boxScore.defense.players.DL1.sacks >= 1, true)
+  strictEqual(boxScore.defense.players.CB1.interceptions, 1)
+  strictEqual(boxScore.kicking.players.K1.fgMade, 1)
+  strictEqual(boxScore.punting.players.P1.punts, 1)
+  strictEqual(boxScore.returns.kickoff.team.returns, 1)
+  strictEqual(boxScore.team.turnovers.total, 2)
 })
 
 test('buildStatsStack layers outputs consistently', () => {
