@@ -382,7 +382,7 @@ export default async function ScoutingPage() {
                                       ? `Found ${Object.keys(imp.error_log).length} issue type(s). Fix headers/tags and reupload before scouting this opponent.`
                                       : 'Issues detected. Expand for details.'}
                                   </p>
-                                  <pre className="whitespace-pre-wrap break-words text-[0.7rem] text-slate-200">
+                                  <pre className="whitespace-pre-wrap wrap-break-word text-[0.7rem] text-slate-200">
                                     {JSON.stringify(imp.error_log, null, 2)}
                                   </pre>
                                 </details>

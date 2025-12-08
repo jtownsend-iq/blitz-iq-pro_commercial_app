@@ -828,3 +828,39 @@ small {
   background: linear-gradient(to bottom, transparent, var(--electric-400), transparent);
   animation: scan-line 8s linear infinite;
 }
+
+/* ------------------------------------------------------------------
+   Motion & Animation Preferences
+   Respect user's motion preferences for accessibility
+   ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable animations for specific components */
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce {
+    animation: none !important;
+  }
+
+  /* Keep transforms but remove transitions */
+  .motion-safe\:transform {
+    transform: none !important;
+  }
+}
+
+/* Utility class for components that should always respect reduced motion */
+.respect-motion-preference {
+  @media (prefers-reduced-motion: reduce) {
+    animation: none !important;
+    transition: none !important;
+  }
+}

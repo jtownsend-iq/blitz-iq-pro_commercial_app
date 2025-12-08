@@ -806,7 +806,7 @@ export default function ScoutingBoard({ teamId, opponents, imports }: Props) {
           <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
             {previewRows.map((row, idx) => (
               <div key={idx} className="rounded border border-slate-800 bg-slate-950/70 p-2 text-xs text-slate-100">
-                <div className="break-words text-slate-300">{JSON.stringify(row.raw_row)}</div>
+                <div className="wrap-break-word text-slate-300">{JSON.stringify(row.raw_row)}</div>
                 {row.errors.length > 0 ? (
                   <div className="text-amber-300">Errors: {row.errors.join('; ')}</div>
                 ) : (

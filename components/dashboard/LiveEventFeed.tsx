@@ -119,7 +119,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
 
   if (unavailable) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+      <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-100">Live event feed</h2>
@@ -136,7 +136,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+    <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-950/60 to-black/60 p-6 shadow-[0_25px_70px_-35px_rgba(0,0,0,0.7)] backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-slate-100">Live event feed</h2>
@@ -194,7 +194,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
                 role="listitem"
                 aria-label={`Unit ${formatUnitLabel(event.game_sessions?.unit)} sequence ${event.sequence}`}
               >
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent opacity-70" />
+                <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-cyan-500/10 via-transparent to-transparent opacity-70" />
                 <div className="relative flex flex-wrap items-center justify-between gap-2 text-[0.7rem] uppercase tracking-[0.24em] text-slate-400">
                   <span>{formatUnitLabel(event.game_sessions?.unit)}</span>
                   <span className="tabular-nums">{formatEventTimestamp(event.created_at)}</span>
@@ -206,7 +206,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-sm text-slate-200 tabular-nums">
                     {typeof event.gained_yards === 'number' ? `${event.gained_yards} yds` : '--'}
                   </span>
-                  <span className="truncate break-words max-w-full text-sm font-normal text-slate-100">
+                  <span className="truncate wrap-break-word max-w-full text-sm font-normal text-slate-100">
                     {event.play_call || 'Play call TBD'}
                   </span>
                 </div>

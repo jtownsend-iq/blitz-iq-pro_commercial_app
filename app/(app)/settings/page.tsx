@@ -107,7 +107,7 @@ export default async function SettingsPage({
 
   return (
     <section className="space-y-8">
-      <GlassCard className="overflow-hidden border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-black">
+      <GlassCard className="overflow-hidden border border-white/10 bg-linear-to-br from-slate-950 via-slate-900 to-black">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <SectionHeader
             eyebrow="Settings"

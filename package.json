@@ -14,7 +14,8 @@
     "test:integration": "node --test tests/integration/*.test.mjs",
     "test:smoke": "playwright test",
     "test:a11y": "playwright test --config=playwright.a11y.config.ts",
-    "test:rls": "node --test tests/integration/rls-tenancy.integration.test.mjs"
+    "test:rls": "node --test tests/integration/rls-tenancy.integration.test.mjs",
+    "lighthouse": "lhci autorun"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.738.0",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
+    "@lhci/cli": "^0.14.0",
     "@playwright/test": "^1.50.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

@@ -9,7 +9,7 @@ export function Skeleton({ className, variant = 'block', ...rest }: SkeletonProp
   return (
     <div
       className={cx(
-        'relative overflow-hidden bg-gradient-to-r from-white/5 via-white/10 to-white/5',
+        'relative overflow-hidden bg-linear-to-r from-white/5 via-white/10 to-white/5',
         'animate-[shimmer_1.4s_infinite]',
         variant === 'pill' ? 'rounded-full' : 'rounded-xl',
         className

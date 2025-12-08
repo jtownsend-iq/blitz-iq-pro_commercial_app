@@ -9,7 +9,7 @@ type GlassCardProps = {
 }
 
 const toneMap: Record<NonNullable<GlassCardProps['tone']>, string> = {
-  neutral: 'border-white/10 bg-gradient-to-br from-slate-950/85 via-slate-950/65 to-black/60',
+  neutral: 'border-white/10 bg-linear-to-br from-slate-950/85 via-slate-950/65 to-black/60',
   emerald: 'border-emerald-500/25 bg-emerald-500/10',
   cyan: 'border-cyan-500/25 bg-cyan-500/10',
   amber: 'border-amber-500/25 bg-amber-500/10',

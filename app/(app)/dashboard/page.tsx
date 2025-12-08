@@ -118,6 +118,8 @@ export default async function DashboardPage() {
   if (!activeTeamId) throw new Error('No active team set for user.')
   const activeTeam = teams.find((team) => team.id === activeTeamId)
   if (!activeTeam) throw new Error('Active team not found.')
+  const activeTeamName = activeTeam.name ?? 'Team'
+  const activeTeamInitials = activeTeamName.slice(0, 2).toUpperCase()
 
   const preferences = await loadTeamPreferences(supabase, activeTeam.id)
 
@@ -297,7 +299,7 @@ export default async function DashboardPage() {
                   className="data-metric"
                   style={{ fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}
                 >
-                  {activeTeam.name}
+                  {activeTeamName}
                 </div>
               </div>
             </div>
@@ -351,7 +353,7 @@ export default async function DashboardPage() {
                 }}
                 aria-label="User avatar"
               >
-                {activeTeam.name.slice(0, 2).toUpperCase()}
+                {activeTeamInitials}
               </div>
             </div>
           </div>
@@ -705,7 +707,7 @@ function buildUnitPerformance({
         { label: 'Yards/Play', value: formatDecimal(offenseStack.box.yardsPerPlay), positive: true },
         { label: 'Success Rate', value: formatPercent(offenseStack.game.efficiency.success.rate), positive: true },
         { label: 'Explosive Diff', value: formatNumber(offenseStack.explosives.offense.explosives - offenseStack.explosives.defense.explosives) },
-        { label: 'Points/Drive', value: formatDecimal(offenseStack.advanced.pointsPerDrive ?? offenseStack.advanced.estimatedEPAperPlay) },
+        { label: 'Points/Drive', value: formatDecimal(offenseStack.core?.pointsPerDrive ?? offenseStack.advanced.estimatedEPAperPlay) },
       ],
     },
     {
@@ -717,7 +719,7 @@ function buildUnitPerformance({
       metrics: [
         { label: 'Havoc Rate', value: formatPercent(defenseStack.defense?.havoc.rate ?? 0), positive: true },
         { label: 'Yards/Play Allowed', value: formatDecimal(defenseStack.box.yardsPerPlay) },
-        { label: 'Points/Drive Allowed', value: formatDecimal(defenseStack.defense?.drives.pointsAllowedPerDrive ?? 0) },
+        { label: 'Points/Drive Allowed', value: formatDecimal(defenseStack.defense?.drives.pointsPerDrive ?? 0) },
         { label: 'Takeaways', value: formatNumber(defenseStack.turnovers.takeaways) },
       ],
     },
@@ -740,11 +742,11 @@ function buildUnitPerformance({
         },
         {
           label: 'Punt Net',
-          value: formatDecimal(specialStack.specialTeams.punting.net ?? 0),
+          value: formatDecimal(specialStack.specialTeams.punting.team.net ?? 0),
         },
         {
           label: 'Returns AVG',
-          value: formatDecimal(specialStack.specialTeams.kickoffReturns.average ?? 0),
+          value: formatDecimal(specialStack.specialTeams.kickoffReturns.team.average ?? 0),
           positive: true,
         },
       ],

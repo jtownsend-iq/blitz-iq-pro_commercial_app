@@ -19,12 +19,12 @@ export function StatsGrid({ tiles }: StatsGridProps) {
       {tiles.map((tile) => (
         <article
           key={tile.id}
-          className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-black/60 p-4 shadow-[0_22px_70px_-38px_rgba(0,0,0,0.75)] backdrop-blur-xl"
+          className="relative overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-900/70 to-black/60 p-4 shadow-[0_22px_70px_-38px_rgba(0,0,0,0.75)] backdrop-blur-xl"
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.06),transparent_50%)]" />
           <div className="relative flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2 text-[0.75rem] uppercase tracking-[0.2em] text-slate-400">
-              <span className="line-clamp-1 break-words">{tile.label}</span>
+              <span className="line-clamp-1 wrap-break-word">{tile.label}</span>
               {tile.intent === 'positive' ? (
                 <TrendingUp className="h-4 w-4 text-emerald-300" />
               ) : tile.intent === 'warning' ? (
@@ -32,7 +32,7 @@ export function StatsGrid({ tiles }: StatsGridProps) {
               ) : null}
             </div>
             <p className="text-3xl font-semibold text-slate-50 leading-tight tabular-nums">{tile.value}</p>
-            {tile.helper && <p className="text-xs text-slate-400 line-clamp-2 break-words">{tile.helper}</p>}
+            {tile.helper && <p className="text-xs text-slate-400 line-clamp-2 wrap-break-word">{tile.helper}</p>}
             {tile.trend && (
               <div
                 className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] ${

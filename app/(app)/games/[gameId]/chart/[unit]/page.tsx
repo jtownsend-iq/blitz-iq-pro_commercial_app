@@ -414,7 +414,7 @@ function SituationalStrip({
         <Pill label={`Possession: ${formatPossessionLabel(possession)}`} tone="cyan" />
       </div>
       <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-900/80">
-        <div className={`absolute inset-0 bg-gradient-to-r ${accent}`} aria-hidden />
+        <div className={`absolute inset-0 bg-linear-to-r ${accent}`} aria-hidden />
         <div
           className="absolute inset-y-0 w-1 rounded-full bg-white/80"
           style={{ left: `${Math.min(Math.max(yard ?? 50, 0), 100)}%` }}

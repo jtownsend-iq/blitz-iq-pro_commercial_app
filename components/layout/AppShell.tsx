@@ -4,7 +4,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
+import { Menu, X } from 'lucide-react'
 
 export type NavItem = {
   href: string
@@ -113,13 +114,15 @@ type TopNavProps = {
 
 export function TopNav({ navItems, teamContext }: TopNavProps) {
   const pathname = usePathname()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-gradient-to-b from-black/80 via-black/70 to-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
-      <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-60" />
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-linear-to-b from-black/80 via-black/70 to-black/60 backdrop-blur-2xl shadow-[0_30px_120px_-70px_rgba(0,0,0,0.9)]">
+      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-linear-to-r from-transparent via-brand to-transparent opacity-60" />
       <div className="app-container py-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="relative h-[2.75rem] w-[4.5rem] overflow-hidden rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 shadow-lg">
+            <div className="relative h-11 w-18 overflow-hidden rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 shadow-lg">
               <Image
                 src="/blitziq-logo.png"
                 alt="BlitzIQ Pro"
@@ -137,6 +140,7 @@ export function TopNav({ navItems, teamContext }: TopNavProps) {
             </div>
           </div>
 
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2 text-xs font-semibold" aria-label="Primary">
             {navItems.map((item) => (
               <Link
@@ -153,6 +157,7 @@ export function TopNav({ navItems, teamContext }: TopNavProps) {
             ))}
           </nav>
 
+          {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.22em] text-slate-200">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.18)]" />
@@ -165,18 +170,56 @@ export function TopNav({ navItems, teamContext }: TopNavProps) {
               Command
             </Link>
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden rounded-full border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:border-brand hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            aria-label="Toggle mobile menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
 
+        {/* Mobile Navigation Menu */}
+        {mobileMenuOpen && (
+          <nav className="md:hidden flex flex-col gap-2 py-3 border-t border-white/10" aria-label="Mobile navigation">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`px-4 py-3 rounded-xl border text-sm font-semibold transition ${
+                  pathname?.startsWith(item.href)
+                    ? 'border-brand text-white bg-brand/10 shadow-[0_10px_30px_-18px_rgba(0,229,255,0.8)]'
+                    : 'border-white/10 bg-white/5 text-slate-200'
+                } hover:border-brand hover:text-white hover:bg-brand/10`}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-black shadow-[0_15px_40px_-18px_rgba(0,229,255,0.6)]"
+            >
+              Command
+            </Link>
+          </nav>
+        )}
+
         {teamContext ? (
-          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/60 px-4 py-3 shadow-[0_16px_60px_-40px_rgba(0,0,0,0.9)]">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-linear-to-r from-slate-950/80 via-slate-900/70 to-slate-900/60 px-4 py-3 shadow-[0_16px_60px_-40px_rgba(0,0,0,0.9)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 space-y-1">
                 <p className="text-[0.7rem] uppercase tracking-[0.24em] text-slate-500">Active team</p>
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-lg font-semibold leading-tight text-slate-50 line-clamp-1 break-words">
+                  <span className="text-lg font-semibold leading-tight text-slate-50 line-clamp-1 wrap-break-word">
                     {teamContext.name}
                   </span>
-                  <span className="text-sm text-slate-300 line-clamp-1 break-words">
+                  <span className="text-sm text-slate-300 line-clamp-1 wrap-break-word">
                     {teamContext.school || 'School TBD'}
                   </span>
                   {teamContext.level ? (

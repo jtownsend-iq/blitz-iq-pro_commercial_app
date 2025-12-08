@@ -82,7 +82,7 @@ export default async function AnalyticsPage() {
 
   return (
     <section className="app-container py-8 space-y-8">
-      <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-black/70 p-6 shadow-[0_30px_120px_-60px_rgba(0,0,0,0.9)]">
+      <header className="rounded-3xl border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-900/70 to-black/70 p-6 shadow-[0_30px_120px_-60px_rgba(0,0,0,0.9)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-2">
             <p className="text-[0.75rem] uppercase tracking-[0.22em] text-slate-400">Season analytics</p>
@@ -157,11 +157,11 @@ export default async function AnalyticsPage() {
         </div>
         <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
           {gameTiles.map((game) => (
-            <div key={game.id} className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-black/60 p-4 shadow-[0_20px_70px_-40px_rgba(0,0,0,0.8)]">
+            <div key={game.id} className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-900/60 to-black/60 p-4 shadow-[0_20px_70px_-40px_rgba(0,0,0,0.8)]">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{game.start ? formatDate(game.start) : 'TBD'}</p>
-                  <p className="text-base font-semibold text-slate-50 line-clamp-1 break-words">vs {game.opponent}</p>
+                  <p className="text-base font-semibold text-slate-50 line-clamp-1 wrap-break-word">vs {game.opponent}</p>
                 </div>
                 <LineChart className="h-5 w-5 text-cyan-300" />
               </div>
@@ -211,7 +211,7 @@ function TopTile({ title, value, detail, icon }: { title: string; value: string;
 
 function AnalyticsCard({ title, value, helper, icon }: { title: string; value: string; helper: string; icon: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-black/60 p-4 shadow-[0_20px_70px_-40px_rgba(0,0,0,0.8)]">
+    <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-900/60 to-black/60 p-4 shadow-[0_20px_70px_-40px_rgba(0,0,0,0.8)]">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5">{icon}</div>
       <div className="space-y-1">
         <p className="text-[0.7rem] uppercase tracking-[0.18em] text-slate-400">{title}</p>

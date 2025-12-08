@@ -65,7 +65,7 @@ export function LiveSessionList({ sessions }: LiveSessionListProps) {
                 role="listitem"
                 className="group relative grid min-h-[110px] grid-cols-[1fr_auto] items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 transition hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10"
               >
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-transparent to-transparent opacity-0 transition duration-500 group-hover:opacity-100" />
+                <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-emerald-500/5 via-transparent to-transparent opacity-0 transition duration-500 group-hover:opacity-100" />
                 <div className="relative space-y-2">
                   <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-500">
                     <span
@@ -82,14 +82,14 @@ export function LiveSessionList({ sessions }: LiveSessionListProps) {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="min-w-0">
-                      <p className="text-base font-semibold text-slate-50 line-clamp-1 break-words">
+                      <p className="text-base font-semibold text-slate-50 line-clamp-1 wrap-break-word">
                         {session.games?.opponent_name ? `vs ${session.games.opponent_name}` : 'Session'}
                       </p>
-                      <p className="text-sm text-slate-400 line-clamp-1 break-words">{kickoff}</p>
+                      <p className="text-sm text-slate-400 line-clamp-1 wrap-break-word">{kickoff}</p>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
                       <MapPin className="h-4 w-4 text-slate-500" />
-                      <span className="line-clamp-1 break-words">{location}</span>
+                      <span className="line-clamp-1 wrap-break-word">{location}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-400">

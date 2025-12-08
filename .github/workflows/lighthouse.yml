@@ -1,0 +1,45 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: blitz-iq-pro/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./blitz-iq-pro
+        run: npm ci
+
+      - name: Build application
+        working-directory: ./blitz-iq-pro
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Run Lighthouse CI
+        if: ${{ env.LHCI_GITHUB_APP_TOKEN != '' }}
+        working-directory: ./blitz-iq-pro
+        run: |
+          npm install -g @lhci/cli
+          lhci autorun
+
+      - name: Skip Lighthouse (missing token)
+        if: ${{ env.LHCI_GITHUB_APP_TOKEN == '' }}
+        run: echo "LHCI_GITHUB_APP_TOKEN not configured; skipping Lighthouse CI for this run."

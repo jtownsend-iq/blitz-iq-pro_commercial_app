@@ -20,9 +20,9 @@ const paddingMap: Record<NonNullable<CardProps['padding']>, string> = {
 }
 
 const toneMap: Record<NonNullable<CardProps['tone']>, string> = {
-  neutral: 'border-white/10 bg-gradient-to-br from-slate-950/90 via-slate-950/70 to-black/70',
+  neutral: 'border-white/10 bg-linear-to-br from-slate-950/90 via-slate-950/70 to-black/70',
   muted: 'border-white/5 bg-surface/80',
-  brand: 'border-cyan-400/25 bg-gradient-to-br from-cyan-500/10 via-slate-900/70 to-black/70',
+  brand: 'border-cyan-400/25 bg-linear-to-br from-cyan-500/10 via-slate-900/70 to-black/70',
   success: 'border-emerald-400/25 bg-emerald-500/10',
   warning: 'border-amber-400/25 bg-amber-500/10',
 }

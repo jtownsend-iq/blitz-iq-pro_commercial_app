@@ -80,13 +80,13 @@ export default async function TeamsIndexPage() {
         {cards.map((team) => (
           <GlassCard
             key={team.id}
-            className="group flex flex-col justify-between border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-black/70 transition hover:border-brand/40 hover:shadow-[0_20px_60px_-40px_rgba(0,229,255,0.4)] focus-within:border-brand/60"
+            className="group flex flex-col justify-between border border-white/10 bg-linear-to-br from-slate-950/80 via-slate-900/70 to-black/70 transition hover:border-brand/40 hover:shadow-[0_20px_60px_-40px_rgba(0,229,255,0.4)] focus-within:border-brand/60"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Team</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold text-slate-50 break-words">{team.name || 'Unnamed team'}</span>
+                  <span className="text-lg font-semibold text-slate-50 wrap-break-word">{team.name || 'Unnamed team'}</span>
                   {team.level ? (
                     <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-slate-300">
                       {team.level}
@@ -104,7 +104,7 @@ export default async function TeamsIndexPage() {
                 </div>
               </div>
               {team.logo_url ? (
-                <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
                   <Image
                     src={team.logo_url}
                     alt={`${team.name || 'Team'} logo`}
