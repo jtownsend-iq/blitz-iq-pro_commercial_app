@@ -23,6 +23,7 @@ import type {
 } from './types'
 import { normalizeEventSession, normalizeSessionGame } from './utils'
 import type { SeasonAggregate } from '@/utils/stats/types'
+import { loadTeamPreferences } from '@/lib/preferences'
 
 const RENDER_TIMESTAMP = Date.now()
 
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
   if (!activeTeamId) throw new Error('No active team set for user.')
   const activeTeam = teams.find((team) => team.id === activeTeamId)
   if (!activeTeam) throw new Error('Active team not found.')
+
+  const preferences = await loadTeamPreferences(supabase, activeTeam.id)
 
   const { data: sessionsData } = await supabase
     .from('game_sessions')
@@ -136,7 +139,7 @@ export default async function DashboardPage() {
   const currentGameEvents = mapChartRowsToEvents(currentGameEventsData as unknown[] | null, {
     teamId: activeTeam.id,
     opponent: currentGame?.opponent_name ?? null,
-  })
+  }, { preferences: preferences.analytics })
 
   const { data: seasonEventsData } = await supabase
     .from('chart_events')
@@ -147,7 +150,7 @@ export default async function DashboardPage() {
 
   const seasonEvents = mapChartRowsToEvents(seasonEventsData as unknown[] | null, {
     teamId: activeTeam.id,
-  })
+  }, { preferences: preferences.analytics })
 
   const offenseStack = buildStatsStack({ events: currentGameEvents, unit: 'OFFENSE', gameId: currentGameId ?? undefined })
   const defenseStack = buildStatsStack({ events: currentGameEvents, unit: 'DEFENSE', gameId: currentGameId ?? undefined })

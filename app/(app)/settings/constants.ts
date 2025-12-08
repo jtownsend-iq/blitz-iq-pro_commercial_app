@@ -68,3 +68,27 @@ export const DEFAULT_SUCCESS_THRESHOLDS = {
   thirdDownPct: 60,
   fourthDownPct: 60,
 } as const
+
+export const DEFAULT_BASE_STRUCTURES = {
+  offensePersonnel: ['11', '12', '20', '21', '10'],
+  offenseFormations: ['Trips Right', 'Trey Left', 'Bunch', 'Empty', 'Y-Off Tight'],
+  defenseFronts: ['Mint', 'Even', 'Odd', 'Under', 'Bear'],
+  coverages: ['Quarters', 'Cover 3 Match', 'Cover 1 Robber', 'Cover 2', 'Cover 6'],
+  specialFormations: ['Punt Shield', 'Kickoff Left/Right', 'PAT/FG', 'Hands Team'],
+  specialCalls: ['Sky Kick', 'Onside Alert', 'Fake Punt', 'Pooch Kick'],
+} as const
+
+export const DICTIONARY_CATEGORIES = [
+  { id: 'OFFENSE_FORMATION', label: 'Offensive formations' },
+  { id: 'OFFENSE_PERSONNEL', label: 'Offensive personnel' },
+  { id: 'RUN_CONCEPT', label: 'Run concepts' },
+  { id: 'PASS_CONCEPT', label: 'Pass concepts' },
+  { id: 'DEFENSE_FRONT', label: 'Defensive fronts' },
+  { id: 'COVERAGE', label: 'Coverages' },
+  { id: 'PRESSURE', label: 'Pressures' },
+  { id: 'SPECIAL_TEAMS_PLAY', label: 'Special teams plays' },
+] as const
+
+export const DICTIONARY_STATUS = ['active', 'deprecated'] as const
+
+export type DictionaryCategory = (typeof DICTIONARY_CATEGORIES)[number]['id']

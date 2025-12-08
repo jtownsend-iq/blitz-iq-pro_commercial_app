@@ -5,6 +5,8 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { closeGameSession, recordChartEvent } from '../../../chart-actions'
 import { ChartEventPanel } from './ChartEventPanel'
 import { loadDictionaryBundle } from '@/lib/dictionaries'
+import { loadTeamPreferences } from '@/lib/preferences'
+import { applyAnalyticsPreferences } from '@/lib/stats/preferences'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
@@ -118,6 +120,8 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
     redirect('/onboarding/team')
   }
 
+  const preferences = await loadTeamPreferences(supabase, activeTeamId)
+
   const { data: game, error: gameError } = await supabase
     .from('games')
     .select('id, opponent_name, start_time, home_away, location, season_label, team_id')
@@ -181,11 +185,13 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
     ? (allEventData as unknown[]).filter((row): row is PlayEvent => typeof (row as { id?: unknown }).id === 'string')
     : []
 
-  const mappedSessionEvents: PlayEvent[] = sessionRows.map((ev) =>
-    mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })
+  const mappedSessionEvents: PlayEvent[] = applyAnalyticsPreferences(
+    sessionRows.map((ev) => mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })),
+    preferences.analytics
   )
-  const mappedAllEvents: PlayEvent[] = allRows.map((ev) =>
-    mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })
+  const mappedAllEvents: PlayEvent[] = applyAnalyticsPreferences(
+    allRows.map((ev) => mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })),
+    preferences.analytics
   )
 
   const nextSequence =

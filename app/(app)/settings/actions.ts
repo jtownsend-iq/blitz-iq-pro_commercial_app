@@ -14,6 +14,9 @@ import {
   DEFAULT_FORMATION_TAGS,
   DEFAULT_PERSONNEL_TAGS,
   DEFAULT_SUCCESS_THRESHOLDS,
+  DEFAULT_BASE_STRUCTURES,
+  DICTIONARY_CATEGORIES,
+  type DictionaryCategory,
   HEX_COLOR_REGEX,
   STAFF_ROLE_ASSIGNABLE_VALUES,
   TEAM_MANAGER_ROLES,
@@ -96,6 +99,30 @@ const chartingDefaultsSchema = z.object({
   success_4th_pct: z.coerce.number().int().min(0).max(100),
 })
 
+const teamPreferencesSchema = z.object({
+  base_off_personnel: z.array(z.string().min(1).max(40)).max(20),
+  base_off_formations: z.array(z.string().min(1).max(80)).max(30),
+  base_def_fronts: z.array(z.string().min(1).max(80)).max(30),
+  base_coverages: z.array(z.string().min(1).max(80)).max(30),
+  base_special_formations: z.array(z.string().min(1).max(80)).max(20),
+  base_special_calls: z.array(z.string().min(1).max(80)).max(20),
+  include_turnover_on_downs: z.boolean(),
+  ai_suggestion_aggressiveness: z.coerce.number().int().min(0).max(100),
+  stats_panel_density: z.enum(['compact', 'balanced', 'dense']),
+  use_custom_explosives: z.boolean().optional(),
+})
+
+const dictionaryItemSchema = z.object({
+  id: z.string().uuid().optional(),
+  category: z.enum(DICTIONARY_CATEGORIES.map((c) => c.id) as [DictionaryCategory, ...DictionaryCategory[]]),
+  label: z.string().min(1).max(120),
+  code: z.string().max(60).optional().nullable(),
+  status: z.enum(['active', 'deprecated']),
+  description: z.string().max(200).optional().nullable(),
+  sort_order: z.number().int().nonnegative().default(0),
+  season_year: z.number().int().min(1990).max(2100).optional().nullable(),
+})
+
 function normalizeString(value: FormDataEntryValue | null): string {
   if (typeof value !== 'string') {
     return ''
@@ -120,6 +147,49 @@ function parseCheckbox(value: FormDataEntryValue | null): boolean {
     return false
   }
   return value === 'on' || value === 'true' || value === '1'
+}
+
+function parseDelimitedList(
+  value: FormDataEntryValue | null,
+  fallback: string[] = []
+): string[] {
+  const raw = typeof value === 'string' ? value : ''
+  const parts = raw
+    .split(/[\n,;]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  if (parts.length === 0) return [...fallback]
+  const unique = Array.from(new Set(parts))
+  return unique.slice(0, 50)
+}
+
+function parseJsonMapping(value: FormDataEntryValue | null): Record<string, string> {
+  if (typeof value !== 'string' || value.trim().length === 0) return {}
+  try {
+    const parsed = JSON.parse(value)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return Object.entries(parsed).reduce<Record<string, string>>((acc, [key, val]) => {
+        if (typeof val === 'string') acc[key] = val
+        return acc
+      }, {})
+    }
+    return {}
+  } catch {
+    return {}
+  }
+}
+
+function parseMappingText(value: FormDataEntryValue | null): Record<string, string> {
+  if (typeof value !== 'string') return {}
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((acc, line) => {
+      const [external, internal] = line.split(':').map((part) => part.trim())
+      if (external && internal) acc[external] = internal
+      return acc
+    }, {})
 }
 
 export async function updateProfileIdentity(formData: FormData) {
@@ -812,6 +882,154 @@ export async function saveChartingThresholds(formData: FormData) {
 
   if (error) {
     console.error('saveChartingThresholds upsert error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  const { error: prefFlagError } = await serviceClient
+    .from('team_preferences')
+    .upsert([{ team_id: teamId, use_custom_explosives: !restoreDefaults }], { onConflict: 'team_id' })
+
+  if (prefFlagError) {
+    console.error('saveChartingThresholds flag error:', prefFlagError.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function updateTeamPreferences(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const restoreDefaults = normalizeString(formData.get('mode')) === 'restore'
+
+  const base_off_personnel = parseDelimitedList(formData.get('base_off_personnel'), [...DEFAULT_BASE_STRUCTURES.offensePersonnel])
+  const base_off_formations = parseDelimitedList(formData.get('base_off_formations'), [...DEFAULT_BASE_STRUCTURES.offenseFormations])
+  const base_def_fronts = parseDelimitedList(formData.get('base_def_fronts'), [...DEFAULT_BASE_STRUCTURES.defenseFronts])
+  const base_coverages = parseDelimitedList(formData.get('base_coverages'), [...DEFAULT_BASE_STRUCTURES.coverages])
+  const base_special_formations = parseDelimitedList(formData.get('base_special_formations'), [...DEFAULT_BASE_STRUCTURES.specialFormations])
+  const base_special_calls = parseDelimitedList(formData.get('base_special_calls'), [...DEFAULT_BASE_STRUCTURES.specialCalls])
+
+  const payload = restoreDefaults
+    ? {
+        base_off_personnel: [...DEFAULT_BASE_STRUCTURES.offensePersonnel],
+        base_off_formations: [...DEFAULT_BASE_STRUCTURES.offenseFormations],
+        base_def_fronts: [...DEFAULT_BASE_STRUCTURES.defenseFronts],
+        base_coverages: [...DEFAULT_BASE_STRUCTURES.coverages],
+        base_special_formations: [...DEFAULT_BASE_STRUCTURES.specialFormations],
+        base_special_calls: [...DEFAULT_BASE_STRUCTURES.specialCalls],
+        include_turnover_on_downs: true,
+        ai_suggestion_aggressiveness: 50,
+        stats_panel_density: 'balanced' as const,
+        use_custom_explosives: false,
+      }
+    : {
+        base_off_personnel,
+        base_off_formations,
+        base_def_fronts,
+        base_coverages,
+        base_special_formations,
+        base_special_calls,
+        include_turnover_on_downs: parseCheckbox(formData.get('include_turnover_on_downs')),
+        ai_suggestion_aggressiveness: Number(normalizeString(formData.get('ai_suggestion_aggressiveness')) || 50),
+        stats_panel_density: (normalizeString(formData.get('stats_panel_density')).toLowerCase() ||
+          'balanced') as 'compact' | 'balanced' | 'dense',
+        use_custom_explosives: parseCheckbox(formData.get('use_custom_explosives')),
+      }
+
+  const parsed = teamPreferencesSchema.safeParse(payload)
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const { error } = await serviceClient
+    .from('team_preferences')
+    .upsert([{ team_id: teamId, ...parsed.data }], { onConflict: 'team_id' })
+
+  if (error) {
+    console.error('updateTeamPreferences error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function saveDictionaryItems(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const categories = formData.getAll('dict_category').map((v) => normalizeString(v))
+  const labels = formData.getAll('dict_label').map((v) => normalizeString(v))
+  const codes = formData.getAll('dict_code').map((v) => normalizeString(v))
+  const statuses = formData.getAll('dict_status').map((v) => normalizeString(v).toLowerCase())
+  const descriptions = formData.getAll('dict_description').map((v) => normalizeString(v))
+  const sortOrders = formData.getAll('dict_sort').map((v, idx) => {
+    const num = Number(v)
+    return Number.isFinite(num) ? num : idx
+  })
+  const seasons = formData.getAll('dict_season').map((v) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  })
+
+  const items = labels
+    .map((label, idx) => ({
+      category: categories[idx] as DictionaryCategory,
+      label,
+      code: codes[idx] || null,
+      status: (statuses[idx] as 'active' | 'deprecated') || 'active',
+      description: descriptions[idx] || null,
+      sort_order: sortOrders[idx] ?? idx,
+      season_year: seasons[idx],
+    }))
+    .filter((row) => row.label.length > 0)
+
+  const parsed = z.array(dictionaryItemSchema).safeParse(items)
+  if (!parsed.success) {
+    return { success: false, error: 'invalid_input' }
+  }
+
+  const payload = parsed.data.map((row) => ({
+    ...row,
+    team_id: teamId,
+  }))
+
+  const { error } = await serviceClient
+    .from('data_dictionary_items')
+    .upsert(payload, { onConflict: 'team_id,category,label' })
+
+  if (error) {
+    console.error('saveDictionaryItems error:', error.message)
+    return { success: false, error: 'server_error' }
+  }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function saveIntegrationMappings(formData: FormData) {
+  const { teamId } = await requireTeamManager()
+  const serviceClient = createSupabaseServiceRoleClient()
+
+  const hudlMappingJson = parseJsonMapping(formData.get('hudl_mapping_json'))
+  const hudlMappingText = parseMappingText(formData.get('hudl_mapping_text'))
+  const csvMappingJson = parseJsonMapping(formData.get('csv_mapping_json'))
+  const csvMappingText = parseMappingText(formData.get('csv_mapping_text'))
+
+  const hudlMapping = Object.keys(hudlMappingJson).length > 0 ? hudlMappingJson : hudlMappingText
+  const csvMapping = Object.keys(csvMappingJson).length > 0 ? csvMappingJson : csvMappingText
+
+  const { error } = await serviceClient
+    .from('team_preferences')
+    .upsert(
+      [{ team_id: teamId, hudl_mapping: hudlMapping, csv_mapping: csvMapping }],
+      { onConflict: 'team_id' }
+    )
+
+  if (error) {
+    console.error('saveIntegrationMappings error:', error.message)
     return { success: false, error: 'server_error' }
   }
 

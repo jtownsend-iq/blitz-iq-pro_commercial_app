@@ -3,10 +3,12 @@ import { AuthProvider } from '@/components/auth/AuthProvider'
 import { TelemetryBootstrap } from '@/components/telemetry/TelemetryBootstrap'
 import { requireAuth } from '@/utils/auth/requireAuth'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { loadTeamSeasonContext } from '@/lib/preferences'
 import type { ReactNode } from 'react'
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/teams', label: 'Teams' },
   { href: '/analytics', label: 'Season' },
   { href: '/games', label: 'Games' },
   { href: '/scouting', label: 'Scouting' },
@@ -27,6 +29,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       .eq('id', auth.activeTeamId)
       .maybeSingle()
 
+    const seasonContext = await loadTeamSeasonContext(supabase, auth.activeTeamId)
+
     const { data: recentGame } = await supabase
       .from('games')
       .select('season_label, start_time')
@@ -36,6 +40,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       .maybeSingle()
 
     const inferredSeason =
+      seasonContext.seasonLabel ||
+      (seasonContext.seasonYear ? seasonContext.seasonYear.toString() : null) ||
       recentGame?.season_label ||
       (recentGame?.start_time ? new Date(recentGame.start_time).getFullYear().toString() : null)
 

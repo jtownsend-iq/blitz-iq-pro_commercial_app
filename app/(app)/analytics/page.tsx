@@ -12,6 +12,7 @@ import {
 } from '@/lib/stats/pipeline'
 import type { GameListRow, TeamMemberRow, TeamRow } from '../dashboard/types'
 import type { SeasonAggregate, SeasonProjection } from '@/utils/stats/types'
+import { loadTeamPreferences } from '@/lib/preferences'
 
 type GameTile = {
   id: string
@@ -60,9 +61,15 @@ export default async function AnalyticsPage() {
     .order('created_at', { ascending: false })
     .limit(1200)
 
-  const seasonEvents = mapChartRowsToEvents(seasonEventsData as unknown[] | null, {
-    teamId: activeTeam.id,
-  })
+  const preferences = await loadTeamPreferences(supabase, activeTeam.id)
+
+  const seasonEvents = mapChartRowsToEvents(
+    seasonEventsData as unknown[] | null,
+    {
+      teamId: activeTeam.id,
+    },
+    { preferences: preferences.analytics }
+  )
 
   const { aggregate, projection, stacks } = buildStacksForGames(seasonEvents, games)
   const efficiencyCards = buildEfficiencyCards(aggregate)

@@ -1,5 +1,7 @@
 import { aggregateSeasonMetrics, buildStatsStack, mapChartEventToPlayEvent, projectSeason } from '@/utils/stats/engine'
 import type { PlayEvent, SeasonAggregate, SeasonProjection } from '@/utils/stats/types'
+import { applyAnalyticsPreferences } from './preferences'
+import type { AnalyticsPreferences } from '../preferences'
 
 // Shared column projection for loading chart events into the stats engine.
 export const DASHBOARD_EVENT_COLUMNS = [
@@ -58,11 +60,12 @@ export type GameStack = {
 
 export function mapChartRowsToEvents(
   rows: unknown[] | null | undefined,
-  defaults: { teamId: string; opponent?: string | null }
+  defaults: { teamId: string; opponent?: string | null },
+  options?: { preferences?: AnalyticsPreferences }
 ): PlayEvent[] {
   if (!Array.isArray(rows)) return []
 
-  return rows.map((row) =>
+  const events = rows.map((row) =>
     mapChartEventToPlayEvent(row as PlayEvent, {
       teamId: defaults.teamId,
       opponent:
@@ -72,6 +75,12 @@ export function mapChartRowsToEvents(
         null,
     })
   )
+
+  if (options?.preferences) {
+    return applyAnalyticsPreferences(events, options.preferences)
+  }
+
+  return events
 }
 
 export function buildStacksForGames(events: PlayEvent[], games: GameMeta[]): {
