@@ -105,6 +105,77 @@ type ChartEventRowLike = Partial<PlayEvent> & {
   turnover_type?: string | null
 }
 
+function inferPlayFamily(row: ChartEventRowLike): 'RUN' | 'PASS' | 'RPO' | 'SPECIAL_TEAMS' | null {
+  const base = [row.play_call, row.result, (row as Record<string, unknown>).notes as string | null]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  if (!base) return null
+
+  const has = (...terms: string[]) => terms.some((term) => base.includes(term))
+
+  if (
+    has(
+      'kickoff',
+      'kick off',
+      'kick return',
+      'punt',
+      'field goal',
+      'fg',
+      'extra point',
+      'xp',
+      'pat',
+      'onside',
+      'on-side'
+    )
+  ) {
+    return 'SPECIAL_TEAMS'
+  }
+  if (has('rpo', 'option pass', 'run-pass option')) return 'RPO'
+  if (
+    has(
+      'pass',
+      'screen',
+      'boot',
+      'play action',
+      'play-action',
+      'pa',
+      'shot',
+      'dropback',
+      'drop back',
+      'bubble',
+      'slant',
+      'post',
+      'dig',
+      'curl',
+      'corner'
+    )
+  ) {
+    return 'PASS'
+  }
+  if (
+    has(
+      'run',
+      'rush',
+      'carry',
+      'handoff',
+      'hand off',
+      'iso',
+      'power',
+      'counter',
+      'inside zone',
+      'outside zone',
+      'zone read',
+      'qb sneak',
+      'sneak',
+      'draw'
+    )
+  ) {
+    return 'RUN'
+  }
+  return null
+}
+
 const QUARTER_LENGTH_SECONDS = 900
 // Decide once and apply everywhere: turnovers on downs are counted as giveaways (and therefore affect margin).
 // This aligns turnover margin with possession changes, even when the defense did not directly force the stop.
@@ -526,7 +597,7 @@ export function mapChartEventToPlayEvent(
   const score_after = deriveScoreState(row, 'after')
   const timeouts_before = deriveTimeouts(row)
   const boundaries = normalizeBoundaryFlags(row)
-  const play_family = row.play_family ?? (row.st_play_type ? 'SPECIAL_TEAMS' : null)
+  const play_family = row.play_family ?? (row.st_play_type ? 'SPECIAL_TEAMS' : inferPlayFamily(row))
   const explosive =
     typeof row.explosive === 'boolean'
       ? row.explosive

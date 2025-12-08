@@ -12,6 +12,7 @@ import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { FreshnessBadge } from '@/components/ui/FreshnessBadge'
+import { DASHBOARD_EVENT_COLUMNS } from '@/lib/stats/pipeline'
 import {
   bucketDownDistance,
   buildStatsStack,
@@ -39,45 +40,6 @@ const unitAccent: Record<NormalizedUnit, string> = {
   SPECIAL_TEAMS: 'from-amber-500/80 via-amber-500/40 to-transparent',
   ALL: 'from-slate-500/80 via-slate-500/40 to-transparent',
 }
-
-const baseSelectColumns = [
-  'id',
-  'team_id',
-  'game_id',
-  'game_session_id',
-  'sequence',
-  'quarter',
-  'clock_seconds',
-  'down',
-  'distance',
-  'ball_on',
-  'hash_mark',
-  'possession',
-  'play_call',
-  'result',
-  'gained_yards',
-  'created_at',
-  'drive_number',
-  'explosive',
-  'turnover',
-  'play_family',
-  'run_concept',
-  'wr_concept_id',
-  'st_play_type',
-  'st_variant',
-  'st_return_yards',
-  'offensive_personnel_code:offensive_personnel',
-  'offensive_formation_id',
-  'backfield_code',
-  'qb_alignment',
-  'front_code:front',
-  'defensive_structure_id',
-  'coverage_shell_pre',
-  'coverage_shell_post:coverage',
-  'pressure_code:pressure',
-  'strength',
-  'tags',
-].join(', ')
 
 export default async function GameWorkspacePage({ params }: { params: Promise<{ gameId: string; unit: string }> }) {
   const resolved = await params
@@ -157,7 +119,7 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
     session && session.id
       ? await supabase
           .from('chart_events')
-          .select(baseSelectColumns)
+          .select(DASHBOARD_EVENT_COLUMNS)
           .eq('game_session_id', session.id)
           .order('sequence', { ascending: false })
           .limit(60)
@@ -169,7 +131,7 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
 
   const { data: allEventData, error: allEventError } = await supabase
     .from('chart_events')
-    .select(baseSelectColumns)
+    .select(DASHBOARD_EVENT_COLUMNS)
     .eq('game_id', game.id)
     .eq('team_id', activeTeamId)
     .order('created_at', { ascending: false })
@@ -277,7 +239,7 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
           <div className="space-y-4">
             <GlassCard className="space-y-3">
               <SituationalStrip event={latestUnit} scoreFor={scoreFor} scoreAgainst={scoreAgainst} possession={possessionSide} unit={normalizedUnit} />

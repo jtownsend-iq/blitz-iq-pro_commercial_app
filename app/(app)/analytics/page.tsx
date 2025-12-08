@@ -98,7 +98,7 @@ export default async function AnalyticsPage() {
             <p className="text-xs text-slate-400">Events ingested: {seasonEvents.length.toLocaleString()}</p>
           </div>
         </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
           <TopTile
             title="Projected win rate"
             value={formatPercent(projection.projectedWinRate)}
@@ -127,7 +127,7 @@ export default async function AnalyticsPage() {
             <p className="text-lg font-semibold text-slate-50">EPA-based efficiency, success, explosiveness</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
           {efficiencyCards.map((card) => (
             <AnalyticsCard key={card.title} {...card} />
           ))}
@@ -141,7 +141,7 @@ export default async function AnalyticsPage() {
             <p className="text-lg font-semibold text-slate-50">Control scores and post-game win expectancy</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
           {controlCards.map((card) => (
             <AnalyticsCard key={card.title} {...card} />
           ))}
@@ -155,7 +155,7 @@ export default async function AnalyticsPage() {
             <p className="text-lg font-semibold text-slate-50">Win probability and control by game</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
           {gameTiles.map((game) => (
             <div key={game.id} className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-black/60 p-4 shadow-[0_20px_70px_-40px_rgba(0,0,0,0.8)]">
               <div className="flex items-center justify-between">

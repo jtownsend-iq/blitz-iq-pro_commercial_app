@@ -24,7 +24,7 @@ export default function AppGroupLoading() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
         {Array.from({ length: 4 }).map((_, idx) => (
           <div
             key={idx}
@@ -37,7 +37,7 @@ export default function AppGroupLoading() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
         {Array.from({ length: 3 }).map((_, idx) => (
           <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_20px_70px_-40px_rgba(0,0,0,0.8)]">
             <div className="flex items-center justify-between">

@@ -15,7 +15,7 @@ type StatsGridProps = {
 
 export function StatsGrid({ tiles }: StatsGridProps) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
       {tiles.map((tile) => (
         <article
           key={tile.id}
