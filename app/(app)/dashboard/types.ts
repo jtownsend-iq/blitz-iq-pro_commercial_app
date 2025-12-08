@@ -13,6 +13,10 @@ export type TeamMemberRow = {
 export type SessionSummaryGame = {
   opponent_name: string | null
   start_time: string | null
+  home_or_away?: string | null
+  location?: string | null
+  status?: string | null
+  season_label?: string | null
 }
 
 export type SessionSummary = {
@@ -31,6 +35,16 @@ export type SessionRow = {
   started_at: string | null
   game_id: string
   games: SessionSummaryGame | SessionSummaryGame[] | null
+}
+
+export type GameListRow = {
+  id: string
+  opponent_name: string | null
+  start_time: string | null
+  home_or_away: string | null
+  location: string | null
+  status: string | null
+  season_label: string | null
 }
 
 export type EventSummarySession = {

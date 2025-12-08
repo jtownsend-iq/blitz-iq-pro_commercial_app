@@ -174,8 +174,12 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
     console.error('Game workspace all-events error:', allEventError.message)
   }
 
-  const sessionRows = Array.isArray(sessionEventData) ? (sessionEventData as PlayEvent[]) : []
-  const allRows = Array.isArray(allEventData) ? (allEventData as PlayEvent[]) : []
+  const sessionRows = Array.isArray(sessionEventData)
+    ? (sessionEventData as unknown[]).filter((row): row is PlayEvent => typeof (row as { id?: unknown }).id === 'string')
+    : []
+  const allRows = Array.isArray(allEventData)
+    ? (allEventData as unknown[]).filter((row): row is PlayEvent => typeof (row as { id?: unknown }).id === 'string')
+    : []
 
   const mappedSessionEvents: PlayEvent[] = sessionRows.map((ev) =>
     mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })

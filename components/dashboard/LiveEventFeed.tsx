@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ActivitySquare, Flame, RadioTower, ShieldAlert } from 'lucide-react'
@@ -11,9 +12,10 @@ type LiveEventFeedProps = {
   teamId: string
   initialEvents: EventSummary[]
   onNewEvent?: (event: EventSummary) => void
+  fullLogHref?: string
 }
 
-export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFeedProps) {
+export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref = '/games' }: LiveEventFeedProps) {
   const [events, setEvents] = useState<EventSummary[]>(initialEvents)
   const [unavailable, setUnavailable] = useState(false)
   const [unitFilter, setUnitFilter] = useState<'ALL' | 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'>('ALL')
@@ -97,6 +99,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
     if (unitFilter === 'ALL') return events
     return events.filter((event) => (event.game_sessions?.unit || '').toUpperCase() === unitFilter)
   }, [events, unitFilter])
+  const limitedEvents = filteredEvents.slice(0, 18)
 
   if (unavailable) {
     return (
@@ -121,27 +124,31 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-slate-100">Live event feed</h2>
-          <p className="text-sm text-slate-400">Latest charted plays stream in real time.</p>
+          <p className="text-sm text-slate-400">Result-first, short window of the most recent snaps.</p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs uppercase tracking-[0.18em] text-slate-400">Unit</label>
-          <select
-            value={unitFilter}
-            onChange={(e) => setUnitFilter(e.target.value as typeof unitFilter)}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-100"
-          >
-            <option value="ALL">All</option>
-            <option value="OFFENSE">Offense</option>
-            <option value="DEFENSE">Defense</option>
-            <option value="SPECIAL_TEAMS">Special Teams</option>
-          </select>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">
+          <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">
             <RadioTower className="h-5 w-5" />
           </div>
         </div>
       </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(['ALL', 'OFFENSE', 'DEFENSE', 'SPECIAL_TEAMS'] as const).map((value) => (
+          <button
+            key={value}
+            onClick={() => setUnitFilter(value)}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.72rem] uppercase tracking-[0.2em] ${
+              unitFilter === value
+                ? 'border-cyan-400/50 bg-cyan-500/10 text-cyan-100 shadow-[0_10px_30px_-20px_rgba(6,182,212,0.6)]'
+                : 'border-white/10 bg-white/5 text-slate-300 hover:border-cyan-400/40'
+            }`}
+          >
+            {formatFilterLabel(value)}
+          </button>
+        ))}
+      </div>
 
-      {filteredEvents.length === 0 ? (
+      {limitedEvents.length === 0 ? (
         <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center text-slate-400">
           <ActivitySquare className="mb-3 h-10 w-10 text-slate-500" />
           <p className="text-sm">No plays match this filter. Start a session in Games to see the live feed.</p>
@@ -149,7 +156,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
       ) : (
         <div className="mt-5 max-h-[460px] space-y-3 overflow-y-auto pr-1" role="list" aria-live="polite">
           <AnimatePresence initial={false}>
-            {filteredEvents.map((event) => (
+            {limitedEvents.map((event) => (
               <motion.article
                 key={event.id}
                 initial={{ opacity: 0, y: -12 }}
@@ -165,16 +172,18 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
                   <span>{formatUnitLabel(event.game_sessions?.unit)}</span>
                   <span className="tabular-nums">{formatEventTimestamp(event.created_at)}</span>
                 </div>
-                <div className="relative mt-1 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-100">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.7rem] uppercase tracking-[0.24em] text-cyan-200">
+                <div className="relative mt-2 flex flex-wrap items-center gap-3 text-base font-semibold text-slate-100">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.72rem] uppercase tracking-[0.22em] text-cyan-200">
                     {event.result || 'Result TBD'}
                   </span>
-                  <span className="truncate break-words max-w-full">{event.play_call || 'Play call TBD'}</span>
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-sm text-slate-200 tabular-nums">
+                    {typeof event.gained_yards === 'number' ? `${event.gained_yards} yds` : '--'}
+                  </span>
+                  <span className="truncate break-words max-w-full text-sm font-normal text-slate-100">
+                    {event.play_call || 'Play call TBD'}
+                  </span>
                 </div>
                 <div className="relative mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                  <span className="rounded-full bg-slate-800/70 px-2 py-1 tabular-nums">
-                    Yardage: {typeof event.gained_yards === 'number' ? event.gained_yards : '--'}
-                  </span>
                   {event.explosive && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-amber-200">
                       <Flame className="h-3.5 w-3.5" /> Explosive
@@ -191,6 +200,20 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent }: LiveEventFe
           </AnimatePresence>
         </div>
       )}
+
+      <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+        <span>Showing the last {limitedEvents.length} plays</span>
+        <Link href={fullLogHref} className="text-cyan-200 hover:text-cyan-100">
+          View full game log
+        </Link>
+      </div>
     </div>
   )
+}
+
+function formatFilterLabel(value: 'ALL' | 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS') {
+  if (value === 'SPECIAL_TEAMS') return 'Special Teams'
+  if (value === 'OFFENSE') return 'Offense'
+  if (value === 'DEFENSE') return 'Defense'
+  return 'All'
 }
