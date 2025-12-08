@@ -15,6 +15,7 @@ import {
   computeFourthDownEfficiency,
   computeLateDownEfficiency,
   computePassingEfficiency,
+  computeDefensiveMetrics,
   computeRushingEfficiency,
   computePossessionMetrics,
   computeSuccessRate,
@@ -486,6 +487,174 @@ test('possession metrics compute drives, time, and points per possession', () =>
   strictEqual(Math.round(possession.defense.pointsPerPossession * 100) / 100, 3)
 })
 
+test('defensive metrics capture stops, havoc, and takeaways', () => {
+  const defensivePlays: PlayEvent[] = [
+    {
+      ...basePlays[0],
+      id: 'def-1',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 3,
+      distance: 7,
+      gained_yards: 2,
+      field_position: 70,
+      ball_on: 'D30',
+      play_family: 'PASS',
+      drive_number: 1,
+      participation: { passDefenders: ['CB1'] },
+      is_drive_start: true,
+    },
+    {
+      ...basePlays[0],
+      id: 'def-2',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 4,
+      distance: 1,
+      gained_yards: 0,
+      field_position: 68,
+      ball_on: 'D32',
+      play_family: 'RUN',
+      drive_number: 1,
+      is_drive_end: true,
+      result: 'Punt',
+    },
+    {
+      ...basePlays[0],
+      id: 'def-3',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 3,
+      distance: 6,
+      gained_yards: 8,
+      field_position: 50,
+      ball_on: 'D50',
+      play_family: 'RUN',
+      drive_number: 2,
+      first_down: true,
+    },
+    {
+      ...basePlays[0],
+      id: 'def-4',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 4,
+      distance: 2,
+      gained_yards: -2,
+      field_position: 48,
+      ball_on: 'D48',
+      play_family: 'RUN',
+      drive_number: 2,
+      is_drive_end: true,
+      turnover: true,
+      turnover_detail: { type: 'DOWNS', lostBy: 'OFFENSE', lostBySide: 'OPPONENT', returnYards: 0 },
+      result: 'Turnover on downs',
+    },
+    {
+      ...basePlays[0],
+      id: 'def-5',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 3,
+      distance: 10,
+      gained_yards: -6,
+      field_position: 60,
+      ball_on: 'D40',
+      play_family: 'PASS',
+      pass_result: 'Sack -6',
+      drive_number: 3,
+      participation: { sackers: ['DL1'] },
+    },
+    {
+      ...basePlays[0],
+      id: 'def-6',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 2,
+      distance: 8,
+      gained_yards: -1,
+      field_position: 55,
+      ball_on: 'D45',
+      play_family: 'RUN',
+      drive_number: 3,
+      participation: { soloTacklers: ['LB1'] },
+    },
+    {
+      ...basePlays[0],
+      id: 'def-7',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 3,
+      distance: 9,
+      gained_yards: 0,
+      field_position: 52,
+      ball_on: 'D48',
+      play_family: 'PASS',
+      drive_number: 3,
+      is_drive_end: true,
+      turnover: true,
+      turnover_detail: {
+        type: 'INTERCEPTION',
+        lostBy: 'OFFENSE',
+        lostBySide: 'OPPONENT',
+        returnYards: 15,
+        recoveredBy: 'DB1',
+      },
+      participation: { interceptors: ['DB1'], passDefenders: ['DB1'] },
+      result: 'Interception',
+    },
+    {
+      ...basePlays[0],
+      id: 'def-8',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 3,
+      distance: 5,
+      gained_yards: -1,
+      field_position: 40,
+      ball_on: 'D60',
+      play_family: 'RUN',
+      drive_number: 4,
+    },
+    {
+      ...basePlays[0],
+      id: 'def-9',
+      possession: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      down: 3,
+      distance: 4,
+      gained_yards: -1,
+      field_position: 35,
+      ball_on: 'D65',
+      play_family: 'RUN',
+      drive_number: 4,
+      is_drive_end: true,
+      turnover: true,
+      turnover_detail: {
+        type: 'FUMBLE',
+        lostBy: 'OFFENSE',
+        lostBySide: 'OPPONENT',
+        returnYards: 0,
+        forcedBy: 'DL2',
+        recoveredBy: 'DL2',
+      },
+      participation: { soloTacklers: ['DL2'], forcedFumble: 'DL2' },
+      result: 'Fumble',
+    },
+  ]
+
+  const defense = computeDefensiveMetrics(defensivePlays)
+  strictEqual(defense.takeaways.total, 3)
+  strictEqual(defense.thirdDown.attempts, 6)
+  strictEqual(Math.round(defense.thirdDown.stopRate * 100), 83)
+  strictEqual(defense.fourthDown.stops, 2)
+  strictEqual(Math.round(defense.threeAndOuts.rate * 100), 75)
+  strictEqual(defense.tfls.total, 5)
+  strictEqual(defense.tfls.sacks, 1)
+  ok(defense.havoc.rate > 0.7)
+  strictEqual(defense.drives.pointsAllowed, 0)
+})
+
 test('season aggregation produces trends and averages', () => {
   const gameA = buildStatsStack({ events: basePlays, unit: 'OFFENSE', gameId: 'g1' }).game
   const turnoverHeavy: PlayEvent[] = [
@@ -511,4 +680,6 @@ test('season aggregation produces trends and averages', () => {
   strictEqual(season.turnover.trend.length, 2)
   ok(season.turnover.averageMargin <= 0)
   ok(season.scoring.trend.length === 2)
+  strictEqual(season.defense.takeawaysPerGame, 0)
+  strictEqual(season.defense.thirdDown.attempts, 0)
 })

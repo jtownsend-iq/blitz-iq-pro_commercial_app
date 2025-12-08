@@ -6,7 +6,13 @@ import {
   BoundaryFlags,
   ChartUnit,
   CoreWinningMetrics,
+  DefensiveConversionMetrics,
   DefensiveContext,
+  DefensiveHavocMetrics,
+  DefensiveMetrics,
+  DefensiveSituational,
+  DefensiveTakeawayMetrics,
+  DefensiveTflMetrics,
   DistanceBucket,
   DriveRecord,
   DriveResultBreakdown,
@@ -133,6 +139,20 @@ function resolvePlaySide(ev: PlayEvent, unitHint?: ChartUnit): ChartUnit {
   return unitHint ?? 'OFFENSE'
 }
 
+function possessingSide(ev: PlayEvent): 'TEAM' | 'OPPONENT' | null {
+  const side = resolvePlaySide(ev, 'OFFENSE')
+  if (side === 'OFFENSE') return 'TEAM'
+  if (side === 'DEFENSE') return 'OPPONENT'
+  return null
+}
+
+function possessingTeamScored(ev: PlayEvent): boolean {
+  if (!ev.scoring) return false
+  const side = possessingSide(ev)
+  if (!side) return false
+  return (ev.scoring.scoring_team_side ?? 'TEAM') === side
+}
+
 function isTouchdownEvent(scoring: ScoringEvent | null | undefined): boolean {
   if (!scoring) return false
   return scoring.type === 'TD' || scoring.type === 'DEF_TD' || scoring.type === 'ST_TD' || scoring.points >= 6
@@ -227,6 +247,10 @@ export function filterOffensivePlays(events: PlayEvent[], unitHint?: ChartUnit, 
 
     return true
   })
+}
+
+function filterDefensivePlays(events: PlayEvent[], unitHint?: ChartUnit): PlayEvent[] {
+  return events.filter((ev) => resolvePlaySide(ev, unitHint) === 'DEFENSE' && ev.play_family !== 'SPECIAL_TEAMS')
 }
 
 function filterEventsForUnit(events: PlayEvent[], unitHint?: ChartUnit): PlayEvent[] {
@@ -603,9 +627,8 @@ export function computeBaseCounts(events: PlayEvent[]): BaseCounts {
 }
 
 function offenseScored(ev: PlayEvent) {
-  if (ev.scoring) {
-    return (ev.scoring.scoring_team_side ?? 'TEAM') !== 'OPPONENT'
-  }
+  if (possessingTeamScored(ev)) return true
+  if (ev.turnover_detail) return false
   return isScoringPlay(ev.result)
 }
 
@@ -707,6 +730,129 @@ export function aggregateConversionSummaries(summaries: ConversionSummary[]): Co
     attempts,
     conversions,
     rate: attempts ? conversions / attempts : 0,
+  }
+}
+
+type SampleRate = DefensiveSituational['overall']
+
+function makeSampleRate(count: number, sample: number): SampleRate {
+  return { count, sample, rate: sample ? count / sample : 0 }
+}
+
+function mergeSampleRate(a: SampleRate, b: SampleRate): SampleRate {
+  const sample = a.sample + b.sample
+  const count = a.count + b.count
+  return makeSampleRate(count, sample)
+}
+
+function mergeRateRecord(recordA: Record<string, SampleRate>, recordB: Record<string, SampleRate>) {
+  const merged: Record<string, SampleRate> = {}
+  const keys = new Set([...Object.keys(recordA), ...Object.keys(recordB)])
+  keys.forEach((key) => {
+    merged[key] = mergeSampleRate(recordA[key] || makeSampleRate(0, 0), recordB[key] || makeSampleRate(0, 0))
+  })
+  return merged
+}
+
+function buildSituationalBreakdown(domain: PlayEvent[], matches: PlayEvent[]): DefensiveSituational {
+  const matchIds = new Set(matches.map((ev) => ev.id))
+  const quarterBuckets: Array<1 | 2 | 3 | 4> = [1, 2, 3, 4]
+  const zoneBuckets: Array<FieldZone | 'UNKNOWN'> = ['BACKED_UP', 'COMING_OUT', 'OPEN_FIELD', 'SCORING_RANGE', 'RED_ZONE', 'UNKNOWN']
+  const downBuckets: Array<'1' | '2' | '3' | '4'> = ['1', '2', '3', '4']
+
+  const rateFor = (filterFn: (ev: PlayEvent) => boolean): SampleRate => {
+    const subset = domain.filter(filterFn)
+    const count = subset.reduce((sum, ev) => sum + (matchIds.has(ev.id) ? 1 : 0), 0)
+    return makeSampleRate(count, subset.length)
+  }
+
+  const buildCall = (resolver: (ev: PlayEvent) => string | null | undefined) => {
+    const map: Record<string, SampleRate> = {}
+    const keys = new Set(
+      domain
+        .map((ev) => resolver(ev) || 'UNKNOWN')
+        .filter((val) => typeof val === 'string')
+    )
+    keys.forEach((key) => {
+      map[key] = rateFor((ev) => (resolver(ev) || 'UNKNOWN') === key)
+    })
+    if (!map.UNKNOWN) {
+      map.UNKNOWN = makeSampleRate(0, 0)
+    }
+    return map
+  }
+
+  return {
+    overall: makeSampleRate(matches.length, domain.length),
+    byHalf: {
+      first: rateFor((ev) => ev.quarter === 1 || ev.quarter === 2),
+      second: rateFor((ev) => ev.quarter === 3 || ev.quarter === 4),
+    },
+    byQuarter: quarterBuckets.reduce(
+      (acc, q) => ({ ...acc, [q]: rateFor((ev) => ev.quarter === q) }),
+      {} as DefensiveSituational['byQuarter']
+    ),
+    byFieldZone: zoneBuckets.reduce((acc, zone) => {
+      acc[zone] = rateFor((ev) => (normalizeFieldZone(ev) ?? 'UNKNOWN') === zone)
+      return acc
+    }, {} as DefensiveSituational['byFieldZone']),
+    byDown: downBuckets.reduce((acc, down) => {
+      const downNum = Number(down)
+      acc[down] = rateFor((ev) => ev.down === downNum)
+      return acc
+    }, {} as DefensiveSituational['byDown']),
+    byCall: {
+      front: buildCall((ev) => ev.front_code ?? null),
+      coverage: buildCall((ev) => ev.coverage_shell_post ?? ev.coverage_shell_pre ?? null),
+      pressure: buildCall((ev) => ev.pressure_code ?? null),
+    },
+  }
+}
+
+function mergeSituational(a: DefensiveSituational, b: DefensiveSituational): DefensiveSituational {
+  return {
+    overall: mergeSampleRate(a.overall, b.overall),
+    byHalf: {
+      first: mergeSampleRate(a.byHalf.first, b.byHalf.first),
+      second: mergeSampleRate(a.byHalf.second, b.byHalf.second),
+    },
+    byQuarter: {
+      1: mergeSampleRate(a.byQuarter[1], b.byQuarter[1]),
+      2: mergeSampleRate(a.byQuarter[2], b.byQuarter[2]),
+      3: mergeSampleRate(a.byQuarter[3], b.byQuarter[3]),
+      4: mergeSampleRate(a.byQuarter[4], b.byQuarter[4]),
+    },
+    byFieldZone: mergeRateRecord(a.byFieldZone, b.byFieldZone),
+    byDown: {
+      '1': mergeSampleRate(a.byDown['1'], b.byDown['1']),
+      '2': mergeSampleRate(a.byDown['2'], b.byDown['2']),
+      '3': mergeSampleRate(a.byDown['3'], b.byDown['3']),
+      '4': mergeSampleRate(a.byDown['4'], b.byDown['4']),
+    },
+    byCall: {
+      front: mergeRateRecord(a.byCall.front, b.byCall.front),
+      coverage: mergeRateRecord(a.byCall.coverage, b.byCall.coverage),
+      pressure: mergeRateRecord(a.byCall.pressure, b.byCall.pressure),
+    },
+  }
+}
+
+function emptySituational(): DefensiveSituational {
+  const fresh = () => makeSampleRate(0, 0)
+  return {
+    overall: fresh(),
+    byHalf: { first: fresh(), second: fresh() },
+    byQuarter: { 1: fresh(), 2: fresh(), 3: fresh(), 4: fresh() },
+    byFieldZone: {
+      BACKED_UP: fresh(),
+      COMING_OUT: fresh(),
+      OPEN_FIELD: fresh(),
+      SCORING_RANGE: fresh(),
+      RED_ZONE: fresh(),
+      UNKNOWN: fresh(),
+    },
+    byDown: { '1': fresh(), '2': fresh(), '3': fresh(), '4': fresh() },
+    byCall: { front: {}, coverage: {}, pressure: {} },
   }
 }
 
@@ -1262,16 +1408,242 @@ export function computePossessionMetrics(
   }
 }
 
+function filterDefensiveDrives(drives: DriveRecord[]) {
+  return drives.filter((drive) => (drive.unit_on_field ?? drive.unit ?? 'OFFENSE') === 'DEFENSE')
+}
+
+export function computeDefensiveTakeaways(events: PlayEvent[]): DefensiveTakeawayMetrics {
+  const defensiveEvents = filterDefensivePlays(events, 'DEFENSE')
+  const takeaways = defensiveEvents.filter((ev) => {
+    const turnover = normalizeTurnoverEvent(ev)
+    if (!turnover || !shouldCountTurnover(turnover)) return false
+    if ((turnover.lostBySide ?? 'TEAM') !== 'OPPONENT') return false
+    if (turnover.type === 'INTERCEPTION' || turnover.type === 'FUMBLE') return true
+    if (COUNT_TURNOVER_ON_DOWNS && turnover.type === 'DOWNS') return true
+    return turnover.type === 'BLOCKED_KICK'
+  })
+
+  const byType = emptyTurnoverBuckets()
+  takeaways.forEach((ev) => {
+    const turnover = normalizeTurnoverEvent(ev)
+    if (turnover) incrementTurnoverBucket(byType, turnover)
+  })
+
+  const total =
+    byType.interceptions +
+    byType.fumbles +
+    byType.blockedKicks +
+    byType.other +
+    (COUNT_TURNOVER_ON_DOWNS ? byType.downs : 0)
+
+  return {
+    total,
+    perGame: total,
+    byType,
+    situational: buildSituationalBreakdown(defensiveEvents, takeaways),
+  }
+}
+
+export function computeDefensiveStopSummary(events: PlayEvent[], down: 3 | 4): DefensiveConversionMetrics {
+  const defensiveEvents = filterDefensivePlays(events, 'DEFENSE')
+  const attempts = defensiveEvents.filter((ev) => ev.down === down)
+  const conversionsAllowed = attempts.filter(isSeriesConversion).length
+  const stops = attempts.length - conversionsAllowed
+  const stopsList = attempts.filter((ev) => !isSeriesConversion(ev))
+
+  return {
+    attempts: attempts.length,
+    stops,
+    conversionsAllowed,
+    stopRate: attempts.length ? stops / attempts.length : 0,
+    situational: buildSituationalBreakdown(attempts, stopsList),
+  }
+}
+
+function computeForcedThreeAndOuts(drives: DriveRecord[], events: PlayEvent[]) {
+  const defensiveDrives = filterDefensiveDrives(drives)
+  const eventsByDrive = new Map<number, PlayEvent[]>()
+  events.forEach((ev) => {
+    if (ev.drive_number == null) return
+    const list = eventsByDrive.get(ev.drive_number) || []
+    list.push(ev)
+    eventsByDrive.set(ev.drive_number, list)
+  })
+
+  let count = 0
+  defensiveDrives.forEach((drive) => {
+    const evs = eventsByDrive.get(drive.drive_number) || []
+    const defensivePlays = evs.filter((ev) => resolvePlaySide(ev, 'DEFENSE') === 'DEFENSE')
+    if (defensivePlays.length === 0) return
+    const result = normalizeDriveResult(drive, defensivePlays)
+    const terminal =
+      result === 'PUNT' || result === 'TURNOVER' || result === 'DOWNS' || result === 'END_HALF' || result === 'END_GAME'
+    const converted = defensivePlays.some((ev) => isSeriesConversion(ev))
+    const scored = defensivePlays.some((ev) => possessingTeamScored(ev))
+
+    if (defensivePlays.length <= 3 && terminal && !converted && !scored) {
+      count += 1
+    }
+  })
+
+  const drivesFaced = defensiveDrives.length
+  return {
+    count,
+    drives: drivesFaced,
+    rate: drivesFaced ? count / drivesFaced : 0,
+  }
+}
+
+function isTackleForLoss(ev: PlayEvent) {
+  if (isSack(ev)) return true
+  if (ev.play_family === 'RUN' || ev.play_family === 'RPO') {
+    return (ev.gained_yards ?? 0) < 0
+  }
+  return false
+}
+
+function isForcedFumble(ev: PlayEvent) {
+  if (ev.participation?.forcedFumble) return true
+  if (ev.turnover_detail?.type === 'FUMBLE') {
+    return (ev.turnover_detail.lostBySide ?? 'TEAM') === 'OPPONENT'
+  }
+  return false
+}
+
+function isInterceptionTakeaway(ev: PlayEvent) {
+  if (!ev.turnover_detail) return false
+  if ((ev.turnover_detail.lostBySide ?? 'TEAM') !== 'OPPONENT') return false
+  return ev.turnover_detail.type === 'INTERCEPTION'
+}
+
+function isPassDeflection(ev: PlayEvent) {
+  return (ev.participation?.passDefenders?.length ?? 0) > 0
+}
+
+export function computeDefensiveTflMetrics(events: PlayEvent[]): DefensiveTflMetrics {
+  const defensiveEvents = filterDefensivePlays(events, 'DEFENSE')
+  const tflEvents: PlayEvent[] = []
+  const byPlayer: Record<string, { tfl: number; sacks: number }> = {}
+
+  defensiveEvents.forEach((ev) => {
+    const sack = isSack(ev)
+    const tfl = sack || isTackleForLoss(ev)
+    if (!tfl) return
+    tflEvents.push(ev)
+
+    const sackers = ev.participation?.sackers ?? []
+    const tacklers = [
+      ...(ev.participation?.soloTacklers ?? []),
+      ...(ev.participation?.assistedTacklers ?? []),
+    ]
+    const candidates = sack && sackers.length ? sackers : tacklers
+    const players = candidates.length ? candidates : []
+    ;[...new Set(players)].forEach((player) => {
+      const bucket = byPlayer[player] || { tfl: 0, sacks: 0 }
+      bucket.tfl += 1
+      if (sack) bucket.sacks += 1
+      byPlayer[player] = bucket
+    })
+  })
+
+  const sacks = tflEvents.filter((ev) => isSack(ev)).length
+
+  return {
+    total: tflEvents.length,
+    sacks,
+    perGame: tflEvents.length,
+    byPlayer,
+    situational: buildSituationalBreakdown(defensiveEvents, tflEvents),
+  }
+}
+
+export function computeDefensiveHavocMetrics(events: PlayEvent[], tfls?: DefensiveTflMetrics): DefensiveHavocMetrics {
+  const defensiveEvents = filterDefensivePlays(events, 'DEFENSE')
+  const havocEvents: PlayEvent[] = []
+  let tflCount = tfls?.total ?? 0
+  let sackCount = tfls?.sacks ?? 0
+  let forcedFumbles = 0
+  let interceptions = 0
+  let passDeflections = 0
+
+  defensiveEvents.forEach((ev) => {
+    const sack = isSack(ev)
+    const tfl = isTackleForLoss(ev)
+    const forcedFumble = isForcedFumble(ev)
+    const interception = isInterceptionTakeaway(ev)
+    const deflection = isPassDeflection(ev)
+    const havoc = tfl || forcedFumble || interception || deflection
+    if (havoc) havocEvents.push(ev)
+    if (tfl && !(tfls && tfls.total > 0)) tflCount += 1
+    if (sack && !(tfls && tfls.sacks > 0)) sackCount += 1
+    if (forcedFumble) forcedFumbles += 1
+    if (interception) interceptions += 1
+    if (deflection) passDeflections += 1
+  })
+
+  return {
+    plays: defensiveEvents.length,
+    havocPlays: havocEvents.length,
+    rate: defensiveEvents.length ? havocEvents.length / defensiveEvents.length : 0,
+    components: {
+      tfl: tflCount,
+      sacks: sackCount,
+      forcedFumbles,
+      interceptions,
+      passDeflections,
+    },
+    situational: buildSituationalBreakdown(defensiveEvents, havocEvents),
+  }
+}
+
+export function computeDefensiveMetrics(events: PlayEvent[], drives: DriveRecord[] = []): DefensiveMetrics {
+  const defensiveEvents = filterDefensivePlays(events, 'DEFENSE')
+  const defensiveBase = computeBaseCounts(defensiveEvents)
+  const scopedDrives = filterDefensiveDrives(drives.length ? drives : deriveDriveRecords(defensiveEvents, 'DEFENSE'))
+  const possession = computePossessionMetrics(defensiveEvents, scopedDrives, 'DEFENSE')
+
+  const takeaways = computeDefensiveTakeaways(defensiveEvents)
+  const thirdDown = computeDefensiveStopSummary(defensiveEvents, 3)
+  const fourthDown = computeDefensiveStopSummary(defensiveEvents, 4)
+  const threeAndOuts = computeForcedThreeAndOuts(scopedDrives, defensiveEvents)
+  const tfls = computeDefensiveTflMetrics(defensiveEvents)
+  const havoc = computeDefensiveHavocMetrics(defensiveEvents, tfls)
+  const redZone = computeRedZoneMetrics(defensiveEvents, scopedDrives, 'DEFENSE').defense
+
+  const drivesFaced = scopedDrives.length
+  const pointsPerDrive = drivesFaced ? defensiveBase.pointsAllowed / drivesFaced : 0
+
+  return {
+    snaps: defensiveEvents.length,
+    takeaways,
+    thirdDown,
+    fourthDown,
+    threeAndOuts: { count: threeAndOuts.count, rate: threeAndOuts.rate, drives: threeAndOuts.drives },
+    tfls,
+    havoc,
+    drives: {
+      drivesFaced,
+      threeAndOuts: { count: threeAndOuts.count, rate: threeAndOuts.rate },
+      pointsAllowed: defensiveBase.pointsAllowed,
+      pointsPerGame: defensiveBase.pointsAllowed,
+      pointsPerDrive,
+      pointsPerPossession: possession.defense.pointsPerPossession,
+    },
+    redZone,
+  }
+}
+
 export function computeAdvancedAnalytics(
   box: BoxScoreMetrics,
   base: BaseCounts,
-  drives: DriveRecord[] = []
+  drives: DriveRecord[] = [],
+  defense?: DefensiveMetrics
 ): AdvancedAnalytics {
   const leveragePlays = drives.length ? drives.reduce((sum, d) => sum + d.play_ids.length, 0) : base.plays
   const leverageRate = base.plays ? leveragePlays / base.plays : 0
   const estimatedEPA = base.totalYards * 0.06 + base.scoringPlays * 2 - base.turnovers * 2
   const pressures = base.plays
-  const havocRate = pressures ? (base.turnovers + base.penalties.count * 0.25) / pressures : 0
+  const havocRate = defense ? defense.havoc.rate : pressures ? (base.turnovers + base.penalties.count * 0.25) / pressures : 0
   const avgFieldPos =
     drives.length > 0
       ? drives.reduce((sum, d) => sum + (d.start_field_position ?? 50), 0) / drives.length
@@ -1299,12 +1671,16 @@ export function buildStatsStack(params: {
   opponentId?: string | null
 }) {
   const scopedEvents = filterEventsForUnit(params.events, params.unit)
+  const defensiveEvents = filterDefensivePlays(params.events, 'DEFENSE')
   const base = computeBaseCounts(scopedEvents)
   const opponentBase = params.opponentEvents ? computeBaseCounts(params.opponentEvents) : undefined
   const box = computeBoxScore(scopedEvents, base, params.unit)
   const drives = params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(scopedEvents, params.unit)
+  const defensiveDrives =
+    params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(defensiveEvents, 'DEFENSE')
+  const defenseMetrics = computeDefensiveMetrics(defensiveEvents, defensiveDrives)
   const core = computeCoreWinningMetrics(box, params.opponentBox)
-  const advanced = computeAdvancedAnalytics(box, base, drives)
+  const advanced = computeAdvancedAnalytics(box, base, drives, defenseMetrics)
   const turnovers = computeTurnoverMetrics(base, { opponentBase, opponentBox: params.opponentBox, unitHint: params.unit })
   const explosives = computeExplosiveMetrics(scopedEvents, params.unit)
   const redZone = computeRedZoneMetrics(scopedEvents, drives, params.unit)
@@ -1319,6 +1695,7 @@ export function buildStatsStack(params: {
     explosives,
     scoring,
     redZone,
+    defense: defenseMetrics,
     efficiency: {
       yardsPerPlay: ypp,
       success,
@@ -1327,7 +1704,7 @@ export function buildStatsStack(params: {
       lateDown: box.lateDown,
     },
   }
-  return { base, box, core, advanced, drives, turnovers, explosives, redZone, scoring, game }
+  return { base, box, core, advanced, drives, turnovers, explosives, redZone, scoring, defense: defenseMetrics, game }
 }
 
 export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggregate {
@@ -1346,6 +1723,25 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
     },
     redZone: { offense: { scoringPct: 0, tdPct: 0 }, defense: { scoringPct: 0, tdPct: 0 } },
     nonOffensiveTds: { perGame: 0, total: 0 },
+    defense: {
+      takeawaysPerGame: 0,
+      takeawaysByType: emptyTurnoverBuckets(),
+      thirdDown: { attempts: 0, stops: 0, conversionsAllowed: 0, stopRate: 0, situational: emptySituational() },
+      fourthDown: { attempts: 0, stops: 0, conversionsAllowed: 0, stopRate: 0, situational: emptySituational() },
+      threeAndOutRate: 0,
+      havocRate: 0,
+      tflPerGame: 0,
+      sackPerGame: 0,
+      drivesFaced: 0,
+      pointsAllowedPerGame: 0,
+      pointsAllowedPerDrive: 0,
+      redZone: { scoringPct: 0, tdPct: 0 },
+      situational: {
+        takeaways: emptySituational(),
+        havoc: emptySituational(),
+        tfl: emptySituational(),
+      },
+    },
   }
   if (gamesPlayed === 0) return zeroAgg
 
@@ -1382,6 +1778,67 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
   const defenseTds = sum((g) => g.redZone.defense.touchdowns)
 
   const nonOffensiveTotal = sum((g) => g.scoring.nonOffensive.total)
+  const defenseGames = games.filter((g) => g.defense)
+  const defenseCount = defenseGames.length
+  const defenseSum = (fn: (def: DefensiveMetrics) => number) =>
+    defenseGames.reduce((acc, g) => acc + (g.defense ? fn(g.defense) : 0), 0)
+  const mergedTakeawaySituational = defenseGames.reduce(
+    (acc, g) => (g.defense ? mergeSituational(acc, g.defense.takeaways.situational) : acc),
+    emptySituational()
+  )
+  const mergedHavocSituational = defenseGames.reduce(
+    (acc, g) => (g.defense ? mergeSituational(acc, g.defense.havoc.situational) : acc),
+    emptySituational()
+  )
+  const mergedTflSituational = defenseGames.reduce(
+    (acc, g) => (g.defense ? mergeSituational(acc, g.defense.tfls.situational) : acc),
+    emptySituational()
+  )
+  const mergedThirdSituational = defenseGames.reduce(
+    (acc, g) => (g.defense ? mergeSituational(acc, g.defense.thirdDown.situational) : acc),
+    emptySituational()
+  )
+  const mergedFourthSituational = defenseGames.reduce(
+    (acc, g) => (g.defense ? mergeSituational(acc, g.defense.fourthDown.situational) : acc),
+    emptySituational()
+  )
+  const takeawaysByType = defenseGames.reduce((acc, g) => {
+    if (!g.defense) return acc
+    acc.interceptions += g.defense.takeaways.byType.interceptions
+    acc.fumbles += g.defense.takeaways.byType.fumbles
+    acc.downs += g.defense.takeaways.byType.downs
+    acc.blockedKicks += g.defense.takeaways.byType.blockedKicks
+    acc.other += g.defense.takeaways.byType.other
+    return acc
+  }, emptyTurnoverBuckets())
+  const thirdDownDefense = defenseGames.reduce(
+    (acc, g) => {
+      if (!g.defense) return acc
+      acc.attempts += g.defense.thirdDown.attempts
+      acc.stops += g.defense.thirdDown.stops
+      acc.conversionsAllowed += g.defense.thirdDown.conversionsAllowed
+      return acc
+    },
+    { attempts: 0, stops: 0, conversionsAllowed: 0 }
+  )
+  const fourthDownDefense = defenseGames.reduce(
+    (acc, g) => {
+      if (!g.defense) return acc
+      acc.attempts += g.defense.fourthDown.attempts
+      acc.stops += g.defense.fourthDown.stops
+      acc.conversionsAllowed += g.defense.fourthDown.conversionsAllowed
+      return acc
+    },
+    { attempts: 0, stops: 0, conversionsAllowed: 0 }
+  )
+  const totalDefensiveSnaps = defenseSum((d) => d.snaps)
+  const totalHavocPlays = defenseSum((d) => d.havoc.havocPlays)
+  const totalDefenseDrives = defenseSum((d) => d.drives.drivesFaced)
+  const totalThreeAndOuts = defenseSum((d) => d.threeAndOuts.count)
+  const totalPointsAllowed = defenseSum((d) => d.drives.pointsAllowed)
+  const totalRedZoneTrips = defenseSum((d) => d.redZone.trips)
+  const totalRedZoneScores = defenseSum((d) => d.redZone.scores)
+  const totalRedZoneTds = defenseSum((d) => d.redZone.touchdowns)
 
   return {
     games: gamesPlayed,
@@ -1427,6 +1884,40 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
     nonOffensiveTds: {
       perGame: nonOffensiveTotal / gamesPlayed,
       total: nonOffensiveTotal,
+    },
+    defense: {
+      takeawaysPerGame: defenseCount ? defenseSum((d) => d.takeaways.total) / defenseCount : 0,
+      takeawaysByType,
+      thirdDown: {
+        attempts: thirdDownDefense.attempts,
+        stops: thirdDownDefense.stops,
+        conversionsAllowed: thirdDownDefense.conversionsAllowed,
+        stopRate: thirdDownDefense.attempts ? thirdDownDefense.stops / thirdDownDefense.attempts : 0,
+        situational: mergedThirdSituational,
+      },
+      fourthDown: {
+        attempts: fourthDownDefense.attempts,
+        stops: fourthDownDefense.stops,
+        conversionsAllowed: fourthDownDefense.conversionsAllowed,
+        stopRate: fourthDownDefense.attempts ? fourthDownDefense.stops / fourthDownDefense.attempts : 0,
+        situational: mergedFourthSituational,
+      },
+      threeAndOutRate: totalDefenseDrives ? totalThreeAndOuts / totalDefenseDrives : 0,
+      havocRate: totalDefensiveSnaps ? totalHavocPlays / totalDefensiveSnaps : 0,
+      tflPerGame: defenseCount ? defenseSum((d) => d.tfls.total) / defenseCount : 0,
+      sackPerGame: defenseCount ? defenseSum((d) => d.tfls.sacks) / defenseCount : 0,
+      drivesFaced: totalDefenseDrives,
+      pointsAllowedPerGame: defenseCount ? totalPointsAllowed / defenseCount : 0,
+      pointsAllowedPerDrive: totalDefenseDrives ? totalPointsAllowed / totalDefenseDrives : 0,
+      redZone: {
+        scoringPct: totalRedZoneTrips ? totalRedZoneScores / totalRedZoneTrips : 0,
+        tdPct: totalRedZoneTrips ? totalRedZoneTds / totalRedZoneTrips : 0,
+      },
+      situational: {
+        takeaways: mergedTakeawaySituational,
+        havoc: mergedHavocSituational,
+        tfl: mergedTflSituational,
+      },
     },
   }
 }

@@ -346,6 +346,85 @@ export type RedZoneSummary = {
   defense: RedZoneSideSummary
 }
 
+export type SampleRate = {
+  count: number
+  sample: number
+  rate: number
+}
+
+export type DefensiveSituational = {
+  overall: SampleRate
+  byHalf: { first: SampleRate; second: SampleRate }
+  byQuarter: Record<1 | 2 | 3 | 4, SampleRate>
+  byFieldZone: Record<FieldZone | 'UNKNOWN', SampleRate>
+  byDown: Record<'1' | '2' | '3' | '4', SampleRate>
+  byCall: {
+    front: Record<string, SampleRate>
+    coverage: Record<string, SampleRate>
+    pressure: Record<string, SampleRate>
+  }
+}
+
+export type DefensiveConversionMetrics = {
+  attempts: number
+  stops: number
+  conversionsAllowed: number
+  stopRate: number
+  situational: DefensiveSituational
+}
+
+export type DefensiveTakeawayMetrics = {
+  total: number
+  perGame: number
+  byType: TurnoverBucketCounts
+  situational: DefensiveSituational
+}
+
+export type DefensiveTflMetrics = {
+  total: number
+  sacks: number
+  perGame: number
+  situational: DefensiveSituational
+  byPlayer: Record<string, { tfl: number; sacks: number }>
+}
+
+export type HavocComponents = {
+  tfl: number
+  sacks: number
+  forcedFumbles: number
+  interceptions: number
+  passDeflections: number
+}
+
+export type DefensiveHavocMetrics = {
+  plays: number
+  havocPlays: number
+  rate: number
+  situational: DefensiveSituational
+  components: HavocComponents
+}
+
+export type DefensiveDriveMetrics = {
+  drivesFaced: number
+  threeAndOuts: { count: number; rate: number }
+  pointsAllowed: number
+  pointsPerGame: number
+  pointsPerDrive: number
+  pointsPerPossession: number
+}
+
+export type DefensiveMetrics = {
+  snaps: number
+  takeaways: DefensiveTakeawayMetrics
+  thirdDown: DefensiveConversionMetrics
+  fourthDown: DefensiveConversionMetrics
+  threeAndOuts: { count: number; rate: number; drives: number }
+  tfls: DefensiveTflMetrics
+  havoc: DefensiveHavocMetrics
+  drives: DefensiveDriveMetrics
+  redZone: RedZoneSideSummary
+}
+
 export type GameMetricSnapshot = {
   gameId?: string
   seasonId?: string | null
@@ -354,6 +433,7 @@ export type GameMetricSnapshot = {
   explosives: ExplosiveMetrics
   scoring: ScoringSummary
   redZone: RedZoneSummary
+  defense?: DefensiveMetrics
   efficiency: {
     yardsPerPlay: YardsPerPlaySummary
     success: SuccessSummary
@@ -403,6 +483,25 @@ export type SeasonAggregate = {
   nonOffensiveTds: {
     perGame: number
     total: number
+  }
+  defense: {
+    takeawaysPerGame: number
+    takeawaysByType: TurnoverBucketCounts
+    thirdDown: DefensiveConversionMetrics
+    fourthDown: DefensiveConversionMetrics
+    threeAndOutRate: number
+    havocRate: number
+    tflPerGame: number
+    sackPerGame: number
+    drivesFaced: number
+    pointsAllowedPerGame: number
+    pointsAllowedPerDrive: number
+    redZone: { scoringPct: number; tdPct: number }
+    situational: {
+      takeaways: DefensiveSituational
+      havoc: DefensiveSituational
+      tfl: DefensiveSituational
+    }
   }
 }
 
