@@ -1,5 +1,10 @@
 import { redirect } from 'next/navigation'
+import { requireAuth } from '@/utils/auth/requireAuth'
 
-export default function PlayersRedirectPage() {
-  redirect('/team')
+export default async function PlayersRedirectPage() {
+  const { activeTeamId } = await requireAuth()
+  if (activeTeamId) {
+    redirect(`/teams/${activeTeamId}`)
+  }
+  redirect('/teams')
 }

@@ -73,7 +73,7 @@ export default async function ScoutingPage() {
               <CTAButton href="/settings" size="sm" variant="primary">
                 Go to Settings
               </CTAButton>
-              <CTAButton href="/team" size="sm" variant="secondary">
+              <CTAButton href="/teams" size="sm" variant="secondary">
                 Switch team
               </CTAButton>
               <Pill label="Team needed" tone="amber" icon={<ShieldAlert className="h-3 w-3" />} />
@@ -106,7 +106,7 @@ export default async function ScoutingPage() {
           badge="Permission"
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <CTAButton href="/team" size="sm" variant="primary">
+              <CTAButton href="/teams" size="sm" variant="primary">
                 Switch team
               </CTAButton>
               <CTAButton href="/settings" size="sm" variant="secondary">

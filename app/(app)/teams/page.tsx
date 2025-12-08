@@ -7,7 +7,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
-import { setActiveTeam, setActiveTeamAndGo } from '@/app/(app)/dashboard/actions'
+import { setActiveTeamAndGo } from '@/app/(app)/dashboard/actions'
 import { loadTeamSeasonContext } from '@/lib/preferences'
 
 type MembershipRow = {
@@ -122,7 +122,8 @@ export default async function TeamsIndexPage() {
                 action={async (formData) => {
                   'use server'
                   formData.set('teamId', team.id)
-                  await setActiveTeam(formData)
+                  formData.set('redirectTo', `/teams/${team.id}`)
+                  await setActiveTeamAndGo(formData)
                 }}
               >
                 <CTAButton

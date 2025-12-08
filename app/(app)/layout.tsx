@@ -12,7 +12,6 @@ const navItems: NavItem[] = [
   { href: '/analytics', label: 'Season' },
   { href: '/games', label: 'Games' },
   { href: '/scouting', label: 'Scouting' },
-  { href: '/team', label: 'Team' },
   { href: '/settings', label: 'Settings' },
 ]
 
