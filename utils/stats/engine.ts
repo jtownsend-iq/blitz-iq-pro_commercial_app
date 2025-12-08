@@ -7,17 +7,36 @@ import {
   ChartUnit,
   CoreWinningMetrics,
   DefensiveContext,
+  DistanceBucket,
   DriveRecord,
+  DriveResultBreakdown,
   DriveResultType,
+  ExplosiveMetrics,
   FieldZone,
+  GameMetricSnapshot,
+  OffensivePlayFilter,
   OffensiveContext,
+  ConversionSummary,
+  PassingEfficiency,
+  PassingLine,
   PlayEvent,
+  PlayFamily,
+  PossessionMetrics,
+  RedZoneSummary,
+  RushingEfficiency,
+  RushingLine,
   ScoreState,
   ScoringEvent,
+  ScoringSummary,
+  SeasonAggregate,
   SeasonProjection,
+  SuccessSummary,
   SpecialTeamsContext,
   TimeoutState,
+  TurnoverBucketCounts,
   TurnoverEvent,
+  TurnoverSummary,
+  YardsPerPlaySummary,
 } from './types'
 
 type ChartEventRowLike = Partial<PlayEvent> & {
@@ -42,6 +61,9 @@ type ChartEventRowLike = Partial<PlayEvent> & {
 }
 
 const QUARTER_LENGTH_SECONDS = 900
+// Decide once and apply everywhere: turnovers on downs are counted as giveaways (and therefore affect margin).
+// This aligns turnover margin with possession changes, even when the defense did not directly force the stop.
+const COUNT_TURNOVER_ON_DOWNS = true
 
 export function yardLineFromBallOn(ball_on: string | null): number {
   if (!ball_on) return 50
@@ -62,9 +84,9 @@ export function fieldZone(yardLine: number | null): FieldZone | null {
   if (yardLine == null) return null
   if (yardLine <= 10) return 'BACKED_UP'
   if (yardLine <= 25) return 'COMING_OUT'
-  if (yardLine <= 75) return 'OPEN_FIELD'
-  if (yardLine <= 90) return 'SCORING_RANGE'
-  return 'RED_ZONE'
+  if (yardLine >= 80) return 'RED_ZONE'
+  if (yardLine >= 60) return 'SCORING_RANGE'
+  return 'OPEN_FIELD'
 }
 
 export function bucketDownDistance(down?: number | null, distance?: number | null) {
@@ -74,6 +96,13 @@ export function bucketDownDistance(down?: number | null, distance?: number | nul
   return `long ${ordinal(down)}`
 }
 
+export function distanceBucket(distance?: number | null): DistanceBucket | null {
+  if (distance == null) return null
+  if (distance <= 2) return 'SHORT'
+  if (distance <= 6) return 'MEDIUM'
+  return 'LONG'
+}
+
 function ordinal(n: number) {
   const suffix = ['th', 'st', 'nd', 'rd'][((n + 90) % 100 - 10) % 10] || 'th'
   return `${n}${suffix}`
@@ -81,17 +110,130 @@ function ordinal(n: number) {
 
 export function isSuccessfulPlay(ev: PlayEvent) {
   if (ev.down == null || ev.distance == null || ev.gained_yards == null) return false
-  if (ev.down === 1) return ev.gained_yards >= ev.distance * 0.5
-  if (ev.down === 2) return ev.gained_yards >= ev.distance * 0.7
+  if (ev.down === 1) return ev.gained_yards >= ev.distance * 0.4
+  if (ev.down === 2) return ev.gained_yards >= ev.distance * 0.6
   return ev.gained_yards >= ev.distance
 }
 
 export function isExplosivePlay(ev: PlayEvent) {
   const yards = ev.gained_yards ?? 0
-  if (yards >= 40) return true
-  if (ev.play_family === 'PASS') return yards >= 15
-  if (ev.play_family === 'SPECIAL_TEAMS') return yards >= 25
+  const family = ev.play_family ?? (ev.st_play_type ? 'SPECIAL_TEAMS' : null)
+  if (family === 'PASS') return yards >= 20
+  if (family === 'SPECIAL_TEAMS') return yards >= 30
+  // Runs (and run-first RPOs) are explosive at 12+ yards; this is the authoritative threshold for the app.
   return yards >= 12
+}
+
+function resolvePlaySide(ev: PlayEvent, unitHint?: ChartUnit): ChartUnit {
+  if (ev.play_family === 'SPECIAL_TEAMS' || ev.possession === 'SPECIAL_TEAMS') return 'SPECIAL_TEAMS'
+  if (ev.possession === 'OFFENSE' || ev.possession === 'DEFENSE') return ev.possession as ChartUnit
+  if (ev.possession_team_id && ev.team_id) {
+    return ev.possession_team_id === ev.team_id ? 'OFFENSE' : 'DEFENSE'
+  }
+  return unitHint ?? 'OFFENSE'
+}
+
+function isTouchdownEvent(scoring: ScoringEvent | null | undefined): boolean {
+  if (!scoring) return false
+  return scoring.type === 'TD' || scoring.type === 'DEF_TD' || scoring.type === 'ST_TD' || scoring.points >= 6
+}
+
+function isRedZoneSnap(ev: PlayEvent): boolean {
+  const fieldPos =
+    ev.field_position ??
+    (typeof ev.ball_on === 'string' ? 100 - yardLineFromBallOn(ev.ball_on) : null)
+  return fieldPos != null && fieldPos <= 20
+}
+
+function emptyTurnoverBuckets(): TurnoverBucketCounts {
+  return { interceptions: 0, fumbles: 0, downs: 0, blockedKicks: 0, other: 0 }
+}
+
+function incrementTurnoverBucket(bucket: TurnoverBucketCounts, ev: TurnoverEvent) {
+  switch (ev.type) {
+    case 'INTERCEPTION':
+      bucket.interceptions += 1
+      break
+    case 'FUMBLE':
+      bucket.fumbles += 1
+      break
+    case 'DOWNS':
+      bucket.downs += 1
+      break
+    case 'BLOCKED_KICK':
+      bucket.blockedKicks += 1
+      break
+    default:
+      bucket.other += 1
+  }
+}
+
+function shouldCountTurnover(ev: TurnoverEvent | null): ev is TurnoverEvent {
+  if (!ev) return false
+  if (!COUNT_TURNOVER_ON_DOWNS && ev.type === 'DOWNS') return false
+  return true
+}
+
+function normalizeFieldZone(ev: PlayEvent): FieldZone | null {
+  if (ev.field_zone) return ev.field_zone
+  if (typeof ev.field_position === 'number') return fieldZone(ev.field_position)
+  if (typeof ev.ball_on === 'string') return fieldZone(yardLineFromBallOn(ev.ball_on))
+  return null
+}
+
+function asArrayFilter<T>(value?: T | T[] | null): T[] | null {
+  if (value == null) return null
+  return Array.isArray(value) ? value : [value]
+}
+
+function matchesSelection<T>(value: T | null | undefined, filter?: T | T[] | null): boolean {
+  const set = asArrayFilter(filter)
+  if (!set) return true
+  return value != null ? set.includes(value) : false
+}
+
+export function filterOffensivePlays(events: PlayEvent[], unitHint?: ChartUnit, filters?: OffensivePlayFilter): PlayEvent[] {
+  return events.filter((ev) => {
+    const side = resolvePlaySide(ev, unitHint)
+    if (side !== 'OFFENSE') return false
+    if (ev.play_family === 'SPECIAL_TEAMS') return false
+
+    if (filters?.down && !matchesSelection(ev.down, filters.down)) return false
+    if (filters?.distanceBucket) {
+      const bucket = distanceBucket(ev.distance)
+      if (!matchesSelection(bucket, filters.distanceBucket)) return false
+    }
+    if (filters?.fieldZone && !matchesSelection(normalizeFieldZone(ev), filters.fieldZone)) return false
+    if (
+      filters?.personnelCode &&
+      !matchesSelection(ev.offensive_personnel_code ?? ev.offensive_context?.personnel_code ?? null, filters.personnelCode)
+    )
+      return false
+    if (
+      filters?.formationId &&
+      !matchesSelection(ev.offensive_formation_id ?? ev.offensive_context?.formation_id ?? null, filters.formationId)
+    )
+      return false
+    if (filters?.playFamily && !matchesSelection(ev.play_family, filters.playFamily)) return false
+    if (filters?.runConceptId && !matchesSelection(ev.run_concept_id ?? ev.run_concept ?? null, filters.runConceptId))
+      return false
+    if (filters?.passConceptId && !matchesSelection(ev.pass_concept_id ?? ev.pass_concept ?? null, filters.passConceptId))
+      return false
+    if (
+      filters?.playAction != null &&
+      (ev.play_action ?? ev.offensive_context?.play_action ?? null) !== filters.playAction
+    )
+      return false
+
+    return true
+  })
+}
+
+function filterEventsForUnit(events: PlayEvent[], unitHint?: ChartUnit): PlayEvent[] {
+  if (!unitHint) return events
+  if (unitHint === 'OFFENSE') return filterOffensivePlays(events, unitHint)
+  if (unitHint === 'DEFENSE') return events.filter((ev) => resolvePlaySide(ev, unitHint) === 'DEFENSE')
+  return events.filter((ev) => resolvePlaySide(ev, unitHint) === unitHint)
 }
 
 export function sumYards(list: PlayEvent[]) {
@@ -179,11 +321,34 @@ function buildSpecialTeamsContext(row: ChartEventRowLike): SpecialTeamsContext |
   }
   return Object.values(context).some((value) => value !== undefined && value !== null) ? context : null
 }
+function deriveScoringSide(row: ChartEventRowLike): 'TEAM' | 'OPPONENT' {
+  if (row.scoring_team_side) return row.scoring_team_side
+  if (row.turnover_detail?.lostBySide === 'OPPONENT') return 'TEAM'
+  if (row.turnover_detail?.lostBySide === 'TEAM') return 'OPPONENT'
+  if (row.possession_team_id && row.team_id) {
+    return row.possession_team_id === row.team_id ? 'TEAM' : 'OPPONENT'
+  }
+  if (row.possession === 'DEFENSE') return 'OPPONENT'
+  return 'TEAM'
+}
+
+function deriveCreditedUnit(row: ChartEventRowLike, scoringSide: 'TEAM' | 'OPPONENT'): ChartUnit | null {
+  if (row.play_family === 'SPECIAL_TEAMS') return 'SPECIAL_TEAMS'
+  if (row.possession === 'DEFENSE' && scoringSide === 'TEAM') return 'DEFENSE'
+  if (row.possession === 'DEFENSE' && scoringSide === 'OPPONENT') return 'OFFENSE'
+  if (row.possession === 'OFFENSE') return 'OFFENSE'
+  if (row.possession === 'SPECIAL_TEAMS') return 'SPECIAL_TEAMS'
+  return (row.possession as ChartUnit | null) ?? null
+}
+
 function normalizeScoringEvent(row: ChartEventRowLike): ScoringEvent | null {
+  const inferredSide = deriveScoringSide(row)
   if (row.scoring) {
+    const scoringSide = row.scoring.scoring_team_side ?? row.scoring_team_side ?? inferredSide
     return {
       ...row.scoring,
-      scoring_team_side: row.scoring.scoring_team_side ?? row.scoring_team_side ?? 'TEAM',
+      scoring_team_side: scoringSide,
+      creditedTo: row.scoring.creditedTo ?? deriveCreditedUnit(row, scoringSide),
       points: typeof row.scoring.points === 'number' ? row.scoring.points : 0,
     }
   }
@@ -192,12 +357,12 @@ function normalizeScoringEvent(row: ChartEventRowLike): ScoringEvent | null {
   const type = (row.scoring_type as ScoringEvent['type'] | undefined) ?? null
 
   if (points != null || type) {
-    const creditedTo: ChartUnit | null =
-      row.play_family === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : ((row.possession as ChartUnit | null) ?? null)
+    const scoringSide = row.scoring_team_side ?? inferredSide
+    const creditedTo = deriveCreditedUnit(row, scoringSide)
     return {
       team: (row.possession as ChartUnit | null) ?? null,
       scoring_team_id: row.team_id ?? null,
-      scoring_team_side: row.scoring_team_side ?? 'TEAM',
+      scoring_team_side: scoringSide,
       points: points ?? 0,
       creditedTo,
       type: (type as ScoringEvent['type']) || 'OTHER',
@@ -206,12 +371,12 @@ function normalizeScoringEvent(row: ChartEventRowLike): ScoringEvent | null {
   }
 
   if (row.result && isScoringPlay(row.result)) {
-    const creditedTo: ChartUnit | null =
-      row.play_family === 'SPECIAL_TEAMS' ? 'SPECIAL_TEAMS' : ((row.possession as ChartUnit | null) ?? null)
+    const scoringSide = row.scoring_team_side ?? inferredSide
+    const creditedTo = deriveCreditedUnit(row, scoringSide)
     return {
       team: (row.possession as ChartUnit | null) ?? null,
       scoring_team_id: row.team_id ?? null,
-      scoring_team_side: 'TEAM',
+      scoring_team_side: scoringSide,
       points: derivePointsFromResult(row.result),
       creditedTo,
       type: guessScoringType(row.result),
@@ -223,13 +388,24 @@ function normalizeScoringEvent(row: ChartEventRowLike): ScoringEvent | null {
 }
 
 function normalizeTurnoverEvent(row: ChartEventRowLike): TurnoverEvent | null {
+  const inferredLostSide: 'TEAM' | 'OPPONENT' | null =
+    row.possession_team_id && row.team_id
+      ? row.possession_team_id === row.team_id
+        ? 'TEAM'
+        : 'OPPONENT'
+      : row.possession === 'DEFENSE'
+      ? 'OPPONENT'
+      : row.possession === 'OFFENSE'
+      ? 'TEAM'
+      : null
   if (row.turnover_detail) {
     const detailType: TurnoverEvent['type'] | null =
       row.turnover_detail.type ??
       (row.turnover_type ? (guessTurnoverType(row.turnover_type) ?? (row.turnover_type as TurnoverEvent['type'])) : null)
     return {
       ...row.turnover_detail,
-      lostBySide: row.turnover_detail.lostBySide ?? 'TEAM',
+      lostBy: row.turnover_detail.lostBy ?? (row.possession === 'DEFENSE' ? 'OFFENSE' : (row.possession as ChartUnit | null) ?? null),
+      lostBySide: row.turnover_detail.lostBySide ?? inferredLostSide ?? 'TEAM',
       type: detailType,
       turnover_team_id: row.turnover_detail.turnover_team_id ?? row.team_id ?? null,
     }
@@ -243,8 +419,8 @@ function normalizeTurnoverEvent(row: ChartEventRowLike): TurnoverEvent | null {
   if (impliedTurnover) {
     return {
       type: ((row.turnover_type as TurnoverEvent['type']) ?? null) || guessTurnoverType(row.result),
-      lostBy: (row.possession as ChartUnit | null) ?? null,
-      lostBySide: 'TEAM',
+      lostBy: row.possession === 'DEFENSE' ? 'OFFENSE' : (row.possession as ChartUnit | null) ?? null,
+      lostBySide: inferredLostSide ?? 'TEAM',
       turnover_team_id: row.team_id ?? null,
       returnYards: null,
       recoveredBy: ((row as Record<string, unknown>).recoveredBy as string | null) ?? null,
@@ -332,6 +508,7 @@ export function mapChartEventToPlayEvent(
     run_concept_id: row.run_concept_id ?? null,
     pass_concept: row.pass_concept ?? null,
     pass_concept_id: row.pass_concept_id ?? null,
+    pass_result: row.pass_result ?? null,
     wr_concept_id: row.wr_concept_id ?? null,
     st_play_type: row.st_play_type ?? null,
     st_variant: row.st_variant ?? null,
@@ -425,43 +602,200 @@ export function computeBaseCounts(events: PlayEvent[]): BaseCounts {
   return base
 }
 
-export function computeBoxScore(events: PlayEvent[], precomputedBase?: BaseCounts): BoxScoreMetrics {
-  const base = precomputedBase ?? computeBaseCounts(events)
-  const successCandidates = events.filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null)
-  const successes = successCandidates.filter(isSuccessfulPlay)
-  const lateDown = successCandidates.filter((ev) => (ev.down ?? 0) >= 3)
-  const lateDownConversions = lateDown.filter(
-    (ev) => (ev.gained_yards ?? 0) >= (ev.distance ?? Number.POSITIVE_INFINITY)
-  )
+function offenseScored(ev: PlayEvent) {
+  if (ev.scoring) {
+    return (ev.scoring.scoring_team_side ?? 'TEAM') !== 'OPPONENT'
+  }
+  return isScoringPlay(ev.result)
+}
+
+function isSeriesConversion(ev: PlayEvent) {
+  const gained = ev.gained_yards
+  const distance = ev.distance
+  const autoFirstDown = (ev.penalties || []).some((p) => p.occurred && !p.declined && !p.offsetting && p.automaticFirstDown)
+  if (ev.first_down) return true
+  if (distance != null && gained != null && gained >= distance) return true
+  if (offenseScored(ev)) return true
+  if (autoFirstDown) return true
+  return false
+}
+
+export function computeSuccessRate(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): SuccessSummary {
+  const pool =
+    unitHint && unitHint !== 'OFFENSE'
+      ? filterEventsForUnit(events, unitHint)
+      : filterOffensivePlays(events, unitHint, filters)
+  const candidates = pool.filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null)
+  const successes = candidates.filter(isSuccessfulPlay).length
+  return {
+    plays: candidates.length,
+    successes,
+    rate: candidates.length ? successes / candidates.length : 0,
+  }
+}
+
+export function computeYardsPerPlay(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): YardsPerPlaySummary {
+  const pool =
+    unitHint && unitHint !== 'OFFENSE'
+      ? filterEventsForUnit(events, unitHint)
+      : filterOffensivePlays(events, unitHint, filters)
+  const yards = pool.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+  return {
+    plays: pool.length,
+    yards,
+    ypp: pool.length ? yards / pool.length : 0,
+  }
+}
+
+export function computeConversionRate(
+  events: PlayEvent[],
+  down: 3 | 4,
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): ConversionSummary {
+  const scoped = filterOffensivePlays(events, unitHint, { ...filters, down })
+  const conversions = scoped.filter(isSeriesConversion).length
+  return {
+    attempts: scoped.length,
+    conversions,
+    rate: scoped.length ? conversions / scoped.length : 0,
+  }
+}
+
+export function computeThirdDownEfficiency(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): ConversionSummary {
+  return computeConversionRate(events, 3, unitHint, filters)
+}
+
+export function computeFourthDownEfficiency(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): ConversionSummary {
+  return computeConversionRate(events, 4, unitHint, filters)
+}
+
+export function computeLateDownEfficiency(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): ConversionSummary {
+  const scoped = filterOffensivePlays(events, unitHint, { ...filters, down: [3, 4] })
+  const conversions = scoped.filter(isSeriesConversion).length
+  return {
+    attempts: scoped.length,
+    conversions,
+    rate: scoped.length ? conversions / scoped.length : 0,
+  }
+}
+
+export function aggregateConversionSummaries(summaries: ConversionSummary[]): ConversionSummary {
+  const attempts = summaries.reduce((sum, s) => sum + s.attempts, 0)
+  const conversions = summaries.reduce((sum, s) => sum + s.conversions, 0)
+  return {
+    attempts,
+    conversions,
+    rate: attempts ? conversions / attempts : 0,
+  }
+}
+
+export function computeTurnoverMetrics(
+  base: BaseCounts,
+  options?: { opponentBase?: BaseCounts; opponentBox?: BoxScoreMetrics; unitHint?: ChartUnit }
+): TurnoverSummary {
+  const giveawaysByType = emptyTurnoverBuckets()
+  const takeawaysByType = emptyTurnoverBuckets()
+  const defaultLostSide: 'TEAM' | 'OPPONENT' = options?.unitHint === 'DEFENSE' ? 'OPPONENT' : 'TEAM'
+  const countedBase = base.turnoverEvents.filter(shouldCountTurnover)
+
+  const giveaways = countedBase.filter((ev) => (ev.lostBySide ?? defaultLostSide) !== 'OPPONENT')
+  giveaways.forEach((ev) => incrementTurnoverBucket(giveawaysByType, ev))
+
+  let giveawaysCount = giveaways.length
+  if (giveawaysCount === 0 && base.turnovers > 0) {
+    giveawaysCount = base.turnovers
+    giveawaysByType.other = base.turnovers
+  }
+
+  let takeaways: TurnoverEvent[] = countedBase.filter((ev) => (ev.lostBySide ?? defaultLostSide) === 'OPPONENT')
+
+  if (takeaways.length === 0 && options?.opponentBase) {
+    // When we only have opponent events, their giveaways represent our takeaways.
+    takeaways = options.opponentBase.turnoverEvents
+      .filter(shouldCountTurnover)
+      .filter((ev) => (ev.lostBySide ?? 'TEAM') === 'TEAM')
+  }
+
+  takeaways.forEach((ev) => incrementTurnoverBucket(takeawaysByType, ev))
+  let takeawaysCount = takeaways.length
+  if (takeawaysCount === 0 && options?.opponentBox) {
+    // Fall back to opponent turnover totals when play-level details are not present.
+    takeawaysCount = options.opponentBox.turnovers
+    takeawaysByType.other += options.opponentBox.turnovers
+  }
+
+  return {
+    takeaways: takeawaysCount,
+    giveaways: giveawaysCount,
+    margin: takeawaysCount - giveawaysCount,
+    takeawaysByType,
+    giveawaysByType,
+    includeTurnoverOnDowns: COUNT_TURNOVER_ON_DOWNS,
+  }
+}
+
+export function computeBoxScore(events: PlayEvent[], precomputedBase?: BaseCounts, unitHint?: ChartUnit): BoxScoreMetrics {
+  const scopedEvents = filterEventsForUnit(events, unitHint)
+  const base =
+    precomputedBase && (!unitHint || precomputedBase.plays === scopedEvents.length)
+      ? precomputedBase
+      : computeBaseCounts(scopedEvents)
+  const successSummary = computeSuccessRate(scopedEvents, unitHint)
+  const thirdDown = computeThirdDownEfficiency(scopedEvents, unitHint)
+  const fourthDown = computeFourthDownEfficiency(scopedEvents, unitHint)
+  const lateDown = computeLateDownEfficiency(scopedEvents, unitHint)
+  const totalYards = scopedEvents.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+  const explosiveCount = scopedEvents.filter(isExplosivePlay).length
   const redZoneDrives = new Set<number>()
-  events.forEach((ev) => {
-    if (ev.field_zone === 'RED_ZONE' && ev.drive_number != null) {
+  scopedEvents.forEach((ev) => {
+    if (isRedZoneSnap(ev) && ev.drive_number != null) {
       redZoneDrives.add(ev.drive_number)
     }
   })
   const avgStart =
-    events.length > 0
-      ? events.reduce((sum, ev) => sum + (ev.field_position ?? yardLineFromBallOn(ev.ball_on)), 0) / events.length
+    scopedEvents.length > 0
+      ? scopedEvents.reduce((sum, ev) => sum + (ev.field_position ?? yardLineFromBallOn(ev.ball_on)), 0) / scopedEvents.length
       : null
 
   return {
-    plays: base.plays,
-    totalYards: base.totalYards,
-    yardsPerPlay: base.plays ? base.totalYards / base.plays : 0,
-    explosives: base.explosives,
-    explosiveRate: base.plays ? base.explosives / base.plays : 0,
+    plays: scopedEvents.length,
+    totalYards,
+    yardsPerPlay: scopedEvents.length ? totalYards / scopedEvents.length : 0,
+    explosives: explosiveCount,
+    explosiveRate: scopedEvents.length ? explosiveCount / scopedEvents.length : 0,
     turnovers: base.turnovers,
     scoringPlays: base.scoringPlays,
-    successRate: successCandidates.length ? successes.length / successCandidates.length : 0,
-    lateDown: {
-      attempts: lateDown.length,
-      conversions: lateDownConversions.length,
-      rate: lateDown.length ? lateDownConversions.length / lateDown.length : 0,
-    },
+    successRate: successSummary.rate,
+    thirdDown,
+    fourthDown,
+    lateDown,
     redZoneTrips: redZoneDrives.size,
     averageStart: avgStart,
-    averageDepth: successCandidates.length
-      ? successCandidates.reduce((sum, ev) => sum + (ev.distance ?? 0), 0) / successCandidates.length
+    averageDepth: successSummary.plays
+      ? scopedEvents
+          .filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null)
+          .reduce((sum, ev) => sum + (ev.distance ?? 0), 0) / successSummary.plays
       : null,
   }
 }
@@ -481,6 +815,133 @@ export function computeCoreWinningMetrics(box: BoxScoreMetrics, opponentBox?: Bo
     explosiveMargin,
     successMargin,
     redZoneEfficiency: box.redZoneTrips ? box.scoringPlays / box.redZoneTrips : 0,
+  }
+}
+
+function buildExplosiveBreakdown(events: PlayEvent[]): ExplosiveMetrics['offense'] {
+  const plays = events.length
+  const explosives = events.filter(isExplosivePlay).length
+  const runPlays = events.filter((ev) => ev.play_family === 'RUN' || ev.play_family === 'RPO')
+  const passPlays = events.filter((ev) => ev.play_family === 'PASS')
+  const stPlays = events.filter((ev) => ev.play_family === 'SPECIAL_TEAMS')
+  const runExplosives = runPlays.filter(isExplosivePlay).length
+  const passExplosives = passPlays.filter(isExplosivePlay).length
+  const stExplosives = stPlays.filter(isExplosivePlay).length
+  return {
+    plays,
+    explosives,
+    rate: plays ? explosives / plays : 0,
+    run: { plays: runPlays.length, explosives: runExplosives, rate: runPlays.length ? runExplosives / runPlays.length : 0 },
+    pass: { plays: passPlays.length, explosives: passExplosives, rate: passPlays.length ? passExplosives / passPlays.length : 0 },
+    specialTeams: { plays: stPlays.length, explosives: stExplosives, rate: stPlays.length ? stExplosives / stPlays.length : 0 },
+  }
+}
+
+export function computeExplosiveMetrics(events: PlayEvent[], unitHint?: ChartUnit): ExplosiveMetrics {
+  const offenseEvents = events.filter((ev) => {
+    const side = resolvePlaySide(ev, unitHint)
+    return side === 'OFFENSE' || side === 'SPECIAL_TEAMS'
+  })
+  const defenseEvents = events.filter((ev) => resolvePlaySide(ev, unitHint) === 'DEFENSE')
+
+  return {
+    offense: buildExplosiveBreakdown(offenseEvents),
+    defense: buildExplosiveBreakdown(defenseEvents),
+  }
+}
+
+export function computeScoringSummary(base: BaseCounts, gamesPlayed = 1): ScoringSummary {
+  const teamTouchdowns = base.scoringEvents.filter(
+    (ev) => ev.scoring_team_side !== 'OPPONENT' && isTouchdownEvent(ev)
+  )
+  const defensiveTds = teamTouchdowns.filter(
+    (ev) => ev.creditedTo === 'DEFENSE' || ev.type === 'DEF_TD'
+  ).length
+  const specialTeamsTds = teamTouchdowns.filter(
+    (ev) => ev.creditedTo === 'SPECIAL_TEAMS' || ev.type === 'ST_TD'
+  ).length
+  const nonOffensiveTotal = defensiveTds + specialTeamsTds
+  const tdRate = teamTouchdowns.length ? nonOffensiveTotal / teamTouchdowns.length : 0
+
+  return {
+    pointsFor: base.pointsFor,
+    pointsAllowed: base.pointsAllowed,
+    pointDifferential: base.pointsFor - base.pointsAllowed,
+    pointsPerGame: gamesPlayed ? base.pointsFor / gamesPlayed : 0,
+    pointsAllowedPerGame: gamesPlayed ? base.pointsAllowed / gamesPlayed : 0,
+    nonOffensive: {
+      defense: defensiveTds,
+      specialTeams: specialTeamsTds,
+      total: nonOffensiveTotal,
+      rate: tdRate,
+    },
+  }
+}
+
+export function computeRedZoneMetrics(
+  events: PlayEvent[],
+  drives: DriveRecord[] = [],
+  unitHint?: ChartUnit
+): RedZoneSummary {
+  const offense: RedZoneSummary['offense'] = {
+    trips: 0,
+    touchdowns: 0,
+    fieldGoals: 0,
+    scores: 0,
+    empty: 0,
+    scoringPct: 0,
+    touchdownPct: 0,
+  }
+  const defense: RedZoneSummary['defense'] = { ...offense }
+
+  const drivesToUse = drives.length ? drives : deriveDriveRecords(events, unitHint)
+  const eventsByDrive = new Map<number, PlayEvent[]>()
+  events.forEach((ev) => {
+    if (ev.drive_number == null) return
+    const list = eventsByDrive.get(ev.drive_number) || []
+    list.push(ev)
+    eventsByDrive.set(ev.drive_number, list)
+  })
+
+  drivesToUse.forEach((drive) => {
+    const evs = eventsByDrive.get(drive.drive_number) || []
+    const hasRedZoneEntry = evs.some(isRedZoneSnap)
+    if (!hasRedZoneEntry) return
+
+    const driveSide = drive.unit_on_field ?? drive.unit ?? (evs[0] ? resolvePlaySide(evs[0], unitHint) : unitHint) ?? 'OFFENSE'
+    const scoringSide: 'TEAM' | 'OPPONENT' = driveSide === 'DEFENSE' ? 'OPPONENT' : 'TEAM'
+    let touchdown = evs.some(
+      (ev) => ev.scoring && (ev.scoring.scoring_team_side ?? 'TEAM') === scoringSide && isTouchdownEvent(ev.scoring)
+    )
+    let fieldGoal = evs.some(
+      (ev) => ev.scoring && (ev.scoring.scoring_team_side ?? 'TEAM') === scoringSide && ev.scoring.type === 'FG'
+    )
+    if (!touchdown && !fieldGoal) {
+      const result = (drive.result || '').toUpperCase()
+      touchdown = result === 'TD'
+      fieldGoal = result === 'FG'
+    }
+    const scored = touchdown || fieldGoal
+
+    const bucket = driveSide === 'DEFENSE' ? defense : offense
+    bucket.trips += 1
+    if (touchdown) bucket.touchdowns += 1
+    if (fieldGoal) bucket.fieldGoals += 1
+    if (scored) bucket.scores += 1
+    else bucket.empty += 1
+  })
+
+  const finalize = (bucket: RedZoneSummary['offense']) => {
+    return {
+      ...bucket,
+      scoringPct: bucket.trips ? bucket.scores / bucket.trips : 0,
+      touchdownPct: bucket.trips ? bucket.touchdowns / bucket.trips : 0,
+    }
+  }
+
+  return {
+    offense: finalize(offense),
+    defense: finalize(defense),
   }
 }
 export function deriveDriveRecords(events: PlayEvent[], unitFallback?: ChartUnit): DriveRecord[] {
@@ -544,6 +1005,263 @@ export function deriveDriveRecords(events: PlayEvent[], unitFallback?: ChartUnit
   }))
 }
 
+function isSack(ev: PlayEvent) {
+  const result = (ev.pass_result || ev.result || '').toUpperCase()
+  return result.includes('SACK')
+}
+
+function isThrowaway(ev: PlayEvent) {
+  const resultText = (ev.pass_result || ev.result || '').toUpperCase()
+  return resultText.includes('THROW') && resultText.includes('AWAY')
+}
+
+function isPassAttempt(ev: PlayEvent) {
+  if (ev.play_family !== 'PASS' && ev.play_family !== 'RPO') return false
+  return !isSack(ev)
+}
+
+function isPassCompletion(ev: PlayEvent) {
+  if (!isPassAttempt(ev)) return false
+  const code = (ev.pass_result || '').toUpperCase()
+  const resultText = (ev.result || '').toUpperCase()
+  if (code === 'COMPLETE' || code === 'SCREEN') return true
+  if (code === 'INCOMPLETE' || code === 'INT' || code === 'THROWAWAY') return false
+  if (resultText.includes('INCOMP')) return false
+  if (resultText.includes('THROW') && resultText.includes('AWAY')) return false
+  if (resultText.includes('INT')) return false
+  if (resultText.includes('SACK')) return false
+  if (ev.turnover_detail && ev.turnover_detail.type === 'INTERCEPTION') return false
+  return ev.gained_yards != null
+}
+
+function buildPassingLine(passes: PlayEvent[]): PassingLine {
+  const attemptsList = passes.filter(isPassAttempt)
+  const completions = attemptsList.filter(isPassCompletion).length
+  const throwaways = attemptsList.filter(isThrowaway).length
+  const yards = attemptsList.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+  const sacks = passes.filter(isSack).length
+  const sackYards = passes
+    .filter(isSack)
+    .reduce((sum, ev) => sum + Math.abs(ev.gained_yards ?? 0), 0)
+  const attempts = attemptsList.length
+  const dropbacks = attempts + sacks
+  const completionPct = attempts ? completions / attempts : 0
+  const accuracyDenominator = Math.max(attempts - throwaways, 0)
+  const accuracyPct = accuracyDenominator ? completions / accuracyDenominator : completionPct
+
+  return {
+    attempts,
+    completions,
+    completionPct,
+    accuracyPct,
+    yards,
+    yardsPerAttempt: attempts ? yards / attempts : 0,
+    yardsPerCompletion: completions ? yards / completions : 0,
+    sacks,
+    sackYards,
+    dropbacks,
+    netYardsPerAttempt: dropbacks ? (yards - sackYards) / dropbacks : 0,
+  }
+}
+
+function buildRushingLine(plays: PlayEvent[]): RushingLine {
+  const attempts = plays.length
+  const yards = plays.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0)
+  return {
+    attempts,
+    yards,
+    yardsPerCarry: attempts ? yards / attempts : 0,
+  }
+}
+
+function driveDurationSeconds(drive: DriveRecord, events: PlayEvent[]): number | null {
+  const first = events[0]
+  const last = events[events.length - 1]
+  const start =
+    drive.start_time_seconds ??
+    (first?.absolute_clock_seconds ?? absoluteClockSeconds(first?.quarter, first?.clock_seconds)) ??
+    null
+  const end =
+    drive.end_time_seconds ??
+    (last?.absolute_clock_seconds ?? absoluteClockSeconds(last?.quarter, last?.clock_seconds)) ??
+    null
+  if (start == null || end == null) return null
+  return Math.max(0, end - start)
+}
+
+function clampDurationToHalf(start: number, end: number, halfIndex: 1 | 2) {
+  const halfStart = halfIndex === 1 ? 0 : QUARTER_LENGTH_SECONDS * 2
+  const halfEnd = halfStart + QUARTER_LENGTH_SECONDS * 2
+  const clampedStart = Math.max(start, halfStart)
+  const clampedEnd = Math.min(end, halfEnd)
+  return Math.max(0, clampedEnd - clampedStart)
+}
+
+function normalizeDriveResult(drive: DriveRecord, events: PlayEvent[]): DriveResultType | 'OTHER' {
+  const result = drive.result ?? 'UNKNOWN'
+  const normalized = typeof result === 'string' ? result.toUpperCase() : result
+  const knownResults: Array<DriveResultType | 'OTHER'> = [
+    'TD',
+    'FG',
+    'MISS_FG',
+    'PUNT',
+    'DOWNS',
+    'TURNOVER',
+    'END_HALF',
+    'END_GAME',
+    'SAFETY',
+    'UNKNOWN',
+    'OTHER',
+  ]
+  if (knownResults.includes(normalized as DriveResultType | 'OTHER')) return normalized as DriveResultType | 'OTHER'
+  const last = events[events.length - 1]
+  if (last) {
+    return classifyDriveResult(last)
+  }
+  return 'OTHER'
+}
+
+function emptyDriveResults(): DriveResultBreakdown {
+  return {
+    TD: 0,
+    FG: 0,
+    MISS_FG: 0,
+    PUNT: 0,
+    DOWNS: 0,
+    TURNOVER: 0,
+    END_HALF: 0,
+    END_GAME: 0,
+    SAFETY: 0,
+    UNKNOWN: 0,
+    OTHER: 0,
+  }
+}
+
+export function computePassingEfficiency(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): PassingEfficiency {
+  const scoped = filterOffensivePlays(events, unitHint, { ...filters, playFamily: ['PASS', 'RPO'] as PlayFamily[] })
+  const line = buildPassingLine(scoped)
+  const byQuarterback = new Map<string, PlayEvent[]>()
+  scoped.forEach((ev) => {
+    const qb = ev.participation?.quarterback || 'TEAM'
+    const list = byQuarterback.get(qb) || []
+    list.push(ev)
+    byQuarterback.set(qb, list)
+  })
+
+  const byQuarterbackLines: Record<string, PassingLine> = {}
+  byQuarterback.forEach((plays, qb) => {
+    byQuarterbackLines[qb] = buildPassingLine(plays)
+  })
+
+  return {
+    ...line,
+    byQuarterback: byQuarterbackLines,
+  }
+}
+
+export function computeRushingEfficiency(
+  events: PlayEvent[],
+  unitHint?: ChartUnit,
+  filters?: OffensivePlayFilter
+): RushingEfficiency {
+  const scoped = filterOffensivePlays(events, unitHint, { ...filters, playFamily: ['RUN', 'RPO'] as PlayFamily[] })
+  const line = buildRushingLine(scoped)
+  const byRusher = new Map<string, PlayEvent[]>()
+  scoped.forEach((ev) => {
+    const carrier = ev.participation?.primaryBallcarrier || ev.participation?.quarterback || 'TEAM'
+    const list = byRusher.get(carrier) || []
+    list.push(ev)
+    byRusher.set(carrier, list)
+  })
+  const byRusherLines: Record<string, RushingLine> = {}
+  byRusher.forEach((plays, rusher) => {
+    byRusherLines[rusher] = buildRushingLine(plays)
+  })
+
+  return {
+    ...line,
+    byRusher: byRusherLines,
+  }
+}
+
+export function computePossessionMetrics(
+  events: PlayEvent[],
+  drives: DriveRecord[] = [],
+  unitHint: ChartUnit = 'OFFENSE'
+): PossessionMetrics {
+  const scopedDrives = drives.length ? drives : deriveDriveRecords(events, unitHint)
+  const eventsByDrive = new Map<number, PlayEvent[]>()
+  events.forEach((ev) => {
+    if (ev.drive_number == null) return
+    const list = eventsByDrive.get(ev.drive_number) || []
+    list.push(ev)
+    eventsByDrive.set(ev.drive_number, list)
+  })
+
+  let offenseDrives = 0
+  let opponentDrives = 0
+  let offenseDuration = 0
+  let firstHalfSeconds = 0
+  let secondHalfSeconds = 0
+  let offensePlays = 0
+  let offenseYards = 0
+  const driveResults = emptyDriveResults()
+
+  scopedDrives.forEach((drive) => {
+    const evs = eventsByDrive.get(drive.drive_number) || []
+    const driveSide = drive.unit_on_field ?? drive.unit ?? (evs[0] ? resolvePlaySide(evs[0], unitHint) : unitHint) ?? 'OFFENSE'
+    if (driveSide === 'OFFENSE') {
+      offenseDrives += 1
+      const duration = driveDurationSeconds(drive, evs)
+      if (duration != null) {
+        offenseDuration += duration
+        const start =
+          drive.start_time_seconds ??
+          (evs[0]?.absolute_clock_seconds ?? absoluteClockSeconds(evs[0]?.quarter, evs[0]?.clock_seconds)) ??
+          0
+        const end =
+          drive.end_time_seconds ??
+          (evs[evs.length - 1]?.absolute_clock_seconds ??
+            absoluteClockSeconds(evs[evs.length - 1]?.quarter, evs[evs.length - 1]?.clock_seconds)) ??
+          start
+        firstHalfSeconds += clampDurationToHalf(start, end, 1)
+        secondHalfSeconds += clampDurationToHalf(start, end, 2)
+      }
+      const plays = drive.play_ids.length || evs.length
+      offensePlays += plays
+      offenseYards += drive.yards
+      const resultKey = normalizeDriveResult(drive, evs)
+      driveResults[resultKey] = (driveResults[resultKey] || 0) + 1
+    } else if (driveSide === 'DEFENSE') {
+      opponentDrives += 1
+    }
+  })
+
+  const pointsBase = computeBaseCounts(events)
+
+  return {
+    offense: {
+      drives: offenseDrives,
+      timeOfPossessionSeconds: offenseDuration,
+      firstHalfSeconds,
+      secondHalfSeconds,
+      averagePlays: offenseDrives ? offensePlays / offenseDrives : 0,
+      averageSeconds: offenseDrives ? offenseDuration / offenseDrives : 0,
+      averageYards: offenseDrives ? offenseYards / offenseDrives : 0,
+      driveResults,
+      pointsPerPossession: offenseDrives ? pointsBase.pointsFor / offenseDrives : 0,
+    },
+    defense: {
+      drives: opponentDrives,
+      pointsPerPossession: opponentDrives ? pointsBase.pointsAllowed / opponentDrives : 0,
+    },
+  }
+}
+
 export function computeAdvancedAnalytics(
   box: BoxScoreMetrics,
   base: BaseCounts,
@@ -573,15 +1291,144 @@ export function computeAdvancedAnalytics(
 export function buildStatsStack(params: {
   events: PlayEvent[]
   drives?: DriveRecord[]
+  opponentEvents?: PlayEvent[]
   opponentBox?: BoxScoreMetrics
   unit?: ChartUnit
+  gameId?: string
+  seasonId?: string | null
+  opponentId?: string | null
 }) {
-  const base = computeBaseCounts(params.events)
-  const box = computeBoxScore(params.events, base)
-  const drives = params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(params.events, params.unit)
+  const scopedEvents = filterEventsForUnit(params.events, params.unit)
+  const base = computeBaseCounts(scopedEvents)
+  const opponentBase = params.opponentEvents ? computeBaseCounts(params.opponentEvents) : undefined
+  const box = computeBoxScore(scopedEvents, base, params.unit)
+  const drives = params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(scopedEvents, params.unit)
   const core = computeCoreWinningMetrics(box, params.opponentBox)
   const advanced = computeAdvancedAnalytics(box, base, drives)
-  return { base, box, core, advanced, drives }
+  const turnovers = computeTurnoverMetrics(base, { opponentBase, opponentBox: params.opponentBox, unitHint: params.unit })
+  const explosives = computeExplosiveMetrics(scopedEvents, params.unit)
+  const redZone = computeRedZoneMetrics(scopedEvents, drives, params.unit)
+  const scoring = computeScoringSummary(base, 1)
+  const success = computeSuccessRate(scopedEvents, params.unit)
+  const ypp = computeYardsPerPlay(scopedEvents, params.unit)
+  const game: GameMetricSnapshot = {
+    gameId: params.gameId ?? scopedEvents[0]?.game_id ?? undefined,
+    seasonId: params.seasonId ?? scopedEvents[0]?.season_id ?? null,
+    opponentId: params.opponentId ?? scopedEvents[0]?.opponent_id ?? null,
+    turnover: turnovers,
+    explosives,
+    scoring,
+    redZone,
+    efficiency: {
+      yardsPerPlay: ypp,
+      success,
+      thirdDown: box.thirdDown,
+      fourthDown: box.fourthDown,
+      lateDown: box.lateDown,
+    },
+  }
+  return { base, box, core, advanced, drives, turnovers, explosives, redZone, scoring, game }
+}
+
+export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggregate {
+  const gamesPlayed = games.length
+  const zeroAgg: SeasonAggregate = {
+    games: gamesPlayed,
+    turnover: { averageMargin: 0, trend: [], takeawaysPerGame: 0, giveawaysPerGame: 0 },
+    scoring: { averagePointsFor: 0, averagePointsAllowed: 0, averageDifferential: 0, trend: [] },
+    explosives: { offenseRate: 0, defenseRate: 0, offenseRunRate: 0, offensePassRate: 0 },
+    efficiency: {
+      yardsPerPlay: { plays: 0, yards: 0, ypp: 0 },
+      success: { plays: 0, successes: 0, rate: 0 },
+      thirdDown: { attempts: 0, conversions: 0, rate: 0 },
+      fourthDown: { attempts: 0, conversions: 0, rate: 0 },
+      lateDown: { attempts: 0, conversions: 0, rate: 0 },
+    },
+    redZone: { offense: { scoringPct: 0, tdPct: 0 }, defense: { scoringPct: 0, tdPct: 0 } },
+    nonOffensiveTds: { perGame: 0, total: 0 },
+  }
+  if (gamesPlayed === 0) return zeroAgg
+
+  const sum = (fn: (game: GameMetricSnapshot) => number) => games.reduce((acc, g) => acc + fn(g), 0)
+  const turnoverTrend = games.map((g) => ({ gameId: g.gameId, opponentId: g.opponentId, value: g.turnover.margin }))
+  const scoringTrend = games.map((g) => ({
+    gameId: g.gameId,
+    opponentId: g.opponentId,
+    value: g.scoring.pointDifferential,
+  }))
+
+  const offensePlays = sum((g) => g.explosives.offense.plays)
+  const offenseExplosives = sum((g) => g.explosives.offense.explosives)
+  const defensePlays = sum((g) => g.explosives.defense.plays)
+  const defenseExplosives = sum((g) => g.explosives.defense.explosives)
+  const offenseRunPlays = sum((g) => g.explosives.offense.run.plays)
+  const offenseRunExplosives = sum((g) => g.explosives.offense.run.explosives)
+  const offensePassPlays = sum((g) => g.explosives.offense.pass.plays)
+  const offensePassExplosives = sum((g) => g.explosives.offense.pass.explosives)
+
+  const totalYards = sum((g) => g.efficiency.yardsPerPlay.yards)
+  const totalPlays = sum((g) => g.efficiency.yardsPerPlay.plays)
+  const successAttempts = sum((g) => g.efficiency.success.plays)
+  const successMakes = sum((g) => g.efficiency.success.successes)
+  const thirdDownAgg = aggregateConversionSummaries(games.map((g) => g.efficiency.thirdDown))
+  const fourthDownAgg = aggregateConversionSummaries(games.map((g) => g.efficiency.fourthDown))
+  const lateDownAgg = aggregateConversionSummaries(games.map((g) => g.efficiency.lateDown))
+
+  const offenseTrips = sum((g) => g.redZone.offense.trips)
+  const offenseScores = sum((g) => g.redZone.offense.scores)
+  const offenseTds = sum((g) => g.redZone.offense.touchdowns)
+  const defenseTrips = sum((g) => g.redZone.defense.trips)
+  const defenseScores = sum((g) => g.redZone.defense.scores)
+  const defenseTds = sum((g) => g.redZone.defense.touchdowns)
+
+  const nonOffensiveTotal = sum((g) => g.scoring.nonOffensive.total)
+
+  return {
+    games: gamesPlayed,
+    turnover: {
+      averageMargin: sum((g) => g.turnover.margin) / gamesPlayed,
+      trend: turnoverTrend,
+      takeawaysPerGame: sum((g) => g.turnover.takeaways) / gamesPlayed,
+      giveawaysPerGame: sum((g) => g.turnover.giveaways) / gamesPlayed,
+    },
+    scoring: {
+      averagePointsFor: sum((g) => g.scoring.pointsFor) / gamesPlayed,
+      averagePointsAllowed: sum((g) => g.scoring.pointsAllowed) / gamesPlayed,
+      averageDifferential: sum((g) => g.scoring.pointDifferential) / gamesPlayed,
+      trend: scoringTrend,
+    },
+    explosives: {
+      offenseRate: offensePlays ? offenseExplosives / offensePlays : 0,
+      defenseRate: defensePlays ? defenseExplosives / defensePlays : 0,
+      offenseRunRate: offenseRunPlays ? offenseRunExplosives / offenseRunPlays : 0,
+      offensePassRate: offensePassPlays ? offensePassExplosives / offensePassPlays : 0,
+    },
+    efficiency: {
+      yardsPerPlay: { plays: totalPlays, yards: totalYards, ypp: totalPlays ? totalYards / totalPlays : 0 },
+      success: {
+        plays: successAttempts,
+        successes: successMakes,
+        rate: successAttempts ? successMakes / successAttempts : 0,
+      },
+      thirdDown: thirdDownAgg,
+      fourthDown: fourthDownAgg,
+      lateDown: lateDownAgg,
+    },
+    redZone: {
+      offense: {
+        scoringPct: offenseTrips ? offenseScores / offenseTrips : 0,
+        tdPct: offenseTrips ? offenseTds / offenseTrips : 0,
+      },
+      defense: {
+        scoringPct: defenseTrips ? defenseScores / defenseTrips : 0,
+        tdPct: defenseTrips ? defenseTds / defenseTrips : 0,
+      },
+    },
+    nonOffensiveTds: {
+      perGame: nonOffensiveTotal / gamesPlayed,
+      total: nonOffensiveTotal,
+    },
+  }
 }
 export function projectSeason(games: { box: BoxScoreMetrics; core: CoreWinningMetrics }[]): SeasonProjection {
   const gamesModeled = games.length

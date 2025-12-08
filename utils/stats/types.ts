@@ -169,6 +169,7 @@ export type PlayEvent = {
   run_concept_id?: string | null
   pass_concept?: string | null
   pass_concept_id?: string | null
+  pass_result?: string | null
   wr_concept_id?: string | null
   st_play_type?: string | null
   st_variant?: string | null
@@ -259,7 +260,9 @@ export type BoxScoreMetrics = {
   turnovers: number
   scoringPlays: number
   successRate: number
-  lateDown: { attempts: number; conversions: number; rate: number }
+  thirdDown: ConversionSummary
+  fourthDown: ConversionSummary
+  lateDown: ConversionSummary
   redZoneTrips: number
   averageStart: number | null
   averageDepth: number | null
@@ -281,10 +284,212 @@ export type AdvancedAnalytics = {
   fieldPositionAdvantage: number
 }
 
+export type TurnoverBucketCounts = {
+  interceptions: number
+  fumbles: number
+  downs: number
+  blockedKicks: number
+  other: number
+}
+
+export type TurnoverSummary = {
+  takeaways: number
+  giveaways: number
+  margin: number
+  takeawaysByType: TurnoverBucketCounts
+  giveawaysByType: TurnoverBucketCounts
+  includeTurnoverOnDowns: boolean
+}
+
+export type ExplosiveBreakdown = {
+  plays: number
+  explosives: number
+  rate: number
+  run: { plays: number; explosives: number; rate: number }
+  pass: { plays: number; explosives: number; rate: number }
+  specialTeams: { plays: number; explosives: number; rate: number }
+}
+
+export type ExplosiveMetrics = {
+  offense: ExplosiveBreakdown
+  defense: ExplosiveBreakdown
+}
+
+export type NonOffensiveTdSummary = {
+  defense: number
+  specialTeams: number
+  total: number
+  rate: number
+}
+
+export type ScoringSummary = {
+  pointsFor: number
+  pointsAllowed: number
+  pointDifferential: number
+  pointsPerGame: number
+  pointsAllowedPerGame: number
+  nonOffensive: NonOffensiveTdSummary
+}
+
+export type RedZoneSideSummary = {
+  trips: number
+  touchdowns: number
+  fieldGoals: number
+  scores: number
+  empty: number
+  scoringPct: number
+  touchdownPct: number
+}
+
+export type RedZoneSummary = {
+  offense: RedZoneSideSummary
+  defense: RedZoneSideSummary
+}
+
+export type GameMetricSnapshot = {
+  gameId?: string
+  seasonId?: string | null
+  opponentId?: string | null
+  turnover: TurnoverSummary
+  explosives: ExplosiveMetrics
+  scoring: ScoringSummary
+  redZone: RedZoneSummary
+  efficiency: {
+    yardsPerPlay: YardsPerPlaySummary
+    success: SuccessSummary
+    thirdDown: ConversionSummary
+    fourthDown: ConversionSummary
+    lateDown: ConversionSummary
+  }
+}
+
+export type SeasonTrendPoint = {
+  gameId?: string
+  opponentId?: string | null
+  value: number
+}
+
+export type SeasonAggregate = {
+  games: number
+  turnover: {
+    averageMargin: number
+    trend: SeasonTrendPoint[]
+    takeawaysPerGame: number
+    giveawaysPerGame: number
+  }
+  scoring: {
+    averagePointsFor: number
+    averagePointsAllowed: number
+    averageDifferential: number
+    trend: SeasonTrendPoint[]
+  }
+  explosives: {
+    offenseRate: number
+    defenseRate: number
+    offenseRunRate: number
+    offensePassRate: number
+  }
+  efficiency: {
+    yardsPerPlay: YardsPerPlaySummary
+    success: SuccessSummary
+    thirdDown: ConversionSummary
+    fourthDown: ConversionSummary
+    lateDown: ConversionSummary
+  }
+  redZone: {
+    offense: { scoringPct: number; tdPct: number }
+    defense: { scoringPct: number; tdPct: number }
+  }
+  nonOffensiveTds: {
+    perGame: number
+    total: number
+  }
+}
+
 export type SeasonProjection = {
   gamesModeled: number
   projectedWinRate: number
   projectedPointsPerGame: number
   projectedPointsAllowed: number
   notes: string
+}
+
+export type DistanceBucket = 'SHORT' | 'MEDIUM' | 'LONG'
+
+export type OffensivePlayFilter = {
+  down?: number | number[]
+  distanceBucket?: DistanceBucket
+  fieldZone?: FieldZone | FieldZone[]
+  personnelCode?: string | string[] | null
+  formationId?: string | string[] | null
+  playFamily?: PlayFamily | PlayFamily[]
+  runConceptId?: string | string[] | null
+  passConceptId?: string | string[] | null
+  playAction?: boolean | null
+}
+
+export type ConversionSummary = {
+  attempts: number
+  conversions: number
+  rate: number
+}
+
+export type SuccessSummary = {
+  plays: number
+  successes: number
+  rate: number
+}
+
+export type YardsPerPlaySummary = {
+  plays: number
+  yards: number
+  ypp: number
+}
+
+export type DriveResultBreakdown = Record<DriveResultType | 'OTHER', number>
+
+export type PossessionMetrics = {
+  offense: {
+    drives: number
+    timeOfPossessionSeconds: number
+    firstHalfSeconds: number
+    secondHalfSeconds: number
+    averagePlays: number
+    averageSeconds: number
+    averageYards: number
+    driveResults: DriveResultBreakdown
+    pointsPerPossession: number
+  }
+  defense: {
+    drives: number
+    pointsPerPossession: number
+  }
+}
+
+export type PassingLine = {
+  attempts: number
+  completions: number
+  completionPct: number
+  accuracyPct: number
+  yards: number
+  yardsPerAttempt: number
+  yardsPerCompletion: number
+  sacks: number
+  sackYards: number
+  dropbacks: number
+  netYardsPerAttempt: number
+}
+
+export type PassingEfficiency = PassingLine & {
+  byQuarterback: Record<string, PassingLine>
+}
+
+export type RushingLine = {
+  attempts: number
+  yards: number
+  yardsPerCarry: number
+}
+
+export type RushingEfficiency = RushingLine & {
+  byRusher: Record<string, RushingLine>
 }

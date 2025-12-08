@@ -17,6 +17,7 @@ import { CTAButton } from '@/components/ui/CTAButton'
 import { Pill } from '@/components/ui/Pill'
 import {
   buildTendencyLens as computeTendencyLens,
+  computeBoxScore,
   isExplosivePlay,
   isSuccessfulPlay,
 } from '@/utils/stats/engine'
@@ -368,17 +369,10 @@ export function ChartEventPanel({
     defenseStructures,
     wrConcepts,
   }
-  const eventsWithContext = useMemo(
-    () => events.filter((ev) => ev.down != null && ev.distance != null && ev.gained_yards != null),
-    [events]
-  )
-  const successRate = useMemo(() => {
-    if (eventsWithContext.length === 0) return 0
-    const successful = eventsWithContext.filter((ev) => isSuccessfulPlay(ev)).length
-    return Math.round((successful / eventsWithContext.length) * 100)
-  }, [eventsWithContext])
-  const explosiveCount = useMemo(() => events.filter((ev) => isExplosivePlay(ev)).length, [events])
-  const explosiveRate = events.length > 0 ? Math.round((explosiveCount / events.length) * 100) : 0
+  const liveBox = useMemo(() => computeBoxScore(events, undefined, unit), [events, unit])
+  const successRate = Math.round(liveBox.successRate * 100)
+  const explosiveCount = liveBox.explosives
+  const explosiveRate = liveBox.plays > 0 ? Math.round(liveBox.explosiveRate * 100) : 0
   const currentDriveNumber = latestEvent?.drive_number ?? null
   const currentDriveEvents = useMemo(
     () => (currentDriveNumber ? events.filter((ev) => ev.drive_number === currentDriveNumber) : []),
@@ -388,25 +382,10 @@ export function ChartEventPanel({
     () => currentDriveEvents.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0),
     [currentDriveEvents]
   )
-  const lateDownAttempts = useMemo(
-    () => events.filter((ev) => (ev.down ?? 0) >= 3 && ev.distance != null && ev.gained_yards != null),
-    [events]
-  )
-  const lateDownRate = lateDownAttempts.length
-    ? Math.round(
-        (lateDownAttempts.filter(
-          (ev) => (ev.gained_yards ?? 0) >= (ev.distance ?? Number.POSITIVE_INFINITY)
-        ).length /
-          lateDownAttempts.length) *
-          100
-      )
-    : 0
-  const averageGain = useMemo(() => {
-    const withYards = events.filter((ev) => ev.gained_yards != null)
-    return withYards.length > 0
-      ? withYards.reduce((sum, ev) => sum + (ev.gained_yards ?? 0), 0) / withYards.length
-      : 0
-  }, [events])
+  const lateDownAttempts = liveBox.lateDown.attempts
+  const lateDownConversions = liveBox.lateDown.conversions
+  const lateDownRate = Math.round(liveBox.lateDown.rate * 100)
+  const averageGain = liveBox.yardsPerPlay
   const displayQuarter = hasQuarterEdited ? quarterValue : latestEvent?.quarter ? String(latestEvent.quarter) : quarterValue
   const displayBallOn =
     hasBallOnEdited || !latestEvent?.ball_on ? ballOnValue : latestEvent.ball_on || ballOnValue
@@ -957,12 +936,26 @@ export function ChartEventPanel({
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Pill label={`Success ${successRate}%`} tone="emerald" />
-          <Pill label={`Explosive ${explosiveRate}%`} tone="amber" />
+          <Pill
+            label={
+              liveBox.plays > 0
+                ? `Explosive ${explosiveCount}/${liveBox.plays} (${explosiveRate}%)`
+                : 'Explosive --'
+            }
+            tone="amber"
+          />
           <Pill
             label={`Drive ${currentDriveNumber ?? '--'} | ${currentDriveEvents.length || 0}P / ${currentDriveYards} yds`}
             tone="slate"
           />
-          <Pill label={`Late downs ${lateDownRate}%`} tone="cyan" />
+          <Pill
+            label={
+              lateDownAttempts > 0
+                ? `Late downs ${lateDownConversions}/${lateDownAttempts} (${lateDownRate}%)`
+                : 'Late downs --'
+            }
+            tone="cyan"
+          />
           <Pill label={`Avg gain ${averageGain.toFixed(1)} yds`} tone="slate" />
           {pendingOptimistic && <Pill label="Pending sync" tone="amber" />}
         </div>
