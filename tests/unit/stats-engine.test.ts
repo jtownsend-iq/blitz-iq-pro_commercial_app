@@ -18,6 +18,7 @@ import {
   computeDefensiveMetrics,
   computeRushingEfficiency,
   computePossessionMetrics,
+  computeSpecialTeamsMetrics,
   computeSuccessRate,
   computeYardsPerPlay,
   deriveDriveRecords,
@@ -26,7 +27,7 @@ import {
   projectSeason,
   yardLineFromBallOn,
 } from '../../utils/stats/engine'
-import type { PlayEvent } from '../../utils/stats/types'
+import type { PlayEvent, DriveRecord } from '../../utils/stats/types'
 
 const basePlays: PlayEvent[] = [
   {
@@ -655,6 +656,115 @@ test('defensive metrics capture stops, havoc, and takeaways', () => {
   strictEqual(defense.drives.pointsAllowed, 0)
 })
 
+test('special teams metrics capture returns and kicking phases', () => {
+  const stEvents: PlayEvent[] = [
+    {
+      ...basePlays[0],
+      id: 'ko-return',
+      play_family: 'SPECIAL_TEAMS',
+      st_play_type: 'KICKOFF',
+      st_return_yards: 35,
+      possession_team_id: 'team-1',
+      ball_on: 'O5',
+      field_position: 95,
+      gained_yards: 0,
+    },
+    {
+      ...basePlays[0],
+      id: 'ko-cover',
+      play_family: 'SPECIAL_TEAMS',
+      st_play_type: 'KICKOFF',
+      st_return_yards: 20,
+      possession_team_id: 'opp-1',
+      ball_on: 'O35',
+      field_position: 65,
+      gained_yards: 65,
+    },
+    {
+      ...basePlays[0],
+      id: 'fg-make',
+      play_family: 'SPECIAL_TEAMS',
+      st_play_type: 'FG',
+      ball_on: 'D25',
+      field_position: 25,
+      gained_yards: 0,
+      scoring: { team: 'OFFENSE', creditedTo: 'SPECIAL_TEAMS', type: 'FG', points: 3, scoring_team_side: 'TEAM' },
+    },
+    {
+      ...basePlays[0],
+      id: 'punt-kick',
+      play_family: 'SPECIAL_TEAMS',
+      st_play_type: 'PUNT',
+      possession_team_id: 'team-1',
+      ball_on: 'O40',
+      field_position: 60,
+      gained_yards: 45,
+      st_return_yards: 5,
+    },
+    {
+      ...basePlays[0],
+      id: 'punt-return',
+      play_family: 'SPECIAL_TEAMS',
+      st_play_type: 'PUNT RETURN',
+      possession_team_id: 'team-1',
+      ball_on: 'D45',
+      field_position: 55,
+      st_return_yards: 18,
+    },
+  ]
+  const drives: DriveRecord[] = [
+    {
+      drive_number: 1,
+      team_id: 'team-1',
+      opponent_id: null,
+      game_id: 'g-st',
+      season_id: null,
+      unit: 'OFFENSE',
+      unit_on_field: 'OFFENSE',
+      possession_team_id: 'team-1',
+      play_ids: [],
+      start_field_position: 30,
+      end_field_position: 0,
+      start_time_seconds: 0,
+      end_time_seconds: 0,
+      start_score: null,
+      end_score: null,
+      yards: 50,
+      result: 'TD',
+    },
+    {
+      drive_number: 2,
+      team_id: 'team-1',
+      opponent_id: null,
+      game_id: 'g-st',
+      season_id: null,
+      unit: 'DEFENSE',
+      unit_on_field: 'DEFENSE',
+      possession_team_id: 'opp-1',
+      play_ids: [],
+      start_field_position: 65,
+      end_field_position: 0,
+      start_time_seconds: 0,
+      end_time_seconds: 0,
+      start_score: null,
+      end_score: null,
+      yards: 0,
+      result: 'PUNT',
+    },
+  ]
+  const special = computeSpecialTeamsMetrics(stEvents, drives)
+  strictEqual(special.kickoffReturns.team.returns, 1)
+  strictEqual(special.kickoff.kicks, 1)
+  strictEqual(Math.round(special.kickoff.opponentAverageStart ?? 0), 20)
+  strictEqual(special.punting.team.punts, 1)
+  strictEqual(Math.round(special.punting.team.net), 40)
+  strictEqual(special.puntReturns.team.returns, 1)
+  strictEqual(Math.round(special.fieldGoals.overall.pct * 100), 100)
+  ok((special.fieldGoals.longestMade ?? 0) >= 40)
+  strictEqual(special.fieldPosition.offenseStart, 30)
+  strictEqual(special.fieldPosition.defenseStart, 65)
+})
+
 test('season aggregation produces trends and averages', () => {
   const gameA = buildStatsStack({ events: basePlays, unit: 'OFFENSE', gameId: 'g1' }).game
   const turnoverHeavy: PlayEvent[] = [
@@ -682,4 +792,5 @@ test('season aggregation produces trends and averages', () => {
   ok(season.scoring.trend.length === 2)
   strictEqual(season.defense.takeawaysPerGame, 0)
   strictEqual(season.defense.thirdDown.attempts, 0)
+  ok(season.specialTeams.fieldGoals.overallPct >= 0)
 })

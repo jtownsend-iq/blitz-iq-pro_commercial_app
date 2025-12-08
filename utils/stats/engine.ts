@@ -36,6 +36,14 @@ import {
   ScoringSummary,
   SeasonAggregate,
   SeasonProjection,
+  SpecialTeamsMetrics,
+  FieldGoalMetrics,
+  FieldPositionMetrics,
+  PuntingMetrics,
+  KickoffMetrics,
+  ReturnMetrics,
+  ReturnLine,
+  FieldGoalSplits,
   SuccessSummary,
   SpecialTeamsContext,
   TimeoutState,
@@ -1633,6 +1641,401 @@ export function computeDefensiveMetrics(events: PlayEvent[], drives: DriveRecord
   }
 }
 
+function averageNumber(values: Array<number | null | undefined>): number | null {
+  const valid = values.filter((v): v is number => typeof v === 'number' && !Number.isNaN(v))
+  if (!valid.length) return null
+  return valid.reduce((sum, v) => sum + v, 0) / valid.length
+}
+
+function teamPossessesSpecialTeams(ev: PlayEvent): boolean {
+  if (ev.possession_team_id && ev.team_id) return ev.possession_team_id === ev.team_id
+  if (ev.possession === 'DEFENSE') return false
+  return true
+}
+
+function normalizeStartYardLine(ev: PlayEvent): number | null {
+  if (typeof ev.ball_on === 'string') return yardLineFromBallOn(ev.ball_on)
+  if (typeof ev.field_position === 'number') {
+    return Math.max(0, Math.min(100, 100 - ev.field_position))
+  }
+  return null
+}
+
+function isKickoffPlay(ev: PlayEvent): boolean {
+  const code = (ev.st_play_type || ev.play_call || ev.result || '').toUpperCase()
+  return ev.play_family === 'SPECIAL_TEAMS' && (code.includes('KICKOFF') || code.includes('KO') || code.includes('KICK OFF'))
+}
+
+function isPuntPlay(ev: PlayEvent): boolean {
+  const code = (ev.st_play_type || ev.play_call || ev.result || '').toUpperCase()
+  return ev.play_family === 'SPECIAL_TEAMS' && code.includes('PUNT')
+}
+
+function isFieldGoalAttempt(ev: PlayEvent): boolean {
+  const code = (ev.st_play_type || ev.play_call || ev.result || '').toUpperCase()
+  if (ev.scoring?.type === 'FG') return true
+  return ev.play_family === 'SPECIAL_TEAMS' && (code.includes('FG') || code.includes('FIELD GOAL'))
+}
+
+function isExtraPointAttempt(ev: PlayEvent): boolean {
+  const code = (ev.st_play_type || ev.play_call || ev.result || '').toUpperCase()
+  if (ev.scoring?.type === 'PAT') return true
+  return ev.play_family === 'SPECIAL_TEAMS' && (code.includes('PAT') || code.includes('XP') || code.includes('EXTRA POINT'))
+}
+
+function isTouchbackEvent(ev: PlayEvent): boolean {
+  const code = (ev.st_variant || ev.result || '').toUpperCase()
+  return code.includes('TOUCHBACK')
+}
+
+function isReturnPlay(ev: PlayEvent): boolean {
+  if (ev.st_return_yards != null) return true
+  const code = (ev.st_play_type || ev.result || '').toUpperCase()
+  return code.includes('RETURN')
+}
+
+function estimateKickDistance(ev: PlayEvent): number | null {
+  const yardsToGoal =
+    typeof ev.field_position === 'number'
+      ? ev.field_position
+      : typeof ev.ball_on === 'string'
+      ? 100 - yardLineFromBallOn(ev.ball_on)
+      : null
+  if (yardsToGoal == null) return null
+  return Math.max(0, Math.min(100, yardsToGoal + 17))
+}
+
+function emptyReturnLine(): ReturnLine {
+  return { returns: 0, yards: 0, average: 0, longest: 0, touchdowns: 0 }
+}
+
+function finalizeReturnLine(line: ReturnLine): ReturnLine {
+  return { ...line, average: line.returns ? line.yards / line.returns : 0 }
+}
+
+function computeReturnMetrics(events: PlayEvent[], predicate: (ev: PlayEvent) => boolean): ReturnMetrics {
+  const team = emptyReturnLine()
+  const byReturner: Record<string, ReturnLine> = {}
+
+  events.forEach((ev) => {
+    if (!predicate(ev)) return
+    const yards = ev.st_return_yards ?? ev.gained_yards
+    if (yards == null) return
+    const td = ev.scoring ? isTouchdownEvent(ev.scoring) : false
+    team.returns += 1
+    team.yards += yards
+    if (td) team.touchdowns += 1
+    if (yards > team.longest) team.longest = yards
+
+    const returner = ev.participation?.returner || ev.participation?.primaryBallcarrier || 'TEAM'
+    const bucket = byReturner[returner] || emptyReturnLine()
+    bucket.returns += 1
+    bucket.yards += yards
+    if (td) bucket.touchdowns += 1
+    if (yards > bucket.longest) bucket.longest = yards
+    byReturner[returner] = bucket
+  })
+
+  return {
+    team: finalizeReturnLine(team),
+    byReturner: Object.fromEntries(Object.entries(byReturner).map(([k, v]) => [k, finalizeReturnLine(v)])),
+  }
+}
+
+function bandFromDistance(distance: number | null): keyof FieldGoalSplits['bands'] | null {
+  if (distance == null) return null
+  if (distance < 30) return 'inside30'
+  if (distance < 40) return 'from30to39'
+  if (distance < 50) return 'from40to49'
+  return 'from50Plus'
+}
+
+function emptyBand() {
+  return { attempts: 0, made: 0, pct: 0 }
+}
+
+function emptyFieldGoalSplits(): FieldGoalSplits {
+  return {
+    overall: emptyBand(),
+    bands: {
+      inside30: emptyBand(),
+      from30to39: emptyBand(),
+      from40to49: emptyBand(),
+      from50Plus: emptyBand(),
+    },
+    extraPoint: emptyBand(),
+    longestMade: 0,
+  }
+}
+
+function finalizeFieldGoalSplits(splits: FieldGoalSplits): FieldGoalSplits {
+  const finalizeBand = (band: ReturnType<typeof emptyBand>) => ({
+    ...band,
+    pct: band.attempts ? band.made / band.attempts : 0,
+  })
+  return {
+    overall: finalizeBand(splits.overall),
+    bands: {
+      inside30: finalizeBand(splits.bands.inside30),
+      from30to39: finalizeBand(splits.bands.from30to39),
+      from40to49: finalizeBand(splits.bands.from40to49),
+      from50Plus: finalizeBand(splits.bands.from50Plus),
+    },
+    extraPoint: finalizeBand(splits.extraPoint),
+    longestMade: splits.longestMade,
+  }
+}
+
+export function computeFieldGoalMetrics(events: PlayEvent[]): FieldGoalMetrics {
+  const teamSplits = emptyFieldGoalSplits()
+  const byKicker: Record<string, FieldGoalSplits> = {}
+
+  events.forEach((ev) => {
+    const isFg = isFieldGoalAttempt(ev)
+    const isPat = isExtraPointAttempt(ev) && !isFg
+    if (!isFg && !isPat) return
+
+    const made =
+      (ev.scoring?.type === 'FG' || ev.scoring?.type === 'PAT') ||
+      (ev.result ? /(good|made)/i.test(ev.result) : false)
+    const distance = estimateKickDistance(ev)
+    const band = isFg ? bandFromDistance(distance) : null
+    const kicker = ev.participation?.kicker || 'TEAM'
+    if (!byKicker[kicker]) byKicker[kicker] = emptyFieldGoalSplits()
+    const target = byKicker[kicker]
+    if (isFg) {
+      teamSplits.overall.attempts += 1
+      target.overall.attempts += 1
+      if (band) {
+        teamSplits.bands[band].attempts += 1
+        target.bands[band].attempts += 1
+      }
+      if (made) {
+        teamSplits.overall.made += 1
+        target.overall.made += 1
+        if (band) {
+          teamSplits.bands[band].made += 1
+          target.bands[band].made += 1
+        }
+        if (distance != null && distance > teamSplits.longestMade) teamSplits.longestMade = distance
+        if (distance != null && distance > target.longestMade) target.longestMade = distance
+      }
+    } else if (isPat) {
+      teamSplits.extraPoint.attempts += 1
+      target.extraPoint.attempts += 1
+      if (made) {
+        teamSplits.extraPoint.made += 1
+        target.extraPoint.made += 1
+      }
+    }
+  })
+
+  return {
+    ...finalizeFieldGoalSplits(teamSplits),
+    byKicker: Object.fromEntries(Object.entries(byKicker).map(([k, v]) => [k, finalizeFieldGoalSplits(v)])),
+  }
+}
+
+function emptyPuntingLine(): PuntingMetrics['team'] {
+  return {
+    punts: 0,
+    yards: 0,
+    gross: 0,
+    touchbacks: 0,
+    inside20: 0,
+    net: 0,
+    longest: 0,
+    opponentAverageStart: null,
+  }
+}
+
+export function computePuntingMetrics(events: PlayEvent[]): PuntingMetrics {
+  const punts = events.filter(
+    (ev) =>
+      isPuntPlay(ev) &&
+      !((ev.st_play_type || '').toUpperCase().includes('RETURN')) &&
+      teamPossessesSpecialTeams(ev)
+  )
+  const team = emptyPuntingLine()
+  const byPunter: Record<string, ReturnType<typeof emptyPuntingLine>> = {}
+  const opponentStarts: number[] = []
+  const punterStarts: Record<string, number[]> = {}
+
+  punts.forEach((ev) => {
+    const gross = Math.max(0, ev.gained_yards ?? 0)
+    const returnYards = Math.max(0, ev.st_return_yards ?? 0)
+    const touchback = isTouchbackEvent(ev)
+    const startLine = normalizeStartYardLine(ev) ?? 35
+    const endLine = touchback ? 75 : Math.min(100, Math.max(0, startLine + gross - returnYards))
+    const oppStart = 100 - endLine
+    const inside20 = !touchback && oppStart <= 20 ? 1 : 0
+    const net = gross - returnYards - (touchback ? 20 : 0)
+
+    const update = (line: ReturnType<typeof emptyPuntingLine>) => {
+      line.punts += 1
+      line.yards += gross
+      line.touchbacks += touchback ? 1 : 0
+      line.inside20 += inside20
+      line.net += net
+      if (gross > line.longest) line.longest = gross
+    }
+
+    update(team)
+    opponentStarts.push(oppStart)
+
+    const punter = ev.participation?.punter || 'TEAM'
+    if (!byPunter[punter]) byPunter[punter] = emptyPuntingLine()
+    update(byPunter[punter])
+    if (!punterStarts[punter]) punterStarts[punter] = []
+    punterStarts[punter].push(oppStart)
+  })
+
+  const finalizeLine = (line: ReturnType<typeof emptyPuntingLine>, starts: number[]) => ({
+    ...line,
+    gross: line.punts ? line.yards / line.punts : 0,
+    net: line.punts ? line.net / line.punts : 0,
+    opponentAverageStart: averageNumber(starts),
+  })
+
+  return {
+    team: finalizeLine(team, opponentStarts),
+    byPunter: Object.fromEntries(
+      Object.entries(byPunter).map(([k, v]) => [k, finalizeLine(v, punterStarts[k] || [])])
+    ),
+  }
+}
+
+export function computeKickoffMetrics(events: PlayEvent[]): KickoffMetrics {
+  const kickoffs = events.filter((ev) => isKickoffPlay(ev) && !teamPossessesSpecialTeams(ev))
+  let kicks = 0
+  let touchbacks = 0
+  let longestReturnAllowed = 0
+  const opponentStarts: number[] = []
+
+  kickoffs.forEach((ev) => {
+    kicks += 1
+    const touchback = isTouchbackEvent(ev)
+    if (touchback) {
+      touchbacks += 1
+      opponentStarts.push(25)
+      return
+    }
+    const startLine = normalizeStartYardLine(ev) ?? 35
+    const gross = Math.max(0, ev.gained_yards ?? 0)
+    const returnYards = Math.max(0, ev.st_return_yards ?? 0)
+    const endLine = Math.min(100, Math.max(0, startLine + gross - returnYards))
+    opponentStarts.push(100 - endLine)
+    if (returnYards > longestReturnAllowed) longestReturnAllowed = returnYards
+  })
+
+  return {
+    kicks,
+    touchbacks,
+    touchbackPct: kicks ? touchbacks / kicks : 0,
+    opponentAverageStart: averageNumber(opponentStarts),
+    longestReturnAllowed,
+  }
+}
+
+export function computeCoverageMetrics(events: PlayEvent[]) {
+  const emptyCoverage = () => ({ attempts: 0, yards: 0, average: 0, longest: 0, touchdownsAllowed: 0 })
+  const kickoff = emptyCoverage()
+  const punt = emptyCoverage()
+
+  events.forEach((ev) => {
+    if (!isReturnPlay(ev)) return
+    const returnYards = Math.max(0, ev.st_return_yards ?? 0)
+    const isOpponentScore =
+      ev.scoring && (ev.scoring.scoring_team_side ?? 'TEAM') === 'OPPONENT' && isTouchdownEvent(ev.scoring)
+    if (isKickoffPlay(ev) && !teamPossessesSpecialTeams(ev)) {
+      kickoff.attempts += 1
+      kickoff.yards += returnYards
+      if (returnYards > kickoff.longest) kickoff.longest = returnYards
+      if (isOpponentScore) kickoff.touchdownsAllowed += 1
+    }
+    if (isPuntPlay(ev) && !teamPossessesSpecialTeams(ev)) {
+      punt.attempts += 1
+      punt.yards += returnYards
+      if (returnYards > punt.longest) punt.longest = returnYards
+      if (isOpponentScore) punt.touchdownsAllowed += 1
+    }
+  })
+
+  const finalize = (cov: ReturnType<typeof emptyCoverage>) => ({
+    ...cov,
+    average: cov.attempts ? cov.yards / cov.attempts : 0,
+  })
+
+  return {
+    kickoff: finalize(kickoff),
+    punt: finalize(punt),
+  }
+}
+
+function computeFieldPositionAdvantage(drives: DriveRecord[], opponentDrives: DriveRecord[] = []): FieldPositionMetrics {
+  const offenseStarts = drives.filter((d) => d.unit_on_field === 'OFFENSE' || d.unit === 'OFFENSE')
+  const defenseStarts =
+    opponentDrives.length > 0
+      ? opponentDrives.filter((d) => d.unit_on_field === 'OFFENSE' || d.unit === 'OFFENSE')
+      : drives.filter((d) => d.unit_on_field === 'DEFENSE' || d.unit === 'DEFENSE')
+
+  const offenseAvg = averageNumber(offenseStarts.map((d) => d.start_field_position ?? null))
+  const defenseAvg = averageNumber(defenseStarts.map((d) => d.start_field_position ?? null))
+  return {
+    offenseStart: offenseAvg,
+    defenseStart: defenseAvg,
+    netStart: offenseAvg != null && defenseAvg != null ? offenseAvg - defenseAvg : null,
+  }
+}
+
+function latestTimeoutState(events: PlayEvent[]): TimeoutState | null {
+  const sorted = [...events].sort((a, b) => {
+    const aTime = a.absolute_clock_seconds ?? absoluteClockSeconds(a.quarter, a.clock_seconds) ?? 0
+    const bTime = b.absolute_clock_seconds ?? absoluteClockSeconds(b.quarter, b.clock_seconds) ?? 0
+    return bTime - aTime
+  })
+  for (const ev of sorted) {
+    if (ev.timeouts_before) return ev.timeouts_before
+    if (ev.offense_timeouts != null || ev.defense_timeouts != null) return deriveTimeouts(ev)
+  }
+  return null
+}
+
+export function computeSpecialTeamsMetrics(
+  events: PlayEvent[],
+  drives: DriveRecord[] = [],
+  opponentEvents: PlayEvent[] = [],
+  opponentDrives: DriveRecord[] = []
+): SpecialTeamsMetrics {
+  const allDrives = drives.length ? drives : deriveDriveRecords(events)
+  const otherDrives =
+    opponentDrives.length > 0 ? opponentDrives : opponentEvents.length ? deriveDriveRecords(opponentEvents) : []
+
+  const fieldPosition = computeFieldPositionAdvantage(allDrives, otherDrives)
+  const kickoffReturns = computeReturnMetrics(
+    events,
+    (ev) => isKickoffPlay(ev) && teamPossessesSpecialTeams(ev) && isReturnPlay(ev)
+  )
+  const puntReturns = computeReturnMetrics(
+    events,
+    (ev) => isPuntPlay(ev) && isReturnPlay(ev) && (ev.st_play_type || '').toUpperCase().includes('RETURN')
+  )
+  const fieldGoals = computeFieldGoalMetrics(events)
+  const punting = computePuntingMetrics(events)
+  const kickoff = computeKickoffMetrics(events)
+  const coverage = computeCoverageMetrics(events)
+
+  return {
+    fieldPosition,
+    kickoffReturns,
+    puntReturns,
+    coverage,
+    fieldGoals,
+    punting,
+    kickoff,
+  }
+}
+
 export function computeAdvancedAnalytics(
   box: BoxScoreMetrics,
   base: BaseCounts,
@@ -1664,6 +2067,7 @@ export function buildStatsStack(params: {
   events: PlayEvent[]
   drives?: DriveRecord[]
   opponentEvents?: PlayEvent[]
+  opponentDrives?: DriveRecord[]
   opponentBox?: BoxScoreMetrics
   unit?: ChartUnit
   gameId?: string
@@ -1676,6 +2080,13 @@ export function buildStatsStack(params: {
   const opponentBase = params.opponentEvents ? computeBaseCounts(params.opponentEvents) : undefined
   const box = computeBoxScore(scopedEvents, base, params.unit)
   const drives = params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(scopedEvents, params.unit)
+  const allDrives = params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(params.events, params.unit)
+  const opponentDerivedDrives =
+    params.opponentDrives && params.opponentDrives.length > 0
+      ? params.opponentDrives
+      : params.opponentEvents
+      ? deriveDriveRecords(params.opponentEvents)
+      : []
   const defensiveDrives =
     params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(defensiveEvents, 'DEFENSE')
   const defenseMetrics = computeDefensiveMetrics(defensiveEvents, defensiveDrives)
@@ -1687,11 +2098,15 @@ export function buildStatsStack(params: {
   const scoring = computeScoringSummary(base, 1)
   const success = computeSuccessRate(scopedEvents, params.unit)
   const ypp = computeYardsPerPlay(scopedEvents, params.unit)
+  const specialTeams = computeSpecialTeamsMetrics(params.events, allDrives, params.opponentEvents ?? [], opponentDerivedDrives)
+  const timeouts = latestTimeoutState(params.events)
   const game: GameMetricSnapshot = {
     gameId: params.gameId ?? scopedEvents[0]?.game_id ?? undefined,
     seasonId: params.seasonId ?? scopedEvents[0]?.season_id ?? null,
     opponentId: params.opponentId ?? scopedEvents[0]?.opponent_id ?? null,
     turnover: turnovers,
+    specialTeams,
+    timeouts,
     explosives,
     scoring,
     redZone,
@@ -1704,7 +2119,21 @@ export function buildStatsStack(params: {
       lateDown: box.lateDown,
     },
   }
-  return { base, box, core, advanced, drives, turnovers, explosives, redZone, scoring, defense: defenseMetrics, game }
+  return {
+    base,
+    box,
+    core,
+    advanced,
+    drives,
+    turnovers,
+    explosives,
+    redZone,
+    scoring,
+    defense: defenseMetrics,
+    specialTeams,
+    timeouts,
+    game,
+  }
 }
 
 export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggregate {
@@ -1723,6 +2152,32 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
     },
     redZone: { offense: { scoringPct: 0, tdPct: 0 }, defense: { scoringPct: 0, tdPct: 0 } },
     nonOffensiveTds: { perGame: 0, total: 0 },
+    specialTeams: {
+      fieldPosition: { offenseStart: null, defenseStart: null, netStart: null },
+      kickoffReturns: { returns: 0, yards: 0, average: 0, longest: 0, touchdowns: 0 },
+      puntReturns: { returns: 0, yards: 0, average: 0, longest: 0, touchdowns: 0 },
+      fieldGoals: {
+        overallPct: 0,
+        extraPointPct: 0,
+        longestMade: 0,
+        bands: {
+          inside30: { attempts: 0, made: 0, pct: 0 },
+          from30to39: { attempts: 0, made: 0, pct: 0 },
+          from40to49: { attempts: 0, made: 0, pct: 0 },
+          from50Plus: { attempts: 0, made: 0, pct: 0 },
+        },
+      },
+      punting: {
+        punts: 0,
+        gross: 0,
+        net: 0,
+        touchbackPct: 0,
+        inside20Pct: 0,
+        longest: 0,
+        opponentAverageStart: null,
+      },
+      kickoff: { touchbackPct: 0, opponentAverageStart: null, longestReturnAllowed: 0 },
+    },
     defense: {
       takeawaysPerGame: 0,
       takeawaysByType: emptyTurnoverBuckets(),
@@ -1839,6 +2294,156 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
   const totalRedZoneTrips = defenseSum((d) => d.redZone.trips)
   const totalRedZoneScores = defenseSum((d) => d.redZone.scores)
   const totalRedZoneTds = defenseSum((d) => d.redZone.touchdowns)
+  const fieldPosOffenseAvg = averageNumber(games.map((g) => g.specialTeams?.fieldPosition.offenseStart ?? null))
+  const fieldPosDefenseAvg = averageNumber(games.map((g) => g.specialTeams?.fieldPosition.defenseStart ?? null))
+  const kickoffReturnAgg = (() => {
+    let returns = 0
+    let yards = 0
+    let touchdowns = 0
+    let longest = 0
+    games.forEach((g) => {
+      const line = g.specialTeams?.kickoffReturns.team
+      if (!line) return
+      returns += line.returns
+      yards += line.yards
+      touchdowns += line.touchdowns
+      if (line.longest > longest) longest = line.longest
+    })
+    return {
+      returns,
+      yards,
+      touchdowns,
+      longest,
+      average: returns ? yards / Math.max(1, returns) : 0,
+    }
+  })()
+  const puntReturnAgg = (() => {
+    let returns = 0
+    let yards = 0
+    let touchdowns = 0
+    let longest = 0
+    games.forEach((g) => {
+      const line = g.specialTeams?.puntReturns.team
+      if (!line) return
+      returns += line.returns
+      yards += line.yards
+      touchdowns += line.touchdowns
+      if (line.longest > longest) longest = line.longest
+    })
+    return {
+      returns,
+      yards,
+      touchdowns,
+      longest,
+      average: returns ? yards / Math.max(1, returns) : 0,
+    }
+  })()
+  const fieldGoalAgg = (() => {
+    let attempts = 0
+    let made = 0
+    let xpAttempts = 0
+    let xpMade = 0
+    let longestMade = 0
+    const bands = {
+      inside30: { attempts: 0, made: 0 },
+      from30to39: { attempts: 0, made: 0 },
+      from40to49: { attempts: 0, made: 0 },
+      from50Plus: { attempts: 0, made: 0 },
+    }
+    games.forEach((g) => {
+      const fg = g.specialTeams?.fieldGoals
+      if (!fg) return
+      attempts += fg.overall.attempts
+      made += fg.overall.made
+      xpAttempts += fg.extraPoint.attempts
+      xpMade += fg.extraPoint.made
+      longestMade = Math.max(longestMade, fg.longestMade)
+      ;(Object.keys(bands) as Array<keyof typeof bands>).forEach((key) => {
+        bands[key].attempts += fg.bands[key].attempts
+        bands[key].made += fg.bands[key].made
+      })
+    })
+    const pct = (m: number, a: number) => (a ? m / a : 0)
+    return {
+      overallPct: pct(made, attempts),
+      extraPointPct: pct(xpMade, xpAttempts),
+      longestMade,
+      bands: {
+        inside30: { attempts: bands.inside30.attempts, made: bands.inside30.made, pct: pct(bands.inside30.made, bands.inside30.attempts) },
+        from30to39: {
+          attempts: bands.from30to39.attempts,
+          made: bands.from30to39.made,
+          pct: pct(bands.from30to39.made, bands.from30to39.attempts),
+        },
+        from40to49: {
+          attempts: bands.from40to49.attempts,
+          made: bands.from40to49.made,
+          pct: pct(bands.from40to49.made, bands.from40to49.attempts),
+        },
+        from50Plus: {
+          attempts: bands.from50Plus.attempts,
+          made: bands.from50Plus.made,
+          pct: pct(bands.from50Plus.made, bands.from50Plus.attempts),
+        },
+      },
+    }
+  })()
+  const puntingAgg = (() => {
+    let punts = 0
+    let grossYards = 0
+    let netYards = 0
+    let touchbacks = 0
+    let inside20 = 0
+    let longest = 0
+    let opponentStartSum = 0
+    let opponentStartCount = 0
+    games.forEach((g) => {
+      const punt = g.specialTeams?.punting.team
+      if (!punt) return
+      punts += punt.punts
+      grossYards += punt.yards
+      netYards += punt.net * punt.punts
+      touchbacks += punt.touchbacks
+      inside20 += punt.inside20
+      longest = Math.max(longest, punt.longest)
+      if (punt.opponentAverageStart != null) {
+        opponentStartSum += punt.opponentAverageStart * punt.punts
+        opponentStartCount += punt.punts
+      }
+    })
+    return {
+      punts,
+      gross: punts ? grossYards / punts : 0,
+      net: punts ? netYards / punts : 0,
+      touchbackPct: punts ? touchbacks / punts : 0,
+      inside20Pct: punts ? inside20 / punts : 0,
+      longest,
+      opponentAverageStart: opponentStartCount ? opponentStartSum / opponentStartCount : null,
+    }
+  })()
+  const kickoffAgg = (() => {
+    let kicks = 0
+    let touchbacks = 0
+    let longestReturnAllowed = 0
+    let opponentStartSum = 0
+    let opponentStartCount = 0
+    games.forEach((g) => {
+      const ko = g.specialTeams?.kickoff
+      if (!ko) return
+      kicks += ko.kicks
+      touchbacks += ko.touchbacks
+      longestReturnAllowed = Math.max(longestReturnAllowed, ko.longestReturnAllowed)
+      if (ko.opponentAverageStart != null) {
+        opponentStartSum += ko.opponentAverageStart * ko.kicks
+        opponentStartCount += ko.kicks
+      }
+    })
+    return {
+      touchbackPct: kicks ? touchbacks / kicks : 0,
+      opponentAverageStart: opponentStartCount ? opponentStartSum / opponentStartCount : null,
+      longestReturnAllowed,
+    }
+  })()
 
   return {
     games: gamesPlayed,
@@ -1884,6 +2489,31 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
     nonOffensiveTds: {
       perGame: nonOffensiveTotal / gamesPlayed,
       total: nonOffensiveTotal,
+    },
+    specialTeams: {
+      fieldPosition: {
+        offenseStart: fieldPosOffenseAvg,
+        defenseStart: fieldPosDefenseAvg,
+        netStart:
+          fieldPosOffenseAvg != null && fieldPosDefenseAvg != null ? fieldPosOffenseAvg - fieldPosDefenseAvg : null,
+      },
+      kickoffReturns: {
+        returns: kickoffReturnAgg.returns,
+        yards: kickoffReturnAgg.yards,
+        average: kickoffReturnAgg.average,
+        longest: kickoffReturnAgg.longest,
+        touchdowns: kickoffReturnAgg.touchdowns,
+      },
+      puntReturns: {
+        returns: puntReturnAgg.returns,
+        yards: puntReturnAgg.yards,
+        average: puntReturnAgg.average,
+        longest: puntReturnAgg.longest,
+        touchdowns: puntReturnAgg.touchdowns,
+      },
+      fieldGoals: fieldGoalAgg,
+      punting: puntingAgg,
+      kickoff: kickoffAgg,
     },
     defense: {
       takeawaysPerGame: defenseCount ? defenseSum((d) => d.takeaways.total) / defenseCount : 0,

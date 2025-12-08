@@ -430,6 +430,8 @@ export type GameMetricSnapshot = {
   seasonId?: string | null
   opponentId?: string | null
   turnover: TurnoverSummary
+  specialTeams?: SpecialTeamsMetrics
+  timeouts?: TimeoutState | null
   explosives: ExplosiveMetrics
   scoring: ScoringSummary
   redZone: RedZoneSummary
@@ -483,6 +485,31 @@ export type SeasonAggregate = {
   nonOffensiveTds: {
     perGame: number
     total: number
+  }
+  specialTeams: {
+    fieldPosition: FieldPositionMetrics
+    kickoffReturns: ReturnLine
+    puntReturns: ReturnLine
+    fieldGoals: {
+      overallPct: number
+      extraPointPct: number
+      longestMade: number
+      bands: FieldGoalSplits['bands']
+    }
+    punting: {
+      punts: number
+      gross: number
+      net: number
+      touchbackPct: number
+      inside20Pct: number
+      longest: number
+      opponentAverageStart: number | null
+    }
+    kickoff: {
+      touchbackPct: number
+      opponentAverageStart: number | null
+      longestReturnAllowed: number
+    }
   }
   defense: {
     takeawaysPerGame: number
@@ -591,4 +618,90 @@ export type RushingLine = {
 
 export type RushingEfficiency = RushingLine & {
   byRusher: Record<string, RushingLine>
+}
+
+export type FieldPositionMetrics = {
+  offenseStart: number | null
+  defenseStart: number | null
+  netStart: number | null
+}
+
+export type ReturnLine = {
+  returns: number
+  yards: number
+  average: number
+  longest: number
+  touchdowns: number
+}
+
+export type ReturnMetrics = {
+  team: ReturnLine
+  byReturner: Record<string, ReturnLine>
+}
+
+export type FieldGoalBand = {
+  attempts: number
+  made: number
+  pct: number
+}
+
+export type FieldGoalSplits = {
+  overall: FieldGoalBand
+  bands: {
+    inside30: FieldGoalBand
+    from30to39: FieldGoalBand
+    from40to49: FieldGoalBand
+    from50Plus: FieldGoalBand
+  }
+  extraPoint: FieldGoalBand
+  longestMade: number
+}
+
+export type FieldGoalMetrics = FieldGoalSplits & {
+  byKicker: Record<string, FieldGoalSplits>
+}
+
+export type PuntingLine = {
+  punts: number
+  yards: number
+  gross: number
+  touchbacks: number
+  inside20: number
+  net: number
+  longest: number
+  opponentAverageStart: number | null
+}
+
+export type PuntingMetrics = {
+  team: PuntingLine
+  byPunter: Record<string, PuntingLine>
+}
+
+export type KickoffMetrics = {
+  kicks: number
+  touchbacks: number
+  touchbackPct: number
+  opponentAverageStart: number | null
+  longestReturnAllowed: number
+}
+
+export type CoverageReturnMetrics = {
+  attempts: number
+  yards: number
+  average: number
+  longest: number
+  touchdownsAllowed: number
+}
+
+export type SpecialTeamsMetrics = {
+  fieldPosition: FieldPositionMetrics
+  kickoffReturns: ReturnMetrics
+  puntReturns: ReturnMetrics
+  coverage: {
+    kickoff: CoverageReturnMetrics
+    punt: CoverageReturnMetrics
+  }
+  fieldGoals: FieldGoalMetrics
+  punting: PuntingMetrics
+  kickoff: KickoffMetrics
 }
