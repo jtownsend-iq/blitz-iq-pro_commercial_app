@@ -11,6 +11,7 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { Pill } from '@/components/ui/Pill'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { FreshnessBadge } from '@/components/ui/FreshnessBadge'
 import {
   bucketDownDistance,
   buildStatsStack,
@@ -193,6 +194,7 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
     allRows.map((ev) => mapChartEventToPlayEvent(ev, { teamId: activeTeamId, opponent: game.opponent_name || null })),
     preferences.analytics
   )
+  const lastUpdatedAt = mappedAllEvents[0]?.created_at ?? null
 
   const nextSequence =
     normalizedUnit === 'ALL' ? 1 : ((mappedSessionEvents[0]?.sequence ?? 0) as number) + 1
@@ -247,9 +249,9 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
                 Score {scoreFor} - {scoreAgainst}
               </span>
               <Separator />
-              <span>
-                TO: {timeouts?.team ?? '—'} / {timeouts?.opponent ?? '—'}
-              </span>
+              <span>TO: {timeouts?.team ?? "--"} / {timeouts?.opponent ?? "--"}</span>
+              <Separator />
+              <FreshnessBadge label="Live stats" lastUpdated={lastUpdatedAt} />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

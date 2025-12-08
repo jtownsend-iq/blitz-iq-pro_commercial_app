@@ -12,6 +12,7 @@ import {
   mapChartRowsToEvents,
 } from '@/lib/stats/pipeline'
 import { buildStatsStack } from '@/utils/stats/engine'
+import { FreshnessBadge } from '@/components/ui/FreshnessBadge'
 import type {
   EventRow,
   EventSummary,
@@ -148,9 +149,13 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(900)
 
-  const seasonEvents = mapChartRowsToEvents(seasonEventsData as unknown[] | null, {
-    teamId: activeTeam.id,
-  }, { preferences: preferences.analytics })
+  const seasonEvents = mapChartRowsToEvents(
+    seasonEventsData as unknown[] | null,
+    {
+      teamId: activeTeam.id,
+    },
+    { preferences: preferences.analytics }
+  )
 
   const offenseStack = buildStatsStack({ events: currentGameEvents, unit: 'OFFENSE', gameId: currentGameId ?? undefined })
   const defenseStack = buildStatsStack({ events: currentGameEvents, unit: 'DEFENSE', gameId: currentGameId ?? undefined })
@@ -160,7 +165,11 @@ export default async function DashboardPage() {
     gameId: currentGameId ?? undefined,
   })
   const gameStack = buildStatsStack({ events: currentGameEvents, gameId: currentGameId ?? undefined })
-  const { aggregate: seasonAggregate, projection } = buildStacksForGames(seasonEvents, games)
+  const {
+    aggregate: seasonAggregate,
+    projection,
+    lastUpdated: seasonStatsUpdatedAt,
+  } = buildStacksForGames(seasonEvents, games, { teamId: activeTeam.id })
 
   const heroCta = resolveHeroCta(primarySession, currentGameId)
   const heroSubtitle = currentGame
@@ -171,7 +180,7 @@ export default async function DashboardPage() {
   const unitCards = buildUnitCards({ offenseStack, defenseStack, specialStack, gameId: currentGameId })
   const seasonContext = projection
   const lastEventAt = recentEvents[0]?.created_at ?? null
-  const freshnessLabel = lastEventAt ? formatRelative(lastEventAt, RENDER_TIMESTAMP) : null
+  const freshnessUpdatedAt = seasonStatsUpdatedAt ?? lastEventAt
 
   const sessionList = mergeUpcomingSessions(sessions, games)
 
@@ -186,7 +195,7 @@ export default async function DashboardPage() {
           cta={heroCta}
           secondaryHref="/games"
           kickLabel={formatKickLabel(currentGame?.start_time)}
-          freshnessLabel={freshnessLabel}
+          freshnessUpdatedAt={freshnessUpdatedAt}
         />
         <div className="lg:col-span-12">
           <StatsGrid tiles={coreTiles} />
@@ -254,7 +263,9 @@ function buildCoreTiles(gameStack: ReturnType<typeof buildStatsStack>, seasonAgg
   const explosiveDiff = hasGame
     ? gameStack.explosives.offense.explosives - gameStack.explosives.defense.explosives
     : seasonAggregate.explosives.offenseRate - seasonAggregate.explosives.defenseRate
-  const epaPerPlay = hasGame ? gameStack.advanced.estimatedEPAperPlay : averageSeasonEpa(seasonAggregate)
+  const epaPerPlay = hasGame
+    ? gameStack.advanced.estimatedEPAperPlay
+    : seasonAggregate.advanced.estimatedEpaPerPlay
 
   return [
     {
@@ -286,15 +297,6 @@ function buildCoreTiles(gameStack: ReturnType<typeof buildStatsStack>, seasonAgg
       intent: epaPerPlay >= 0 ? 'positive' : 'warning',
     },
   ]
-}
-
-function averageSeasonEpa(aggregate: SeasonAggregate) {
-  const ypp = aggregate.efficiency.yardsPerPlay.ypp
-  const success = aggregate.efficiency.success.rate
-  const explosiveEdge = aggregate.explosives.offenseRate - aggregate.explosives.defenseRate
-  const turnoverEdge = aggregate.turnover.averageMargin
-  // Simple blended proxy for EPA when full model data isn't present.
-  return ypp * 0.08 + success * 2 + explosiveEdge * 0.5 + turnoverEdge * 0.2
 }
 
 function buildUnitCards({
@@ -388,7 +390,7 @@ function HeroStrip({
   cta,
   secondaryHref,
   kickLabel,
-  freshnessLabel,
+  freshnessUpdatedAt,
 }: {
   team: TeamRow
   title: string
@@ -397,7 +399,7 @@ function HeroStrip({
   cta: HeroCta
   secondaryHref: string
   kickLabel: string
-  freshnessLabel: string | null
+  freshnessUpdatedAt: string | null
 }) {
   return (
     <div className="lg:col-span-12">
@@ -417,9 +419,7 @@ function HeroStrip({
                 <span className="pill bg-slate-900/70 border-slate-800 text-slate-100">{team.school_name}</span>
               ) : null}
               <span className="pill bg-emerald-500/10 border-emerald-600/40 text-emerald-200">Kickoff {kickLabel}</span>
-              {freshnessLabel ? (
-                <span className="pill bg-white/5 border-white/10 text-slate-200">Updated {freshnessLabel}</span>
-              ) : null}
+              <FreshnessBadge label="Stats" lastUpdated={freshnessUpdatedAt} now={RENDER_TIMESTAMP} className="bg-transparent" />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -539,14 +539,4 @@ function SeasonPulse({ projection }: { projection: ReturnType<typeof buildStacks
       </div>
     </div>
   )
-}
-
-function formatRelative(value: string, reference: number) {
-  const delta = reference - new Date(value).getTime()
-  const minutes = Math.floor(delta / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
 }

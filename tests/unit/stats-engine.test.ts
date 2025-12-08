@@ -37,7 +37,7 @@ import {
   computeQuarterbackRatings,
   yardLineFromBallOn,
 } from '../../utils/stats/engine'
-import type { PlayEvent, DriveRecord } from '../../utils/stats/types'
+import type { PlayEvent, DriveRecord, EpaAggregate } from '../../utils/stats/types'
 
 const basePlays: PlayEvent[] = [
   {
@@ -1094,25 +1094,144 @@ test('QBR-like rating weights quarterback conversions and context', () => {
       ...basePlays[2],
       id: 'qbr1',
       play_family: 'PASS',
-      down: 3,
-      distance: 8,
-      gained_yards: 12,
-      first_down: true,
+      down: 1,
+      distance: 10,
+      gained_yards: 8,
       participation: { quarterback: 'QB-CTX' },
     },
     {
       ...basePlays[2],
       id: 'qbr2',
       play_family: 'PASS',
-      down: 1,
+      down: 2,
       distance: 10,
-      gained_yards: 25,
+      gained_yards: 6,
       participation: { quarterback: 'QB-CTX' },
     },
   ]
-  const epa = computeEpaAggregates(qbEvents)
-  const qbr = computeQuarterbackRatings(qbEvents, epa, 5)
-  ok(qbr.byQuarterback['QB-CTX'].rating > 50)
+  const syntheticEpa: EpaAggregate = {
+    plays: 2,
+    total: 0.8,
+    adjustedTotal: 0.8,
+    perPlay: 0.4,
+    perDrive: 0.4,
+    byDrive: { '1': { epa: 0.8, adjusted: 0.8, plays: 2 } },
+    byPlayer: {},
+    byUnit: { OFFENSE: { epa: 0.8, adjusted: 0.8, plays: 2, perPlay: 0.4 } },
+    playsDetail: {
+      qbr1: {
+        playId: 'qbr1',
+        raw: 0.5,
+        adjusted: 0.5,
+        preEp: 0,
+        postEp: 0.5,
+        points: 0,
+        unit: 'OFFENSE',
+        driveNumber: 1,
+        leverage: 0.12,
+        possession: 'TEAM',
+        scoreDiff: 0,
+        secondsRemaining: 900,
+        players: ['QB-CTX'],
+      },
+      qbr2: {
+        playId: 'qbr2',
+        raw: 0.3,
+        adjusted: 0.3,
+        preEp: 0,
+        postEp: 0.3,
+        points: 0,
+        unit: 'OFFENSE',
+        driveNumber: 1,
+        leverage: 0.1,
+        possession: 'TEAM',
+        scoreDiff: 0,
+        secondsRemaining: 870,
+        players: ['QB-CTX'],
+      },
+    },
+  }
+  const qbr = computeQuarterbackRatings(qbEvents, syntheticEpa, 0)
+  strictEqual(Number(qbr.byQuarterback['QB-CTX'].adjustedEpaPerPlay.toFixed(2)), 0.4)
+  strictEqual(Number(qbr.byQuarterback['QB-CTX'].rating.toFixed(1)), 57.4)
+  strictEqual(Number(qbr.teamRating.toFixed(1)), 57.4)
+})
+
+test('points per drive uses late-down scoring weight', () => {
+  const lateDownScore: PlayEvent[] = [
+    {
+      ...basePlays[0],
+      id: 'ppd-late',
+      down: 3,
+      distance: 5,
+      gained_yards: 6,
+      play_family: 'RUN',
+      first_down: true,
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', creditedTo: 'OFFENSE', type: 'TD', points: 6 },
+    },
+  ]
+  const stack = buildStatsStack({ events: lateDownScore, unit: 'OFFENSE', gameId: 'ppd-game' })
+  strictEqual(stack.core.pointsPerDrive, 10)
+})
+
+test('adjusted net yards per attempt penalizes sacks and interceptions exactly', () => {
+  const anyAEvents: PlayEvent[] = [
+    { ...basePlays[2], id: 'aa-pass', play_family: 'PASS', gained_yards: 20, result: 'Complete', participation: { quarterback: 'QB1' } },
+    {
+      ...basePlays[2],
+      id: 'aa-int',
+      play_family: 'PASS',
+      gained_yards: 0,
+      result: 'Interception',
+      participation: { quarterback: 'QB1' },
+      turnover_detail: { type: 'INTERCEPTION', lostBy: 'OFFENSE', lostBySide: 'TEAM', returnYards: 0 },
+    },
+    { ...basePlays[2], id: 'aa-sack', play_family: 'PASS', gained_yards: -10, result: 'Sack -10', participation: { quarterback: 'QB1' } },
+    {
+      ...basePlays[2],
+      id: 'aa-td',
+      play_family: 'PASS',
+      gained_yards: 10,
+      result: 'Touchdown',
+      participation: { quarterback: 'QB1' },
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', creditedTo: 'OFFENSE', type: 'TD', points: 6 },
+    },
+  ]
+  const anyA = computeAdjustedNetYardsPerAttempt(anyAEvents, 'OFFENSE')
+  strictEqual(anyA.team, -3)
+  strictEqual(anyA.byQuarterback.QB1, -3)
+})
+
+test('season aggregates carry advanced efficiency averages', () => {
+  const explosiveGame: PlayEvent[] = [
+    { ...basePlays[0], id: 'adv-1', play_family: 'RUN', gained_yards: 14, down: 1, distance: 10 },
+    {
+      ...basePlays[2],
+      id: 'adv-2',
+      play_family: 'PASS',
+      gained_yards: 24,
+      down: 2,
+      distance: 6,
+      first_down: true,
+      absolute_clock_seconds: 120,
+      drive_number: 1,
+      team_score_before: 0,
+      opponent_score_before: 0,
+      team_score_after: 7,
+      opponent_score_after: 0,
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', creditedTo: 'OFFENSE', type: 'TD', points: 7 },
+    },
+  ]
+  const baseStack = buildStatsStack({ events: basePlays, unit: 'OFFENSE', gameId: 'adv-a' })
+  const explosiveStack = buildStatsStack({ events: explosiveGame, unit: 'OFFENSE', gameId: 'adv-b' })
+  const aggregate = aggregateSeasonMetrics([baseStack.game, explosiveStack.game])
+  const expectedEpa =
+    (baseStack.advanced.estimatedEPAperPlay + explosiveStack.advanced.estimatedEPAperPlay) / 2
+  const expectedAnyA = (baseStack.advanced.anyA.team + explosiveStack.advanced.anyA.team) / 2
+  const expectedPointsPerDrive = (baseStack.core.pointsPerDrive + explosiveStack.core.pointsPerDrive) / 2
+  strictEqual(Number(aggregate.advanced.estimatedEpaPerPlay.toFixed(4)), Number(expectedEpa.toFixed(4)))
+  strictEqual(Number(aggregate.advanced.adjustedNetYardsPerAttempt.toFixed(3)), Number(expectedAnyA.toFixed(3)))
+  strictEqual(Number(aggregate.advanced.pointsPerDrive.toFixed(3)), Number(expectedPointsPerDrive.toFixed(3)))
 })
 
 test('season simulation returns deterministic projections', () => {
@@ -1128,9 +1247,13 @@ test('season simulation returns deterministic projections', () => {
     iterations: 200,
     seed: 3,
   })
-  ok(sim.winProbability > 0.4 && sim.winProbability < 1)
-  ok(sim.gameControl > 0)
+  strictEqual(Number(sim.winProbability.toFixed(2)), 0.94)
+  strictEqual(Number(sim.winOutProbability.toFixed(3)), 0.885)
+  strictEqual(Number(sim.conferenceWinProbability.toFixed(3)), 0.885)
+  strictEqual(Number(sim.playoffProbability.toFixed(3)), 0.995)
+  strictEqual(sim.strengthOfSchedule, 65)
   strictEqual(sim.gameResults.length, 2)
+  strictEqual(Number(sim.gameResults[0].winRate.toFixed(2)), 0.94)
 })
 
 test('game control metric tracks sustained leads', () => {

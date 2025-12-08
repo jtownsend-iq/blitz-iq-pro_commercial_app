@@ -581,6 +581,8 @@ export type GameMetricSnapshot = {
   seasonId?: string | null
   opponentId?: string | null
   turnover: TurnoverSummary
+  core?: CoreWinningMetrics
+  advanced?: AdvancedAnalytics
   specialTeams?: SpecialTeamsMetrics
   timeouts?: TimeoutState | null
   explosives: ExplosiveMetrics
@@ -662,6 +664,13 @@ export type SeasonAggregate = {
       opponentAverageStart: number | null
       longestReturnAllowed: number
     }
+  }
+  advanced: {
+    estimatedEpaPerPlay: number
+    adjustedNetYardsPerAttempt: number
+    qbr: number
+    havocRate: number
+    pointsPerDrive: number
   }
   defense: {
     takeawaysPerGame: number

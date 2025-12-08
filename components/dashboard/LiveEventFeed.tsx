@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ActivitySquare, Flame, RadioTower, ShieldAlert } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/utils/supabase/browser'
 import { EventSummary } from '@/app/(app)/dashboard/types'
@@ -19,15 +19,24 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
   const [events, setEvents] = useState<EventSummary[]>(initialEvents)
   const [unavailable, setUnavailable] = useState(false)
   const [unitFilter, setUnitFilter] = useState<'ALL' | 'OFFENSE' | 'DEFENSE' | 'SPECIAL_TEAMS'>('ALL')
+  const [isConnecting, setIsConnecting] = useState(initialEvents.length === 0)
+  const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
     let isMounted = true
     let supabase: ReturnType<typeof createSupabaseBrowserClient> | null = null
+    const endConnecting = () => {
+      setTimeout(() => {
+        if (!isMounted) return
+        setIsConnecting(false)
+      }, 0)
+    }
     try {
       supabase = createSupabaseBrowserClient()
     } catch (err) {
       console.warn('Live event feed unavailable: Supabase not configured', err)
       setTimeout(() => setUnavailable(true), 0)
+      endConnecting()
       return
     }
 
@@ -88,6 +97,7 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
         }
       )
       .subscribe()
+    endConnecting()
 
     return () => {
       isMounted = false
@@ -100,6 +110,10 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
     return events.filter((event) => (event.game_sessions?.unit || '').toUpperCase() === unitFilter)
   }, [events, unitFilter])
   const limitedEvents = filteredEvents.slice(0, 18)
+  const initialMotion = prefersReducedMotion ? false : { opacity: 0, y: -12 }
+  const animateMotion = { opacity: 1, y: 0 }
+  const exitMotion = prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }
+  const transition = prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: 'easeOut' }
 
   if (unavailable) {
     return (
@@ -149,20 +163,31 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
       </div>
 
       {limitedEvents.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center text-slate-400">
-          <ActivitySquare className="mb-3 h-10 w-10 text-slate-500" />
-          <p className="text-sm">No plays match this filter. Start a session in Games to see the live feed.</p>
-        </div>
+        isConnecting ? (
+          <div className="mt-6 space-y-3" aria-label="Loading live plays">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="h-20 rounded-2xl border border-white/10 bg-white/5 skeleton shadow-[0_10px_30px_-20px_rgba(6,182,212,0.6)]"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center text-slate-400">
+            <ActivitySquare className="mb-3 h-10 w-10 text-slate-500" />
+            <p className="text-sm">No plays match this filter. Start a session in Games to see the live feed.</p>
+          </div>
+        )
       ) : (
         <div className="mt-5 max-h-[460px] space-y-3 overflow-y-auto pr-1" role="list" aria-live="polite">
           <AnimatePresence initial={false}>
             {limitedEvents.map((event) => (
               <motion.article
                 key={event.id}
-                initial={{ opacity: 0, y: -12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 12 }}
-                transition={{ duration: 0.35, ease: 'easeOut' }}
+                initial={initialMotion}
+                animate={animateMotion}
+                exit={exitMotion}
+                transition={transition}
                 className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-200 shadow-lg backdrop-blur hover:border-cyan-400/30"
                 role="listitem"
                 aria-label={`Unit ${formatUnitLabel(event.game_sessions?.unit)} sequence ${event.sequence}`}

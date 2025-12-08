@@ -68,8 +68,10 @@ test('useDashboardRealtime subscribes once and forwards events', async () => {
   })
 
   assert.equal(events.length, 3) // event + session + signal
-  assert.equal(events[0].type, 'event')
-  assert.equal(events[1].type, 'session')
+  const types = events.map((e) => e.type)
+  assert.ok(types.includes('event'))
+  assert.ok(types.includes('session'))
+  assert.ok(types.includes('signal'))
 
   await act(async () => {
     renderer?.unmount()

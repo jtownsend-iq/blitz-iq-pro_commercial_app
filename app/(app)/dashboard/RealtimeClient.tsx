@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import { Activity, Bolt, Radio, Shield } from 'lucide-react'
 import { DashboardEvent, useDashboardRealtime } from './hooks/useDashboardRealtime'
 import { DashboardCounts, SessionSummary } from './types'
 import { formatUnitLabel } from './utils'
 import { trackEvent } from '@/utils/telemetry'
+import { FreshnessBadge, computeFreshnessState } from '@/components/ui/FreshnessBadge'
 
 type DashboardRealtimeProps = {
   teamId: string
@@ -18,6 +20,8 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
   const [sessions, setSessions] = useState<SessionSummary[]>(initialSessions)
   const [livePulse, setLivePulse] = useState(0)
   const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'degraded' | 'disconnected'>('connected')
+  const [lastRealtimeAt, setLastRealtimeAt] = useState<string | null>(new Date().toISOString())
+  const prefersReducedMotion = useReducedMotion()
   const lastStatusRef = useRef<'connected' | 'degraded' | 'disconnected'>('connected')
 
   const handleRealtimeEvent = useCallback(
@@ -31,6 +35,7 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
         }))
         setRealtimeStatus('connected')
         setLivePulse((prev) => prev + 1)
+        setLastRealtimeAt(new Date().toISOString())
         return
       }
 
@@ -58,21 +63,25 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
 
           const next = idx >= 0 ? [...prev.slice(0, idx), updatedSession, ...prev.slice(idx + 1)] : [...prev, updatedSession]
           const activeCount = next.filter((session) => session.status === 'active').length
-          setMetrics((current) => ({
-            ...current,
-            activeSessions: activeCount,
-          }))
-          return next
-        })
-        setRealtimeStatus('connected')
-        setLivePulse((prev) => prev + 1)
-        return
-      }
+        setMetrics((current) => ({
+          ...current,
+          activeSessions: activeCount,
+        }))
+        return next
+      })
+      setRealtimeStatus('connected')
+      setLivePulse((prev) => prev + 1)
+      setLastRealtimeAt(new Date().toISOString())
+      return
+    }
 
-      if (event.type === 'signal') {
-        setRealtimeStatus(event.payload.status)
+    if (event.type === 'signal') {
+      setRealtimeStatus(event.payload.status)
+      if (event.payload.lastEventAt) {
+        setLastRealtimeAt(event.payload.lastEventAt)
       }
-    },
+    }
+  },
     []
   )
 
@@ -92,6 +101,18 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
     }
     lastStatusRef.current = realtimeStatus
   }, [realtimeStatus, teamId])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const freshness = computeFreshnessState(lastRealtimeAt, Date.now())
+      if (freshness === 'offline' && realtimeStatus !== 'disconnected') {
+        setRealtimeStatus('disconnected')
+      } else if (freshness === 'stale' && realtimeStatus === 'connected') {
+        setRealtimeStatus('degraded')
+      }
+    }, 15_000)
+    return () => clearInterval(timer)
+  }, [lastRealtimeAt, realtimeStatus])
 
   const sessionEntries = useMemo(() => {
     const byUnit = sessions.reduce<Record<string, string>>((acc, session) => {
@@ -122,7 +143,11 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.7)] backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-emerald-200">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.15)]" />
+          <span
+            className={`h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] ${
+              prefersReducedMotion ? '' : 'animate-pulse'
+            }`}
+          />
           Live telemetry secured
           {realtimeStatus !== 'connected' && (
             <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[0.65rem] uppercase tracking-[0.18em] text-amber-100">
@@ -130,9 +155,12 @@ export function DashboardRealtimeClient({ teamId, initialCounts, initialSessions
             </span>
           )}
         </div>
-        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.22em] text-slate-300 tabular-nums">
-          {livePulse} new signals
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <FreshnessBadge label="Realtime" lastUpdated={lastRealtimeAt} />
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.22em] text-slate-300 tabular-nums">
+            {livePulse} new signals
+          </span>
+        </div>
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-4">

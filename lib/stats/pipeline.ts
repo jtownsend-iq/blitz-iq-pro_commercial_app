@@ -1,7 +1,8 @@
-import { aggregateSeasonMetrics, buildStatsStack, mapChartEventToPlayEvent, projectSeason } from '@/utils/stats/engine'
+import { buildStatsStack, mapChartEventToPlayEvent } from '@/utils/stats/engine'
 import type { PlayEvent, SeasonAggregate, SeasonProjection } from '@/utils/stats/types'
 import { applyAnalyticsPreferences } from './preferences'
 import type { AnalyticsPreferences } from '../preferences'
+import { getCachedSeasonAggregate, getCachedStack } from './cache'
 
 // Shared column projection for loading chart events into the stats engine.
 export const DASHBOARD_EVENT_COLUMNS = [
@@ -48,6 +49,7 @@ export type GameMeta = {
   opponent_name: string | null
   start_time: string | null
   season_label?: string | null
+  status?: string | null
 }
 
 export type GameStack = {
@@ -56,6 +58,9 @@ export type GameStack = {
   opponentName: string | null
   startTime: string | null
   seasonLabel?: string | null
+  status?: string | null
+  lastEventAt: string | null
+  signature: string
 }
 
 export function mapChartRowsToEvents(
@@ -83,10 +88,15 @@ export function mapChartRowsToEvents(
   return events
 }
 
-export function buildStacksForGames(events: PlayEvent[], games: GameMeta[]): {
+export function buildStacksForGames(
+  events: PlayEvent[],
+  games: GameMeta[],
+  options?: { teamId?: string }
+): {
   stacks: GameStack[]
   aggregate: SeasonAggregate
   projection: SeasonProjection
+  lastUpdated: string | null
 } {
   const byGame = new Map<string, PlayEvent[]>()
 
@@ -99,25 +109,24 @@ export function buildStacksForGames(events: PlayEvent[], games: GameMeta[]): {
 
   const stacks: GameStack[] = games.map((game) => {
     const evs = byGame.get(game.id) ?? []
+    const cached = getCachedStack({ events: evs, gameId: game.id })
     return {
       gameId: game.id,
-      stack: buildStatsStack({ events: evs, gameId: game.id }),
+      stack: cached.stack,
       opponentName: game.opponent_name,
       startTime: game.start_time,
       seasonLabel: game.season_label ?? undefined,
+      status: game.status ?? null,
+      lastEventAt: cached.lastEventAt,
+      signature: cached.signature,
     }
   })
 
-  const gamesWithEvents = stacks.filter((entry) => entry.stack.base.plays > 0)
-  const aggregate = aggregateSeasonMetrics(gamesWithEvents.map((entry) => entry.stack.game))
-  const projection = projectSeason(
-    gamesWithEvents.map((entry) => ({
-      box: entry.stack.box,
-      core: entry.stack.core,
-      advanced: entry.stack.advanced,
-    })),
-    []
+  const seasonKey = options?.teamId ?? 'season-aggregate-default'
+  const { aggregate, projection, lastUpdated } = getCachedSeasonAggregate(
+    seasonKey,
+    stacks.filter((entry) => entry.stack.base.plays > 0)
   )
 
-  return { stacks, aggregate, projection }
+  return { stacks, aggregate, projection, lastUpdated }
 }

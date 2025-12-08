@@ -15,9 +15,9 @@ import { useChartRealtime } from './hooks/useChartRealtime'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { CTAButton } from '@/components/ui/CTAButton'
 import { Pill } from '@/components/ui/Pill'
+import { getCachedStack } from '@/lib/stats/cache'
 import {
   buildTendencyLens as computeTendencyLens,
-  computeBoxScore,
   isExplosivePlay,
   isSuccessfulPlay,
 } from '@/utils/stats/engine'
@@ -372,7 +372,8 @@ export function ChartEventPanel({
     defenseStructures,
     wrConcepts,
   }
-  const liveBox = useMemo(() => computeBoxScore(events, undefined, unit), [events, unit])
+  const liveStats = useMemo(() => getCachedStack({ events, unit, gameId }), [events, unit, gameId])
+  const liveBox = liveStats.stack.box
   const successRate = Math.round(liveBox.successRate * 100)
   const explosiveCount = liveBox.explosives
   const explosiveRate = liveBox.plays > 0 ? Math.round(liveBox.explosiveRate * 100) : 0

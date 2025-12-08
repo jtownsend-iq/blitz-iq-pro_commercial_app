@@ -13,6 +13,7 @@ import {
 import type { GameListRow, TeamMemberRow, TeamRow } from '../dashboard/types'
 import type { SeasonAggregate, SeasonProjection } from '@/utils/stats/types'
 import { loadTeamPreferences } from '@/lib/preferences'
+import { FreshnessBadge } from '@/components/ui/FreshnessBadge'
 
 type GameTile = {
   id: string
@@ -71,10 +72,13 @@ export default async function AnalyticsPage() {
     { preferences: preferences.analytics }
   )
 
-  const { aggregate, projection, stacks } = buildStacksForGames(seasonEvents, games)
+  const { aggregate, projection, stacks, lastUpdated: seasonStatsUpdatedAt } = buildStacksForGames(seasonEvents, games, {
+    teamId: activeTeam.id,
+  })
   const efficiencyCards = buildEfficiencyCards(aggregate)
   const controlCards = buildControlCards(stacks, projection)
   const gameTiles = buildGameTiles(stacks, games)
+  const statsUpdatedAt = seasonStatsUpdatedAt ?? stacks[0]?.lastEventAt ?? null
 
   return (
     <section className="app-container py-8 space-y-8">
@@ -85,6 +89,7 @@ export default async function AnalyticsPage() {
             <h1 className="text-3xl font-semibold text-slate-50">Program-wide efficiency & odds</h1>
             <p className="text-sm text-slate-300">
               Offense, defense, and special teams ratings backed by the BlitzIQ stats engine—no ad hoc math in the UI.
+            <FreshnessBadge label="Season stats" lastUpdated={statsUpdatedAt} />
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-right">

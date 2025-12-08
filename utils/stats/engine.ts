@@ -3373,6 +3373,8 @@ export function buildStatsStack(params: {
     seasonId: params.seasonId ?? scopedEvents[0]?.season_id ?? null,
     opponentId: params.opponentId ?? scopedEvents[0]?.opponent_id ?? null,
     turnover: turnovers,
+    core,
+    advanced,
     specialTeams,
     timeouts,
     explosives,
@@ -3448,6 +3450,13 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
       },
       kickoff: { touchbackPct: 0, opponentAverageStart: null, longestReturnAllowed: 0 },
     },
+    advanced: {
+      estimatedEpaPerPlay: 0,
+      adjustedNetYardsPerAttempt: 0,
+      qbr: 0,
+      havocRate: 0,
+      pointsPerDrive: 0,
+    },
     defense: {
       takeawaysPerGame: 0,
       takeawaysByType: emptyTurnoverBuckets(),
@@ -3503,6 +3512,14 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
   const defenseTds = sum((g) => g.redZone.defense.touchdowns)
 
   const nonOffensiveTotal = sum((g) => g.scoring.nonOffensive.total)
+  const avgEpaPerPlay = gamesPlayed ? sum((g) => g.advanced?.estimatedEPAperPlay ?? 0) / gamesPlayed : 0
+  const avgAnyA = gamesPlayed ? sum((g) => g.advanced?.anyA.team ?? 0) / gamesPlayed : 0
+  const avgQbr = gamesPlayed ? sum((g) => g.advanced?.qbr.team ?? 0) / gamesPlayed : 0
+  const avgHavocRate =
+    gamesPlayed && games.some((g) => g.advanced?.havocRate != null || g.defense)
+      ? sum((g) => g.advanced?.havocRate ?? g.defense?.havoc.rate ?? 0) / gamesPlayed
+      : 0
+  const avgPointsPerDrive = gamesPlayed ? sum((g) => g.core?.pointsPerDrive ?? 0) / gamesPlayed : 0
   const defenseGames = games.filter((g) => g.defense)
   const defenseCount = defenseGames.length
   const defenseSum = (fn: (def: DefensiveMetrics) => number) =>
@@ -3784,6 +3801,13 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
       fieldGoals: fieldGoalAgg,
       punting: puntingAgg,
       kickoff: kickoffAgg,
+    },
+    advanced: {
+      estimatedEpaPerPlay: avgEpaPerPlay,
+      adjustedNetYardsPerAttempt: avgAnyA,
+      qbr: avgQbr,
+      havocRate: avgHavocRate,
+      pointsPerDrive: avgPointsPerDrive,
     },
     defense: {
       takeawaysPerGame: defenseCount ? defenseSum((d) => d.takeaways.total) / defenseCount : 0,
