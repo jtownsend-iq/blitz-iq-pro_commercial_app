@@ -970,7 +970,7 @@ export function ChartEventPanel({
       <div
         className={
           showSidebar
-            ? 'grid items-start gap-6 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]'
+            ? 'grid items-start gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
             : 'grid items-start gap-6'
         }
       >

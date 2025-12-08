@@ -239,7 +239,7 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
+        <div className="grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
           <div className="space-y-4">
             <GlassCard className="space-y-3">
               <SituationalStrip event={latestUnit} scoreFor={scoreFor} scoreAgainst={scoreAgainst} possession={possessionSide} unit={normalizedUnit} />
@@ -273,7 +273,7 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
                 backfieldFamilies={dictionaries.backfieldFamilies}
                 defenseStructures={dictionaries.defenseStructures}
                 wrConcepts={dictionaries.wrConcepts}
-                showSidebar={false}
+                showSidebar
               />
             ) : (
               <GlassCard>
@@ -292,31 +292,33 @@ export default async function GameWorkspacePage({ params }: { params: Promise<{ 
           </div>
 
           <div className="space-y-4">
-            <GlassCard className="space-y-3">
-              <div role="region" aria-live="polite" className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">Live event feed</h3>
-                    <p className="text-sm text-slate-300">Latest {lastTwenty.length} plays in result-first view.</p>
+            <div className="min-h-[480px]">
+              <GlassCard className="space-y-3 h-full">
+                <div role="region" aria-live="polite" className="space-y-3 h-full">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Live event feed</h3>
+                      <p className="text-sm text-slate-300">Latest {lastTwenty.length} plays in result-first view.</p>
+                    </div>
+                    <Link href={`/games/${game.id}`} className="text-sm text-cyan-300 underline decoration-dotted underline-offset-4">
+                      View full game log
+                    </Link>
                   </div>
-                  <Link href={`/games/${game.id}`} className="text-sm text-cyan-300 underline decoration-dotted underline-offset-4">
-                    View full game log
-                  </Link>
+                  {lastTwenty.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-sm text-slate-400">No charted plays yet for this unit.</div>
+                  ) : (
+                    <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1" role="list">
+                      {lastTwenty.map((ev) => (
+                        <EventRow key={ev.id} event={ev} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {lastTwenty.length === 0 ? (
-                  <p className="text-sm text-slate-400">No charted plays yet for this unit.</p>
-                ) : (
-                  <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1" role="list">
-                    {lastTwenty.map((ev) => (
-                      <EventRow key={ev.id} event={ev} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </GlassCard>
+              </GlassCard>
+            </div>
 
-            <GlassCard>
-              <details className="group" aria-label="Situational analytics">
+            <GlassCard className="min-h-[280px]">
+              <details className="group h-full" aria-label="Situational analytics">
                 <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-slate-100">
                   <span>Situational analytics</span>
                   <span className="text-xs text-slate-400 group-open:hidden">Show</span>

@@ -65,8 +65,9 @@ type PositionGroupRow = {
   sort_order: number | null
 }
 
-export default async function TeamPage({ params }: { params: { teamId: string } }) {
+export default async function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
   const supabase = await createSupabaseServerClient()
+  const resolved = await params
 
   const {
     data: { user },
@@ -77,7 +78,7 @@ export default async function TeamPage({ params }: { params: { teamId: string } 
     redirect('/login')
   }
 
-  const requestedTeamId = params?.teamId ?? null
+  const requestedTeamId = resolved?.teamId ?? null
   const { data: profile, error: profileError } = await supabase
     .from('users')
     .select('active_team_id')
