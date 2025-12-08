@@ -282,6 +282,18 @@ export type AdvancedAnalytics = {
   havocRate: number
   leverageRate: number
   fieldPositionAdvantage: number
+  expectedPointsModel: {
+    latest: ExpectedPointsResult | null
+    curve: number[]
+  }
+  epa: EpaAggregate
+  winProbability: WinProbabilitySummary
+  postGameWinExpectancy: PostGameWinExpectancy
+  spPlus: SpPlusLikeRatings
+  anyA: AdjustedNetYardsPerAttempt
+  qbr: QuarterbackRatings
+  seasonSimulation?: SeasonSimulationResult
+  gameControl: GameControlMetric
 }
 
 export type TurnoverBucketCounts = {
@@ -535,8 +547,14 @@ export type SeasonAggregate = {
 export type SeasonProjection = {
   gamesModeled: number
   projectedWinRate: number
+  projectedWinOut: number
+  projectedConferenceWinRate: number
+  projectedPlayoffRate: number
   projectedPointsPerGame: number
   projectedPointsAllowed: number
+  strengthOfSchedule: number
+  strengthOfRecord: number
+  gameControl: number
   notes: string
 }
 
@@ -704,4 +722,170 @@ export type SpecialTeamsMetrics = {
   fieldGoals: FieldGoalMetrics
   punting: PuntingMetrics
   kickoff: KickoffMetrics
+}
+
+export type ExpectedPointsInput = {
+  down: number | null
+  distance: number | null
+  yardLine: number | null
+  clockSecondsRemaining: number | null
+  scoreDiff: number
+  offenseTimeouts: number | null
+  defenseTimeouts: number | null
+}
+
+export type ExpectedPointsResult = {
+  points: number
+  components: {
+    baseFieldPosition: number
+    conversionProbability: number
+    turnoverPenalty: number
+    tempoAdjustment: number
+    timeoutAdjustment: number
+  }
+}
+
+export type PlayEpaResult = {
+  playId: string
+  raw: number
+  adjusted: number
+  preEp: number
+  postEp: number
+  points: number
+  unit: ChartUnit
+  driveNumber: number | null
+  leverage: number
+  possession: 'TEAM' | 'OPPONENT'
+  scoreDiff: number
+  secondsRemaining: number | null
+  players: string[]
+}
+
+export type EpaAggregate = {
+  plays: number
+  total: number
+  adjustedTotal: number
+  perPlay: number
+  perDrive: number
+  byDrive: Record<string, { epa: number; adjusted: number; plays: number }>
+  byPlayer: Record<string, { epa: number; adjusted: number; plays: number }>
+  byUnit: Record<ChartUnit, { epa: number; adjusted: number; plays: number; perPlay: number }>
+  playsDetail: Record<string, PlayEpaResult>
+}
+
+export type WinProbabilityState = {
+  scoreDiff: number
+  secondsRemaining: number
+  yardLine: number | null
+  down: number | null
+  distance: number | null
+  offenseTimeouts: number | null
+  defenseTimeouts: number | null
+  possession: ChartUnit | null
+  pregameEdge?: number
+}
+
+export type WinProbabilityPoint = {
+  playId: string
+  winProbability: number
+  wpa: number
+  leverage: number
+  unit: ChartUnit
+  secondsRemaining: number
+}
+
+export type WinProbabilitySummary = {
+  timeline: WinProbabilityPoint[]
+  averageWinProbability: number
+  wpaByPlayer: Record<string, number>
+  wpaByUnit: Record<ChartUnit, number>
+  highLeverage: WinProbabilityPoint[]
+}
+
+export type PostGameWinExpectancyInput = {
+  yardsFor: number
+  yardsAllowed: number
+  successRateFor: number
+  successRateAllowed: number
+  explosivePlaysFor: number
+  explosivePlaysAllowed: number
+  turnoversFor: number
+  turnoversAllowed: number
+  avgStartFieldPosition: number | null
+  penalties: number
+  plays: number
+}
+
+export type PostGameWinExpectancy = {
+  teamWinExpectancy: number
+  opponentWinExpectancy: number
+  notes: string
+}
+
+export type SpPlusLikeRatings = {
+  offense: number
+  defense: number
+  specialTeams: number
+  overall: number
+  isoPpp: number
+  successRate: number
+  havoc: number
+  epaPerPlay: number
+}
+
+export type AdjustedNetYardsPerAttempt = {
+  team: number
+  attempts: number
+  sacks: number
+  byQuarterback: Record<string, number>
+}
+
+export type QuarterbackRating = {
+  quarterback: string
+  plays: number
+  adjustedEpa: number
+  adjustedEpaPerPlay: number
+  rating: number
+}
+
+export type QuarterbackRatings = {
+  byQuarterback: Record<string, QuarterbackRating>
+  teamRating: number
+}
+
+export type SimulatedGame = {
+  opponentId: string
+  opponentName?: string | null
+  opponentRating: number
+  isConference?: boolean
+  isPlayoff?: boolean
+  homeField?: 1 | 0 | -1
+}
+
+export type SeasonSimulationInput = {
+  teamRating: number
+  offenseRating: number
+  defenseRating: number
+  specialTeamsRating: number
+  schedule: SimulatedGame[]
+  iterations?: number
+  seed?: number
+}
+
+export type SeasonSimulationResult = {
+  winProbability: number
+  expectedWins: number
+  winOutProbability: number
+  conferenceWinProbability: number
+  playoffProbability: number
+  strengthOfSchedule: number
+  strengthOfRecord: number
+  gameControl: number
+  gameResults: { opponentId: string; winRate: number }[]
+}
+
+export type GameControlMetric = {
+  averageLeadWinProb: number
+  timeLedPct: number
+  dominationIndex: number
 }

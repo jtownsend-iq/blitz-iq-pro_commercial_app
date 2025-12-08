@@ -4,16 +4,23 @@ import {
   buildStatsStack,
   buildTendencyLens,
   computeAdvancedAnalytics,
+  computeAdjustedNetYardsPerAttempt,
   computeBoxScore,
   computeBaseCounts,
   computeExplosiveMetrics,
   computeCoreWinningMetrics,
+  computeEpaAggregates,
+  computeExpectedPoints,
+  computeGameControlMetric,
   computeRedZoneMetrics,
   computeScoringSummary,
+  computeSpPlusLikeRatings,
   computeTurnoverMetrics,
   computeThirdDownEfficiency,
   computeFourthDownEfficiency,
   computeLateDownEfficiency,
+  computeWinProbabilitySummary,
+  computePostGameWinExpectancy,
   computePassingEfficiency,
   computeDefensiveMetrics,
   computeRushingEfficiency,
@@ -25,6 +32,8 @@ import {
   mapChartEventToPlayEvent,
   aggregateSeasonMetrics,
   projectSeason,
+  simulateSeasonOutcomes,
+  computeQuarterbackRatings,
   yardLineFromBallOn,
 } from '../../utils/stats/engine'
 import type { PlayEvent, DriveRecord } from '../../utils/stats/types'
@@ -793,4 +802,257 @@ test('season aggregation produces trends and averages', () => {
   strictEqual(season.defense.takeawaysPerGame, 0)
   strictEqual(season.defense.thirdDown.attempts, 0)
   ok(season.specialTeams.fieldGoals.overallPct >= 0)
+})
+
+test('expected points curve is monotonic with field position', () => {
+  const backedUp = computeExpectedPoints({
+    down: 1,
+    distance: 10,
+    yardLine: 20,
+    clockSecondsRemaining: 1800,
+    scoreDiff: 0,
+    offenseTimeouts: 3,
+    defenseTimeouts: 3,
+  })
+  const midfield = computeExpectedPoints({
+    down: 1,
+    distance: 10,
+    yardLine: 50,
+    clockSecondsRemaining: 1800,
+    scoreDiff: 0,
+    offenseTimeouts: 3,
+    defenseTimeouts: 3,
+  })
+  const redZone = computeExpectedPoints({
+    down: 1,
+    distance: 10,
+    yardLine: 85,
+    clockSecondsRemaining: 1800,
+    scoreDiff: 0,
+    offenseTimeouts: 3,
+    defenseTimeouts: 3,
+  })
+  ok(backedUp.points < midfield.points)
+  ok(midfield.points < redZone.points)
+})
+
+test('epa aggregates account for touchdowns and drives', () => {
+  const epaEvents: PlayEvent[] = [
+    {
+      ...basePlays[0],
+      id: 'epa-1',
+      play_family: 'PASS',
+      down: 1,
+      distance: 10,
+      gained_yards: 12,
+      absolute_clock_seconds: 100,
+      drive_number: 1,
+      possession: 'OFFENSE',
+      possession_team_id: 'team-1',
+      team_score_before: 0,
+      opponent_score_before: 0,
+      timeouts_before: { team: 3, opponent: 3, offense: 3, defense: 3 },
+    },
+    {
+      ...basePlays[1],
+      id: 'epa-2',
+      play_family: 'RUN',
+      down: 2,
+      distance: 5,
+      gained_yards: 5,
+      first_down: true,
+      absolute_clock_seconds: 130,
+      drive_number: 1,
+      possession: 'OFFENSE',
+      possession_team_id: 'team-1',
+      team_score_before: 0,
+      opponent_score_before: 0,
+    },
+    {
+      ...basePlays[2],
+      id: 'epa-3',
+      play_family: 'PASS',
+      down: 1,
+      distance: 10,
+      gained_yards: 10,
+      absolute_clock_seconds: 160,
+      drive_number: 1,
+      possession: 'OFFENSE',
+      possession_team_id: 'team-1',
+      team_score_before: 0,
+      opponent_score_before: 0,
+      team_score_after: 7,
+      opponent_score_after: 0,
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', points: 7, creditedTo: 'OFFENSE', type: 'TD' },
+    },
+  ]
+  const epa = computeEpaAggregates(epaEvents)
+  ok(epa.perPlay > 0)
+  strictEqual(epa.byDrive['1'].plays, 3)
+  ok(epa.byUnit.OFFENSE.epa > 0)
+})
+
+test('ANY/A penalizes interceptions and sacks', () => {
+  const anyAEvents: PlayEvent[] = [
+    { ...basePlays[2], id: 'aa-1', play_family: 'PASS', gained_yards: 25, result: 'Complete', participation: { quarterback: 'QB1' } },
+    { ...basePlays[2], id: 'aa-2', play_family: 'PASS', gained_yards: -6, result: 'Sack -6', participation: { quarterback: 'QB1' } },
+    {
+      ...basePlays[2],
+      id: 'aa-3',
+      play_family: 'PASS',
+      gained_yards: 0,
+      result: 'Interception',
+      participation: { quarterback: 'QB1' },
+      turnover_detail: { type: 'INTERCEPTION', lostBy: 'OFFENSE', lostBySide: 'TEAM', returnYards: 0 },
+    },
+  ]
+  const anyA = computeAdjustedNetYardsPerAttempt(anyAEvents, 'OFFENSE')
+  ok(Number.isFinite(anyA.team))
+  ok(anyA.byQuarterback.QB1 < 25)
+})
+
+test('win probability reacts to go-ahead score', () => {
+  const wpEvents: PlayEvent[] = [
+    {
+      ...basePlays[0],
+      id: 'wp-1',
+      quarter: 4,
+      clock_seconds: 240,
+      absolute_clock_seconds: (4 - 1) * 900 + (900 - 240),
+      down: 3,
+      distance: 7,
+      ball_on: 'D12',
+      field_position: 12,
+      team_score_before: 7,
+      opponent_score_before: 14,
+      possession: 'OFFENSE',
+      possession_team_id: 'team-1',
+    },
+    {
+      ...basePlays[0],
+      id: 'wp-2',
+      quarter: 4,
+      clock_seconds: 220,
+      absolute_clock_seconds: (4 - 1) * 900 + (900 - 220),
+      down: 3,
+      distance: 7,
+      ball_on: 'D5',
+      field_position: 5,
+      team_score_before: 7,
+      opponent_score_before: 14,
+      team_score_after: 14,
+      opponent_score_after: 14,
+      possession: 'OFFENSE',
+      possession_team_id: 'team-1',
+      scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', points: 7, creditedTo: 'OFFENSE', type: 'TD' },
+    },
+  ]
+  const wp = computeWinProbabilitySummary(wpEvents, 'OFFENSE')
+  strictEqual(wp.timeline.length, 2)
+  ok(wp.timeline[1].winProbability > wp.timeline[0].winProbability)
+})
+
+test('post-game win expectancy favors dominant profiles', () => {
+  const teamProfile = {
+    yardsFor: 450,
+    yardsAllowed: 300,
+    successRateFor: 0.5,
+    successRateAllowed: 0.35,
+    explosivePlaysFor: 6,
+    explosivePlaysAllowed: 2,
+    turnoversFor: 1,
+    turnoversAllowed: 2,
+    avgStartFieldPosition: 65,
+    penalties: 40,
+    plays: 70,
+  }
+  const opponentProfile = {
+    yardsFor: 300,
+    yardsAllowed: 450,
+    successRateFor: 0.35,
+    successRateAllowed: 0.5,
+    explosivePlaysFor: 2,
+    explosivePlaysAllowed: 6,
+    turnoversFor: 2,
+    turnoversAllowed: 1,
+    avgStartFieldPosition: 55,
+    penalties: 60,
+    plays: 60,
+  }
+  const expectancy = computePostGameWinExpectancy(teamProfile, opponentProfile)
+  ok(expectancy.teamWinExpectancy > 0.6)
+})
+
+test('SP+ style ratings reward efficient offense', () => {
+  const epaEvents: PlayEvent[] = [
+    { ...basePlays[0], id: 'sp1', play_family: 'RUN', gained_yards: 8, down: 1, distance: 10 },
+    { ...basePlays[1], id: 'sp2', play_family: 'RUN', gained_yards: 6, down: 2, distance: 4, first_down: true },
+    { ...basePlays[2], id: 'sp3', play_family: 'PASS', gained_yards: 22, down: 1, distance: 10, first_down: true },
+  ]
+  const epa = computeEpaAggregates(epaEvents)
+  const sp = computeSpPlusLikeRatings(epaEvents, epa, 0.2)
+  ok(sp.offense > 50)
+  ok(sp.overall > 40)
+})
+
+test('QBR-like rating weights quarterback conversions and context', () => {
+  const qbEvents: PlayEvent[] = [
+    {
+      ...basePlays[2],
+      id: 'qbr1',
+      play_family: 'PASS',
+      down: 3,
+      distance: 8,
+      gained_yards: 12,
+      first_down: true,
+      participation: { quarterback: 'QB-CTX' },
+    },
+    {
+      ...basePlays[2],
+      id: 'qbr2',
+      play_family: 'PASS',
+      down: 1,
+      distance: 10,
+      gained_yards: 25,
+      participation: { quarterback: 'QB-CTX' },
+    },
+  ]
+  const epa = computeEpaAggregates(qbEvents)
+  const qbr = computeQuarterbackRatings(qbEvents, epa, 5)
+  ok(qbr.byQuarterback['QB-CTX'].rating > 50)
+})
+
+test('season simulation returns deterministic projections', () => {
+  const sim = simulateSeasonOutcomes({
+    teamRating: 80,
+    offenseRating: 78,
+    defenseRating: 75,
+    specialTeamsRating: 55,
+    schedule: [
+      { opponentId: 'sim-a', opponentRating: 60, isConference: true, homeField: 1 },
+      { opponentId: 'sim-b', opponentRating: 70, isConference: true, homeField: -1 },
+    ],
+    iterations: 200,
+    seed: 3,
+  })
+  ok(sim.winProbability > 0.4 && sim.winProbability < 1)
+  ok(sim.gameControl > 0)
+  strictEqual(sim.gameResults.length, 2)
+})
+
+test('game control metric tracks sustained leads', () => {
+  const summary = {
+    timeline: [
+      { playId: 'gc1', winProbability: 0.6, wpa: 0, leverage: 0.05, unit: 'OFFENSE' as const, secondsRemaining: 2700 },
+      { playId: 'gc2', winProbability: 0.75, wpa: 0, leverage: 0.04, unit: 'OFFENSE' as const, secondsRemaining: 900 },
+      { playId: 'gc3', winProbability: 0.9, wpa: 0, leverage: 0.02, unit: 'OFFENSE' as const, secondsRemaining: 0 },
+    ],
+    averageWinProbability: 0.75,
+    wpaByPlayer: {},
+    wpaByUnit: { OFFENSE: 0, DEFENSE: 0, SPECIAL_TEAMS: 0 },
+    highLeverage: [],
+  }
+  const gameControl = computeGameControlMetric(summary)
+  ok(gameControl.averageLeadWinProb > 0.6)
+  ok(gameControl.timeLedPct > 0.5)
 })

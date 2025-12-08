@@ -10,6 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:unit": "tsx --test \"tests/unit/**/*.ts\"",
+    "test:unit:node": "node --import tsx/register --test \"tests/unit/**/*.ts\"",
     "test:integration": "node --test tests/integration/*.test.mjs",
     "test:smoke": "playwright test",
     "test:a11y": "playwright test --config=playwright.a11y.config.ts",

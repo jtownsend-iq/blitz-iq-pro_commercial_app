@@ -1,6 +1,7 @@
 ﻿
 import {
   AdvancedAnalytics,
+  AdjustedNetYardsPerAttempt,
   BaseCounts,
   BoxScoreMetrics,
   BoundaryFlags,
@@ -17,9 +18,13 @@ import {
   DriveRecord,
   DriveResultBreakdown,
   DriveResultType,
+  EpaAggregate,
   ExplosiveMetrics,
+  ExpectedPointsInput,
+  ExpectedPointsResult,
   FieldZone,
   GameMetricSnapshot,
+  GameControlMetric,
   OffensivePlayFilter,
   OffensiveContext,
   ConversionSummary,
@@ -27,6 +32,11 @@ import {
   PassingLine,
   PlayEvent,
   PlayFamily,
+  PlayEpaResult,
+  PostGameWinExpectancy,
+  PostGameWinExpectancyInput,
+  QuarterbackRatings,
+  QuarterbackRating,
   PossessionMetrics,
   RedZoneSummary,
   RushingEfficiency,
@@ -36,7 +46,14 @@ import {
   ScoringSummary,
   SeasonAggregate,
   SeasonProjection,
+  SeasonSimulationInput,
+  SeasonSimulationResult,
+  SimulatedGame,
   SpecialTeamsMetrics,
+  SpPlusLikeRatings,
+  WinProbabilityState,
+  WinProbabilityPoint,
+  WinProbabilitySummary,
   FieldGoalMetrics,
   FieldPositionMetrics,
   PuntingMetrics,
@@ -78,6 +95,23 @@ const QUARTER_LENGTH_SECONDS = 900
 // Decide once and apply everywhere: turnovers on downs are counted as giveaways (and therefore affect margin).
 // This aligns turnover margin with possession changes, even when the defense did not directly force the stop.
 const COUNT_TURNOVER_ON_DOWNS = true
+const GAME_LENGTH_SECONDS = QUARTER_LENGTH_SECONDS * 4
+
+// Expected points curve tuned for college-style possessions, monotonically increasing with field position.
+// Yard line is measured from the offense's goal line (0 = own goal, 100 = opponent goal line).
+const EXPECTED_POINTS_CURVE = [
+  { yardLine: 1, ep: -2.5 },
+  { yardLine: 10, ep: -1.6 },
+  { yardLine: 20, ep: -0.9 },
+  { yardLine: 30, ep: -0.1 },
+  { yardLine: 40, ep: 0.8 },
+  { yardLine: 50, ep: 1.6 },
+  { yardLine: 60, ep: 2.6 },
+  { yardLine: 70, ep: 3.6 },
+  { yardLine: 80, ep: 4.5 },
+  { yardLine: 90, ep: 5.3 },
+  { yardLine: 99, ep: 5.9 },
+]
 
 export function yardLineFromBallOn(ball_on: string | null): number {
   if (!ball_on) return 50
@@ -2036,11 +2070,654 @@ export function computeSpecialTeamsMetrics(
   }
 }
 
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function sigmoid(x: number) {
+  return 1 / (1 + Math.exp(-x))
+}
+
+function interpolateExpectedPoints(yardLineRaw: number): number {
+  const yardLine = clampNumber(yardLineRaw, 1, 99)
+  for (let i = 0; i < EXPECTED_POINTS_CURVE.length - 1; i++) {
+    const current = EXPECTED_POINTS_CURVE[i]
+    const next = EXPECTED_POINTS_CURVE[i + 1]
+    if (yardLine >= current.yardLine && yardLine <= next.yardLine) {
+      const span = next.yardLine - current.yardLine || 1
+      const pct = (yardLine - current.yardLine) / span
+      return current.ep + pct * (next.ep - current.ep)
+    }
+  }
+  return EXPECTED_POINTS_CURVE[EXPECTED_POINTS_CURVE.length - 1].ep
+}
+
+export function computeExpectedPoints(state: ExpectedPointsInput): ExpectedPointsResult {
+  const yardLine = state.yardLine == null ? 50 : clampNumber(state.yardLine, 1, 99)
+  const baseFieldPosition = interpolateExpectedPoints(yardLine)
+  const distance = state.distance ?? 10
+  const down = state.down ?? 1
+  const baseConversion = clampNumber(1 - Math.log1p(distance) / (down === 4 ? 2.8 : 3.6), 0.05, 0.98)
+  const downMultiplier = down === 1 ? 1 : down === 2 ? 0.82 : down === 3 ? 0.58 : 0.28
+  const conversionProbability = clampNumber(baseConversion * downMultiplier + (down === 1 ? 0.08 : 0), 0.05, 0.98)
+  const opponentYardLine = clampNumber(100 - yardLine + Math.min(distance, 10), 1, 99)
+  const turnoverPenalty = interpolateExpectedPoints(opponentYardLine)
+  const urgency = 1 - clampNumber((state.clockSecondsRemaining ?? GAME_LENGTH_SECONDS) / GAME_LENGTH_SECONDS, 0, 1)
+  const scorePressure = clampNumber(-state.scoreDiff / 21, -1, 1)
+  const tempoAdjustment = scorePressure * urgency * 0.9
+  const timeoutAdjustment = ((state.offenseTimeouts ?? 2) - (state.defenseTimeouts ?? 2)) * 0.12
+  const points =
+    baseFieldPosition * (0.35 + 0.65 * conversionProbability) -
+    turnoverPenalty * (1 - conversionProbability) * (down === 4 ? 0.95 : down === 3 ? 0.6 : 0.35) +
+    tempoAdjustment +
+    timeoutAdjustment
+
+  return {
+    points,
+    components: { baseFieldPosition, conversionProbability, turnoverPenalty, tempoAdjustment, timeoutAdjustment },
+  }
+}
+
+function resolveYardLineForEvent(ev: PlayEvent): number | null {
+  if (typeof ev.ball_on === 'string') return yardLineFromBallOn(ev.ball_on)
+  if (ev.field_position != null) return 100 - ev.field_position
+  if (ev.field_zone === 'RED_ZONE') return 90
+  if (ev.field_zone === 'SCORING_RANGE') return 70
+  if (ev.field_zone === 'COMING_OUT') return 15
+  return null
+}
+
+function resolveScoreDifferential(ev: PlayEvent): number {
+  if (ev.team_score_before != null && ev.opponent_score_before != null) {
+    return (ev.team_score_before ?? 0) - (ev.opponent_score_before ?? 0)
+  }
+  if (ev.score_before) return (ev.score_before.team ?? 0) - (ev.score_before.opponent ?? 0)
+  if (ev.offense_score_before != null && ev.defense_score_before != null) {
+    return (ev.offense_score_before ?? 0) - (ev.defense_score_before ?? 0)
+  }
+  return 0
+}
+
+function resolveClockRemaining(ev: PlayEvent): number | null {
+  const abs = ev.absolute_clock_seconds ?? absoluteClockSeconds(ev.quarter, ev.clock_seconds)
+  if (abs == null) return null
+  return Math.max(0, GAME_LENGTH_SECONDS - abs)
+}
+
+function possessionAfterPlay(ev: PlayEvent, pre: 'TEAM' | 'OPPONENT'): 'TEAM' | 'OPPONENT' {
+  if (ev.turnover_detail?.lostBySide === 'TEAM') return 'OPPONENT'
+  if (ev.turnover_detail?.lostBySide === 'OPPONENT') return 'TEAM'
+  if (ev.scoring) return (ev.scoring.scoring_team_side ?? pre) === 'TEAM' ? 'OPPONENT' : 'TEAM'
+  if (ev.is_drive_end && ev.result && ev.result.toLowerCase().includes('punt')) {
+    return pre === 'TEAM' ? 'OPPONENT' : 'TEAM'
+  }
+  return pre
+}
+
+function estimateNextSeriesState(ev: PlayEvent, yardLineBefore: number) {
+  const gained = ev.gained_yards ?? 0
+  const distance = ev.distance ?? 10
+  const down = ev.down ?? 1
+  const achieved = ev.first_down || gained >= distance || offenseScored(ev)
+  const nextYardLine = clampNumber(yardLineBefore + gained, 1, 99)
+  const yardsToGoal = 100 - nextYardLine
+  const nextDown = achieved ? 1 : Math.min(4, down + 1)
+  const nextDistance = achieved ? Math.max(1, Math.min(10, yardsToGoal)) : Math.max(1, distance - gained)
+  return { nextYardLine, nextDown, nextDistance }
+}
+
+function derivePointsForTeam(ev: PlayEvent): number {
+  if (ev.scoring) {
+    const side = ev.scoring.scoring_team_side ?? possessingSide(ev) ?? 'TEAM'
+    return side === 'TEAM' ? ev.scoring.points : -ev.scoring.points
+  }
+  if (isScoringPlay(ev.result)) {
+    const pts = derivePointsFromResult(ev.result ?? '')
+    const side = possessingSide(ev) ?? 'TEAM'
+    return side === 'TEAM' ? pts : -pts
+  }
+  return 0
+}
+
+function collectPlayers(ev: PlayEvent): string[] {
+  const ids = new Set<string>()
+  const p = ev.participation
+  if (p?.quarterback) ids.add(p.quarterback)
+  if (p?.primaryBallcarrier) ids.add(p.primaryBallcarrier)
+  if (p?.primaryTarget) ids.add(p.primaryTarget)
+  if (p?.returner) ids.add(p.returner)
+  if (p?.interceptors) p.interceptors.forEach((id) => id && ids.add(id))
+  if (p?.sackers) p.sackers.forEach((id) => id && ids.add(id))
+  if (p?.forcedFumble) ids.add(p.forcedFumble)
+  if (p?.recovery) ids.add(p.recovery)
+  return Array.from(ids).filter(Boolean)
+}
+
+function computeLeverageFactor(scoreDiff: number, secondsRemaining: number | null, down: number | null, distance: number | null) {
+  const timePressure = secondsRemaining != null ? 1 - clampNumber(secondsRemaining / GAME_LENGTH_SECONDS, 0, 1) : 0.25
+  const scorePressure = Math.min(1, Math.abs(scoreDiff) / 21)
+  const downWeight = down ? (down >= 4 ? 1 : down === 3 ? 0.7 : down === 2 ? 0.45 : 0.2) : 0.3
+  const distanceWeight = distance != null ? clampNumber(distance / 12, 0, 1) * 0.3 : 0
+  return clampNumber(timePressure + scorePressure * 0.5 + downWeight + distanceWeight, 0, 2)
+}
+
+export function computeEpaAggregates(events: PlayEvent[], drives: DriveRecord[] = []): EpaAggregate {
+  const ordered = [...events].sort((a, b) => {
+    const aTime = a.absolute_clock_seconds ?? absoluteClockSeconds(a.quarter, a.clock_seconds) ?? 0
+    const bTime = b.absolute_clock_seconds ?? absoluteClockSeconds(b.quarter, b.clock_seconds) ?? 0
+    return aTime - bTime
+  })
+
+  const playsDetail: Record<string, PlayEpaResult> = {}
+  const byDrive: EpaAggregate['byDrive'] = {}
+  const byPlayer: EpaAggregate['byPlayer'] = {}
+  const byUnit: EpaAggregate['byUnit'] = {
+    OFFENSE: { epa: 0, adjusted: 0, plays: 0, perPlay: 0 },
+    DEFENSE: { epa: 0, adjusted: 0, plays: 0, perPlay: 0 },
+    SPECIAL_TEAMS: { epa: 0, adjusted: 0, plays: 0, perPlay: 0 },
+  }
+
+  let total = 0
+  let adjustedTotal = 0
+
+  ordered.forEach((ev) => {
+    const possessionSide = possessingSide(ev) ?? 'TEAM'
+    const yardLine = resolveYardLineForEvent(ev) ?? 50
+    const secondsRemaining = resolveClockRemaining(ev)
+    const scoreDiff = resolveScoreDifferential(ev)
+    const timeouts = ev.timeouts_before ?? deriveTimeouts(ev)
+    const preEp = computeExpectedPoints({
+      down: ev.down,
+      distance: ev.distance,
+      yardLine,
+      clockSecondsRemaining: secondsRemaining,
+      scoreDiff,
+      offenseTimeouts: timeouts?.team ?? ev.offense_timeouts ?? null,
+      defenseTimeouts: timeouts?.opponent ?? ev.defense_timeouts ?? null,
+    }).points
+    const teamPreEp = possessionSide === 'TEAM' ? preEp : -preEp
+    const points = derivePointsForTeam(ev)
+    const state = estimateNextSeriesState(ev, yardLine)
+    const nextSecondsRemaining = secondsRemaining != null ? Math.max(0, secondsRemaining - 6) : null
+    const nextScoreDiff = scoreDiff + points
+    const nextPossession = possessionAfterPlay(ev, possessionSide)
+    const postEpRaw = computeExpectedPoints({
+      down: ev.turnover_detail ? 1 : state.nextDown,
+      distance: ev.turnover_detail ? 10 : state.nextDistance,
+      yardLine: ev.turnover_detail ? clampNumber(100 - state.nextYardLine, 1, 99) : state.nextYardLine,
+      clockSecondsRemaining: nextSecondsRemaining,
+      scoreDiff: nextScoreDiff,
+      offenseTimeouts: timeouts?.team ?? ev.offense_timeouts ?? null,
+      defenseTimeouts: timeouts?.opponent ?? ev.defense_timeouts ?? null,
+    }).points
+    const teamPostEp = nextPossession === 'TEAM' ? postEpRaw : -postEpRaw
+    const raw = points + teamPostEp - teamPreEp
+    const leverage = computeLeverageFactor(scoreDiff, secondsRemaining, ev.down, ev.distance)
+    const adjusted = raw * (1 + leverage * 0.35)
+    const detail: PlayEpaResult = {
+      playId: ev.id,
+      raw,
+      adjusted,
+      preEp: teamPreEp,
+      postEp: teamPostEp,
+      points,
+      unit: resolvePlaySide(ev, 'OFFENSE'),
+      driveNumber: ev.drive_number ?? null,
+      leverage,
+      possession: possessionSide,
+      scoreDiff,
+      secondsRemaining,
+      players: collectPlayers(ev),
+    }
+    playsDetail[ev.id] = detail
+    total += raw
+    adjustedTotal += adjusted
+
+    const driveKey = ev.drive_number != null ? String(ev.drive_number) : ev.drive_id ?? 'unknown'
+    byDrive[driveKey] = byDrive[driveKey] || { epa: 0, adjusted: 0, plays: 0 }
+    byDrive[driveKey].epa += raw
+    byDrive[driveKey].adjusted += adjusted
+    byDrive[driveKey].plays += 1
+
+    collectPlayers(ev).forEach((player) => {
+      byPlayer[player] = byPlayer[player] || { epa: 0, adjusted: 0, plays: 0 }
+      byPlayer[player].epa += raw
+      byPlayer[player].adjusted += adjusted
+      byPlayer[player].plays += 1
+    })
+
+    const unit = resolvePlaySide(ev, 'OFFENSE')
+    byUnit[unit].epa += raw
+    byUnit[unit].adjusted += adjusted
+    byUnit[unit].plays += 1
+  })
+
+  Object.values(byUnit).forEach((bucket) => {
+    bucket.perPlay = bucket.plays ? bucket.epa / bucket.plays : 0
+  })
+
+  const drivesUsed =
+    drives.length ||
+    new Set(
+      ordered
+        .map((ev) => ev.drive_number)
+        .filter((n) => n != null)
+        .map((n) => String(n))
+    ).size
+
+  return {
+    plays: ordered.length,
+    total,
+    adjustedTotal,
+    perPlay: ordered.length ? total / ordered.length : 0,
+    perDrive: drivesUsed ? total / drivesUsed : 0,
+    byDrive,
+    byPlayer,
+    byUnit,
+    playsDetail,
+  }
+}
+
+export function computeAdjustedNetYardsPerAttempt(events: PlayEvent[], unitHint?: ChartUnit): AdjustedNetYardsPerAttempt {
+  const pool = unitHint ? filterEventsForUnit(events, unitHint) : events
+  const passes = pool.filter((ev) => (ev.play_family || '').toUpperCase() === 'PASS')
+  let attempts = 0
+  let yards = 0
+  let touchdowns = 0
+  let interceptions = 0
+  let sacks = 0
+  let sackYards = 0
+  const byQuarterback: Record<string, { yards: number; attempts: number; sacks: number; sackYards: number; tds: number; ints: number }> = {}
+
+  passes.forEach((ev) => {
+    const qb = ev.participation?.quarterback ?? 'TEAM'
+    const gained = ev.gained_yards ?? 0
+    const result = (ev.result || '').toLowerCase()
+    const isSack = result.includes('sack') || (gained < 0 && result.includes('loss'))
+    const isAttempt = !result.includes('spike')
+    if (isAttempt) attempts += 1
+    if (isSack) sacks += 1
+    if (isSack) sackYards += Math.abs(gained)
+    yards += gained
+    if (ev.scoring && ev.scoring.type === 'TD') touchdowns += 1
+    if (ev.turnover_detail?.type === 'INTERCEPTION' || result.includes('intercept')) interceptions += 1
+
+    byQuarterback[qb] = byQuarterback[qb] || { yards: 0, attempts: 0, sacks: 0, sackYards: 0, tds: 0, ints: 0 }
+    if (isAttempt) byQuarterback[qb].attempts += 1
+    if (isSack) byQuarterback[qb].sacks += 1
+    if (isSack) byQuarterback[qb].sackYards += Math.abs(gained)
+    byQuarterback[qb].yards += gained
+    if (ev.scoring && ev.scoring.type === 'TD') byQuarterback[qb].tds += 1
+    if (ev.turnover_detail?.type === 'INTERCEPTION' || result.includes('intercept')) byQuarterback[qb].ints += 1
+  })
+
+  const attemptsDenominator = attempts + sacks
+  const teamAnyA = attemptsDenominator
+    ? (yards + touchdowns * 20 - interceptions * 45 - sackYards) / attemptsDenominator
+    : 0
+
+  const byQuarterbackResult: Record<string, number> = {}
+  Object.entries(byQuarterback).forEach(([qb, stats]) => {
+    const denom = stats.attempts + stats.sacks
+    byQuarterbackResult[qb] = denom ? (stats.yards + stats.tds * 20 - stats.ints * 45 - stats.sackYards) / denom : 0
+  })
+
+  return {
+    team: teamAnyA,
+    attempts,
+    sacks,
+    byQuarterback: byQuarterbackResult,
+  }
+}
+
+function buildWinProbStateFromEvent(ev: PlayEvent, possessionSide: 'TEAM' | 'OPPONENT', scoreDiff: number): WinProbabilityState {
+  const yardLine = resolveYardLineForEvent(ev)
+  const secondsRemaining = resolveClockRemaining(ev) ?? GAME_LENGTH_SECONDS
+  const timeouts = ev.timeouts_before ?? deriveTimeouts(ev)
+  return {
+    scoreDiff,
+    secondsRemaining,
+    yardLine,
+    down: ev.down,
+    distance: ev.distance,
+    offenseTimeouts: possessionSide === 'TEAM' ? timeouts?.team ?? ev.offense_timeouts ?? null : timeouts?.opponent ?? ev.defense_timeouts ?? null,
+    defenseTimeouts: possessionSide === 'TEAM' ? timeouts?.opponent ?? ev.defense_timeouts ?? null : timeouts?.team ?? ev.offense_timeouts ?? null,
+    possession: possessionSide === 'TEAM' ? 'OFFENSE' : 'DEFENSE',
+  }
+}
+
+export function computeWinProbability(state: WinProbabilityState): number {
+  const yardTerm = state.yardLine != null ? (state.yardLine - 50) / 25 : 0
+  const scoreTerm = state.scoreDiff / 10
+  const timeTerm = Math.log1p(state.secondsRemaining) / Math.log1p(GAME_LENGTH_SECONDS)
+  const downTerm = state.down ? 1.2 - state.down * 0.3 : 0
+  const distanceTerm = state.distance != null ? -Math.log1p(state.distance) / 3 : 0
+  const timeoutTerm = ((state.offenseTimeouts ?? 2) - (state.defenseTimeouts ?? 2)) * 0.08
+  const pregame = (state.pregameEdge ?? 0) / 15
+  const possessionTilt = state.possession === 'DEFENSE' ? -0.25 : 0.25
+  const z =
+    0.9 * scoreTerm +
+    0.5 * yardTerm +
+    0.35 * timeTerm +
+    0.25 * downTerm +
+    0.2 * distanceTerm +
+    timeoutTerm +
+    pregame +
+    possessionTilt
+  return clampNumber(sigmoid(z), 0.01, 0.99)
+}
+
+export function computeWinProbabilitySummary(events: PlayEvent[], unitHint?: ChartUnit): WinProbabilitySummary {
+  if (events.length === 0) {
+    return {
+      timeline: [],
+      averageWinProbability: 0.5,
+      wpaByPlayer: {},
+      wpaByUnit: { OFFENSE: 0, DEFENSE: 0, SPECIAL_TEAMS: 0 },
+      highLeverage: [],
+    }
+  }
+
+  const ordered = [...events].sort((a, b) => {
+    const aTime = a.absolute_clock_seconds ?? absoluteClockSeconds(a.quarter, a.clock_seconds) ?? 0
+    const bTime = b.absolute_clock_seconds ?? absoluteClockSeconds(b.quarter, b.clock_seconds) ?? 0
+    return aTime - bTime
+  })
+
+  const timeline: WinProbabilityPoint[] = []
+  const wpaByPlayer: Record<string, number> = {}
+  const wpaByUnit: Record<ChartUnit, number> = { OFFENSE: 0, DEFENSE: 0, SPECIAL_TEAMS: 0 }
+  let previousWp = 0.5
+
+  ordered.forEach((ev) => {
+    const possessionSide: 'TEAM' | 'OPPONENT' =
+      unitHint === 'DEFENSE' ? 'OPPONENT' : unitHint === 'OFFENSE' ? 'TEAM' : possessingSide(ev) ?? 'TEAM'
+    const scoreDiff = resolveScoreDifferential(ev)
+    const state = buildWinProbStateFromEvent(ev, possessionSide, scoreDiff)
+    const wp = computeWinProbability(state)
+    const wpa = wp - previousWp
+    const leverage = Math.abs(wpa)
+    const point: WinProbabilityPoint = {
+      playId: ev.id,
+      winProbability: wp,
+      wpa,
+      leverage,
+      unit: resolvePlaySide(ev, 'OFFENSE'),
+      secondsRemaining: state.secondsRemaining,
+    }
+    timeline.push(point)
+    previousWp = wp
+
+    collectPlayers(ev).forEach((player) => {
+      wpaByPlayer[player] = (wpaByPlayer[player] ?? 0) + wpa
+    })
+    const unit = resolvePlaySide(ev, 'OFFENSE')
+    wpaByUnit[unit] = (wpaByUnit[unit] ?? 0) + wpa
+  })
+
+  const averageWinProbability = timeline.length
+    ? timeline.reduce((sum, pt) => sum + pt.winProbability, 0) / timeline.length
+    : 0.5
+  const highLeverage = timeline.filter((pt) => pt.leverage >= 0.05 || Math.abs(pt.wpa) >= 0.05)
+
+  return { timeline, averageWinProbability, wpaByPlayer, wpaByUnit, highLeverage }
+}
+
+function buildWinExpectancyProfile(box: BoxScoreMetrics, base: BaseCounts): PostGameWinExpectancyInput {
+  return {
+    yardsFor: box.totalYards,
+    yardsAllowed: 0,
+    successRateFor: box.successRate,
+    successRateAllowed: 0,
+    explosivePlaysFor: box.explosives,
+    explosivePlaysAllowed: 0,
+    turnoversFor: base.turnovers,
+    turnoversAllowed: 0,
+    avgStartFieldPosition: null,
+    penalties: base.penalties.yards,
+    plays: box.plays,
+  }
+}
+
+export function computePostGameWinExpectancy(
+  team: PostGameWinExpectancyInput,
+  opponent?: PostGameWinExpectancyInput
+): PostGameWinExpectancy {
+  const opp: PostGameWinExpectancyInput = opponent ?? {
+    yardsFor: team.yardsAllowed,
+    yardsAllowed: team.yardsFor,
+    successRateFor: team.successRateAllowed,
+    successRateAllowed: team.successRateFor,
+    explosivePlaysFor: team.explosivePlaysAllowed,
+    explosivePlaysAllowed: team.explosivePlaysFor,
+    turnoversFor: team.turnoversAllowed,
+    turnoversAllowed: team.turnoversFor,
+    avgStartFieldPosition: team.avgStartFieldPosition,
+    penalties: team.penalties,
+    plays: team.plays,
+  }
+
+  const yardMargin = (team.yardsFor - opp.yardsFor) / 100
+  const successMargin = team.successRateFor - opp.successRateFor
+  const explosiveMargin =
+    (team.explosivePlaysFor - opp.explosivePlaysFor) / Math.max(1, Math.min(team.plays || 1, opp.plays || 1))
+  const turnoverMargin = -(team.turnoversFor - opp.turnoversFor) * 0.35
+  const fieldPosAdj = ((team.avgStartFieldPosition ?? 50) - (opp.avgStartFieldPosition ?? 50)) / 25
+  const penaltyAdj = -(team.penalties - opp.penalties) / 120
+
+  const z = 0.28 * yardMargin + 0.32 * successMargin + 0.22 * explosiveMargin + turnoverMargin + fieldPosAdj * 0.25 + penaltyAdj
+  const winExp = clampNumber(sigmoid(z), 0.01, 0.99)
+  return {
+    teamWinExpectancy: winExp,
+    opponentWinExpectancy: 1 - winExp,
+    notes: 'Deterministic win expectancy combining yardage, efficiency, explosives, turnovers, field position, and penalties.',
+  }
+}
+
+export function computeSpPlusLikeRatings(
+  events: PlayEvent[],
+  epa: EpaAggregate,
+  defenseHavoc: number,
+  specialTeams?: SpecialTeamsMetrics
+): SpPlusLikeRatings {
+  const success = computeSuccessRate(events, 'OFFENSE')
+  const successfulPlays = events.filter((ev) => isSuccessfulPlay(ev))
+  const successEpa = successfulPlays
+    .map((ev) => epa.playsDetail[ev.id]?.raw ?? 0)
+    .filter((v) => Number.isFinite(v))
+  const isoPpp = successEpa.length ? successEpa.reduce((a, b) => a + b, 0) / successEpa.length : 0
+  const stContribution = specialTeams?.fieldPosition.netStart ?? 0
+
+  const offense = clampNumber(50 + (success.rate - 0.45) * 120 + isoPpp * 35 + epa.perPlay * 60, 0, 100)
+  const defense = clampNumber(50 - (success.rate - 0.45) * 90 - epa.perPlay * 40 + defenseHavoc * 25, 0, 100)
+  const specialTeamsRating = clampNumber(50 + stContribution * 0.6, 0, 100)
+  const overall = clampNumber(offense - (100 - defense) * 0.6 + (specialTeamsRating - 50) * 0.3 + 50, 0, 100)
+
+  return {
+    offense,
+    defense,
+    specialTeams: specialTeamsRating,
+    overall,
+    isoPpp,
+    successRate: success.rate,
+    havoc: defenseHavoc,
+    epaPerPlay: epa.perPlay,
+  }
+}
+
+export function computeQuarterbackRatings(
+  events: PlayEvent[],
+  epa: EpaAggregate,
+  opponentDefRating = 0
+): QuarterbackRatings {
+  const buckets = new Map<string, { adj: number; plays: number }>()
+  events.forEach((ev) => {
+    const qb = ev.participation?.quarterback
+    if (!qb) return
+    const detail = epa.playsDetail[ev.id]
+    if (!detail) return
+    let adj = detail.adjusted
+    if (isSeriesConversion(ev)) {
+      const difficulty = ev.distance != null ? clampNumber(ev.distance / 12, 0, 1) : 0.2
+      adj *= 1.1 + difficulty * 0.35
+    }
+    if ((ev.play_family || '').toUpperCase() === 'PASS' && (ev.distance ?? 0) <= 5 && (ev.gained_yards ?? 0) >= 15) {
+      adj *= 0.7
+    }
+    const secondsRemaining = resolveClockRemaining(ev)
+    const scoreDiff = resolveScoreDifferential(ev)
+    if (secondsRemaining != null && secondsRemaining < 300 && Math.abs(scoreDiff) > 16) {
+      adj *= 0.3
+    }
+    adj *= 1 + opponentDefRating / 100
+    const bucket = buckets.get(qb) || { adj: 0, plays: 0 }
+    bucket.adj += adj
+    bucket.plays += 1
+    buckets.set(qb, bucket)
+  })
+
+  const byQuarterback: Record<string, QuarterbackRating> = {}
+  buckets.forEach((bucket, qb) => {
+    const perPlay = bucket.plays ? bucket.adj / bucket.plays : 0
+    const rating = clampNumber(50 + perPlay * 18 + bucket.plays * 0.1, 0, 100)
+    byQuarterback[qb] = {
+      quarterback: qb,
+      plays: bucket.plays,
+      adjustedEpa: bucket.adj,
+      adjustedEpaPerPlay: perPlay,
+      rating,
+    }
+  })
+
+  const qbValues = Object.values(byQuarterback)
+  const teamRating = qbValues.length ? qbValues.reduce((sum, qb) => sum + qb.rating, 0) / qbValues.length : 0
+
+  return { byQuarterback, teamRating }
+}
+
+function mulberry32(seed: number) {
+  let t = seed >>> 0
+  return () => {
+    t += 0x6d2b79f5
+    let r = Math.imul(t ^ (t >>> 15), 1 | t)
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r)
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export function simulateSeasonOutcomes(input: SeasonSimulationInput): SeasonSimulationResult {
+  const iterations = input.iterations ?? 2000
+  const rng = mulberry32(input.seed ?? 1)
+  const sorRng = mulberry32((input.seed ?? 1) + 131)
+
+  let totalWins = 0
+  let winOut = 0
+  let conferencePerfect = 0
+  let playoffHits = 0
+  const gameResults = input.schedule.map((game) => ({ opponentId: game.opponentId, winRate: 0 }))
+  const conferenceGames = input.schedule.filter((g) => g.isConference).length
+
+  for (let i = 0; i < iterations; i++) {
+    let wins = 0
+    let conferenceWins = 0
+    input.schedule.forEach((game, idx) => {
+      const ratingDiff =
+        input.teamRating - game.opponentRating + (game.homeField ?? 0) * 1.5 + (input.specialTeamsRating ?? 0) * 0.1
+      const prob = clampNumber(sigmoid(ratingDiff / 6 + input.offenseRating * 0.01 - input.defenseRating * 0.01), 0.05, 0.95)
+      const result = rng() < prob
+      if (result) wins += 1
+      if (result && game.isConference) conferenceWins += 1
+      if (result) gameResults[idx].winRate += 1
+    })
+    totalWins += wins
+    if (wins === input.schedule.length) winOut += 1
+    if (conferenceWins === conferenceGames && conferenceGames > 0) conferencePerfect += 1
+    const playoffQualify =
+      wins >= input.schedule.length - 1 ||
+      (wins >= Math.ceil(input.schedule.length * 0.75) && conferenceWins >= Math.max(1, Math.floor(conferenceGames * 0.7)))
+    if (playoffQualify) playoffHits += 1
+  }
+
+  gameResults.forEach((gr) => {
+    gr.winRate = iterations ? gr.winRate / iterations : 0
+  })
+
+  const expectedWins = iterations ? totalWins / iterations : 0
+  const winProbability = input.schedule.length ? expectedWins / input.schedule.length : 0
+  const winOutProbability = iterations ? winOut / iterations : 0
+  const conferenceWinProbability = iterations ? conferencePerfect / iterations : 0
+  const playoffProbability = iterations ? playoffHits / iterations : 0
+  const strengthOfSchedule = input.schedule.length
+    ? input.schedule.reduce((sum, game) => sum + game.opponentRating, 0) / input.schedule.length
+    : 0
+
+  // Strength of record: how often an average team (rating 0) would match expected wins.
+  let sorBetter = 0
+  for (let i = 0; i < iterations; i++) {
+    let wins = 0
+    input.schedule.forEach((game) => {
+      const prob = clampNumber(sigmoid((0 - game.opponentRating + (game.homeField ?? 0) * 1.5) / 6), 0.05, 0.95)
+      if (sorRng() < prob) wins += 1
+    })
+    if (wins >= expectedWins) sorBetter += 1
+  }
+  const strengthOfRecord = iterations ? sorBetter / iterations : 0
+  const gameControl = clampNumber(0.5 + (input.teamRating - strengthOfSchedule) / 40, 0, 1)
+
+  return {
+    winProbability,
+    expectedWins,
+    winOutProbability,
+    conferenceWinProbability,
+    playoffProbability,
+    strengthOfSchedule,
+    strengthOfRecord,
+    gameControl,
+    gameResults,
+  }
+}
+
+export function computeGameControlMetric(
+  timeline: WinProbabilitySummary,
+  totalSeconds: number = GAME_LENGTH_SECONDS
+): GameControlMetric {
+  if (timeline.timeline.length === 0) {
+    return { averageLeadWinProb: 0.5, timeLedPct: 0, dominationIndex: 0 }
+  }
+  const sorted = [...timeline.timeline].sort((a, b) => b.secondsRemaining - a.secondsRemaining)
+  let lastTime = totalSeconds
+  let weighted = 0
+  let ledSeconds = 0
+
+  sorted.forEach((pt) => {
+    const delta = Math.max(0, lastTime - pt.secondsRemaining)
+    weighted += pt.winProbability * delta
+    if (pt.winProbability > 0.5) ledSeconds += delta
+    lastTime = pt.secondsRemaining
+  })
+
+  if (lastTime > 0) {
+    const tailWeight = timeline.timeline[timeline.timeline.length - 1]?.winProbability ?? 0.5
+    weighted += tailWeight * lastTime
+    if (tailWeight > 0.5) ledSeconds += lastTime
+  }
+
+  const averageLeadWinProb = weighted / totalSeconds
+  const timeLedPct = ledSeconds / totalSeconds
+  const dominationIndex = clampNumber((averageLeadWinProb + timeLedPct) / 2, 0, 1)
+  return { averageLeadWinProb, timeLedPct, dominationIndex }
+}
+
 export function computeAdvancedAnalytics(
   box: BoxScoreMetrics,
   base: BaseCounts,
   drives: DriveRecord[] = [],
-  defense?: DefensiveMetrics
+  defense?: DefensiveMetrics,
+  events: PlayEvent[] = [],
+  opponentBox?: BoxScoreMetrics,
+  opponentBase?: BaseCounts,
+  unit?: ChartUnit,
+  specialTeams?: SpecialTeamsMetrics
 ): AdvancedAnalytics {
   const leveragePlays = drives.length ? drives.reduce((sum, d) => sum + d.play_ids.length, 0) : base.plays
   const leverageRate = base.plays ? leveragePlays / base.plays : 0
@@ -2048,18 +2725,88 @@ export function computeAdvancedAnalytics(
   const pressures = base.plays
   const havocRate = defense ? defense.havoc.rate : pressures ? (base.turnovers + base.penalties.count * 0.25) / pressures : 0
   const avgFieldPos =
-    drives.length > 0
+    specialTeams?.fieldPosition.netStart ??
+    (drives.length > 0
       ? drives.reduce((sum, d) => sum + (d.start_field_position ?? 50), 0) / drives.length
       : base.plays
       ? base.totalYards / base.plays
-      : 0
+      : 0)
+
+  const epa = computeEpaAggregates(events, drives)
+  const expectedPointsModel = {
+    latest: events.length
+      ? computeExpectedPoints({
+          down: events[0].down,
+          distance: events[0].distance,
+          yardLine: resolveYardLineForEvent(events[0]),
+          clockSecondsRemaining: resolveClockRemaining(events[0]),
+          scoreDiff: resolveScoreDifferential(events[0]),
+          offenseTimeouts: events[0].timeouts_before?.team ?? events[0].offense_timeouts ?? null,
+          defenseTimeouts: events[0].timeouts_before?.opponent ?? events[0].defense_timeouts ?? null,
+        })
+      : null,
+    curve: EXPECTED_POINTS_CURVE.map((pt) => pt.ep),
+  }
+  const winProbability = computeWinProbabilitySummary(events, unit)
+  const gameControl = computeGameControlMetric(winProbability)
+  const teamProfile = buildWinExpectancyProfile(box, base)
+  if (opponentBox) {
+    teamProfile.yardsAllowed = opponentBox.totalYards
+    teamProfile.successRateAllowed = opponentBox.successRate
+    teamProfile.explosivePlaysAllowed = opponentBox.explosives
+    teamProfile.turnoversAllowed = opponentBox.turnovers
+  }
+  const opponentProfile = opponentBox
+    ? {
+        ...buildWinExpectancyProfile(opponentBox, opponentBase ?? base),
+        yardsAllowed: box.totalYards,
+        successRateAllowed: box.successRate,
+        explosivePlaysAllowed: box.explosives,
+        turnoversAllowed: base.turnovers,
+      }
+    : undefined
+  const postGameWinExpectancy = computePostGameWinExpectancy(teamProfile, opponentProfile)
+  const spPlus = computeSpPlusLikeRatings(events, epa, havocRate, specialTeams)
+  const anyA = computeAdjustedNetYardsPerAttempt(events, unit)
+  const qbr = computeQuarterbackRatings(events, epa, defense ? defense.havoc.rate * 10 : 0)
+  const schedule: SimulatedGame[] = opponentBox
+    ? [
+        {
+          opponentId: 'opponent',
+          opponentName: opponentBox ? 'opponent' : undefined,
+          opponentRating: opponentBox.yardsPerPlay * 10,
+          isConference: true,
+          homeField: 0,
+        },
+      ]
+    : []
+  const seasonSimulation = schedule.length
+    ? simulateSeasonOutcomes({
+        teamRating: spPlus.overall,
+        offenseRating: spPlus.offense,
+        defenseRating: spPlus.defense,
+        specialTeamsRating: spPlus.specialTeams,
+        schedule,
+        iterations: 750,
+        seed: 7,
+      })
+    : undefined
 
   return {
     estimatedEPA,
     estimatedEPAperPlay: base.plays ? estimatedEPA / base.plays : 0,
     havocRate,
     leverageRate,
-    fieldPositionAdvantage: avgFieldPos,
+    fieldPositionAdvantage: avgFieldPos ?? 0,
+    expectedPointsModel,
+    epa,
+    winProbability,
+    postGameWinExpectancy,
+    spPlus,
+    anyA,
+    qbr,
+    seasonSimulation,
+    gameControl,
   }
 }
 
@@ -2091,14 +2838,24 @@ export function buildStatsStack(params: {
     params.drives && params.drives.length > 0 ? params.drives : deriveDriveRecords(defensiveEvents, 'DEFENSE')
   const defenseMetrics = computeDefensiveMetrics(defensiveEvents, defensiveDrives)
   const core = computeCoreWinningMetrics(box, params.opponentBox)
-  const advanced = computeAdvancedAnalytics(box, base, drives, defenseMetrics)
+  const specialTeams = computeSpecialTeamsMetrics(params.events, allDrives, params.opponentEvents ?? [], opponentDerivedDrives)
+  const advanced = computeAdvancedAnalytics(
+    box,
+    base,
+    drives,
+    defenseMetrics,
+    scopedEvents,
+    params.opponentBox,
+    opponentBase,
+    params.unit,
+    specialTeams
+  )
   const turnovers = computeTurnoverMetrics(base, { opponentBase, opponentBox: params.opponentBox, unitHint: params.unit })
   const explosives = computeExplosiveMetrics(scopedEvents, params.unit)
   const redZone = computeRedZoneMetrics(scopedEvents, drives, params.unit)
   const scoring = computeScoringSummary(base, 1)
   const success = computeSuccessRate(scopedEvents, params.unit)
   const ypp = computeYardsPerPlay(scopedEvents, params.unit)
-  const specialTeams = computeSpecialTeamsMetrics(params.events, allDrives, params.opponentEvents ?? [], opponentDerivedDrives)
   const timeouts = latestTimeoutState(params.events)
   const game: GameMetricSnapshot = {
     gameId: params.gameId ?? scopedEvents[0]?.game_id ?? undefined,
@@ -2551,14 +3308,23 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
     },
   }
 }
-export function projectSeason(games: { box: BoxScoreMetrics; core: CoreWinningMetrics }[]): SeasonProjection {
+export function projectSeason(
+  games: { box: BoxScoreMetrics; core: CoreWinningMetrics; advanced?: AdvancedAnalytics }[],
+  schedule: SimulatedGame[] = []
+): SeasonProjection {
   const gamesModeled = games.length
   if (gamesModeled === 0) {
     return {
       gamesModeled: 0,
       projectedWinRate: 0,
+      projectedWinOut: 0,
+      projectedConferenceWinRate: 0,
+      projectedPlayoffRate: 0,
       projectedPointsPerGame: 0,
       projectedPointsAllowed: 0,
+      strengthOfSchedule: 0,
+      strengthOfRecord: 0,
+      gameControl: 0.5,
       notes: 'Insufficient data; chart games to unlock projections.',
     }
   }
@@ -2569,20 +3335,51 @@ export function projectSeason(games: { box: BoxScoreMetrics; core: CoreWinningMe
       0
     ) / gamesModeled
   const avgAgainst = Math.max(0, 24 - (games.reduce((sum, g) => sum + g.core.explosiveMargin, 0) / gamesModeled) * 2)
-  const projectedWinRate = Math.min(
-    0.99,
-    Math.max(
-      0.01,
-      0.5 + (games.reduce((sum, g) => sum + g.core.successMargin + g.core.turnoverMargin * 0.05, 0) / gamesModeled) * 0.3
-    )
-  )
+
+  const avgOffRating =
+    games.reduce((sum, g) => sum + (g.advanced?.spPlus.offense ?? g.core.pointsPerDrive * 120), 0) / gamesModeled
+  const avgDefRating =
+    games.reduce((sum, g) => sum + (g.advanced?.spPlus.defense ?? (1 - g.core.successMargin) * 100), 0) / gamesModeled
+  const avgStr =
+    games.reduce((sum, g) => sum + (g.advanced?.spPlus.specialTeams ?? 50), 0) / gamesModeled
+  const teamRating = clampNumber((avgOffRating - (100 - avgDefRating)) * 0.6 + avgStr * 0.4, 0, 120)
+
+  const remaining = Math.max(1, 12 - gamesModeled)
+  const effectiveSchedule: SimulatedGame[] =
+    schedule.length > 0
+      ? schedule
+      : Array.from({ length: remaining }).map(
+          (_, idx): SimulatedGame => ({
+            opponentId: `sim-${idx + 1}`,
+            opponentName: null,
+            opponentRating: clampNumber(teamRating - 5 + idx, 20, 95),
+            isConference: idx < Math.max(1, Math.floor(remaining / 2)),
+            homeField: (idx % 2 === 0 ? 1 : -1) as 1 | -1,
+          })
+        )
+
+  const simulation = simulateSeasonOutcomes({
+    teamRating,
+    offenseRating: avgOffRating,
+    defenseRating: avgDefRating,
+    specialTeamsRating: avgStr,
+    schedule: effectiveSchedule,
+    iterations: 1200,
+    seed: 17,
+  })
 
   return {
     gamesModeled,
-    projectedWinRate,
+    projectedWinRate: simulation.winProbability,
+    projectedWinOut: simulation.winOutProbability,
+    projectedConferenceWinRate: simulation.conferenceWinProbability,
+    projectedPlayoffRate: simulation.playoffProbability,
     projectedPointsPerGame: avgPoints,
     projectedPointsAllowed: avgAgainst,
-    notes: 'Projection based on charted efficiency deltas; refines as more games are charted.',
+    strengthOfSchedule: simulation.strengthOfSchedule,
+    strengthOfRecord: simulation.strengthOfRecord,
+    gameControl: simulation.gameControl,
+    notes: 'Projection uses deterministic Monte Carlo on team/offense/defense/special teams efficiency and opponent strength.',
   }
 }
 
