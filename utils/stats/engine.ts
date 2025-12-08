@@ -3514,7 +3514,7 @@ export function aggregateSeasonMetrics(games: GameMetricSnapshot[]): SeasonAggre
   const nonOffensiveTotal = sum((g) => g.scoring.nonOffensive.total)
   const avgEpaPerPlay = gamesPlayed ? sum((g) => g.advanced?.estimatedEPAperPlay ?? 0) / gamesPlayed : 0
   const avgAnyA = gamesPlayed ? sum((g) => g.advanced?.anyA.team ?? 0) / gamesPlayed : 0
-  const avgQbr = gamesPlayed ? sum((g) => g.advanced?.qbr.team ?? 0) / gamesPlayed : 0
+  const avgQbr = gamesPlayed ? sum((g) => g.advanced?.qbr.teamRating ?? 0) / gamesPlayed : 0
   const avgHavocRate =
     gamesPlayed && games.some((g) => g.advanced?.havocRate != null || g.defense)
       ? sum((g) => g.advanced?.havocRate ?? g.defense?.havoc.rate ?? 0) / gamesPlayed

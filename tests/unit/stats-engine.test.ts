@@ -1117,7 +1117,11 @@ test('QBR-like rating weights quarterback conversions and context', () => {
     perDrive: 0.4,
     byDrive: { '1': { epa: 0.8, adjusted: 0.8, plays: 2 } },
     byPlayer: {},
-    byUnit: { OFFENSE: { epa: 0.8, adjusted: 0.8, plays: 2, perPlay: 0.4 } },
+    byUnit: {
+      OFFENSE: { epa: 0.8, adjusted: 0.8, plays: 2, perPlay: 0.4 },
+      DEFENSE: { epa: 0, adjusted: 0, plays: 0, perPlay: 0 },
+      SPECIAL_TEAMS: { epa: 0, adjusted: 0, plays: 0, perPlay: 0 },
+    },
     playsDetail: {
       qbr1: {
         playId: 'qbr1',

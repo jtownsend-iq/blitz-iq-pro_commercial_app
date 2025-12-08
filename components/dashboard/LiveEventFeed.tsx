@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion'
 import { ActivitySquare, Flame, RadioTower, ShieldAlert } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/utils/supabase/browser'
 import { EventSummary } from '@/app/(app)/dashboard/types'
@@ -113,7 +113,9 @@ export function LiveEventFeed({ teamId, initialEvents, onNewEvent, fullLogHref =
   const initialMotion = prefersReducedMotion ? false : { opacity: 0, y: -12 }
   const animateMotion = { opacity: 1, y: 0 }
   const exitMotion = prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }
-  const transition = prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: 'easeOut' }
+  const transition: Transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.35, ease: [0.25, 0.8, 0.4, 1] }
 
   if (unavailable) {
     return (

@@ -15,6 +15,8 @@ test('buildStacksForGames caches aggregates per team and surfaces freshness', ()
       down: 1,
       distance: 10,
       ball_on: 'O25',
+      quarter: 1,
+      clock_seconds: 900,
       created_at: '2025-08-01T00:00:00Z',
     },
     {
@@ -26,6 +28,8 @@ test('buildStacksForGames caches aggregates per team and surfaces freshness', ()
       down: 2,
       distance: 4,
       ball_on: 'O43',
+      quarter: 1,
+      clock_seconds: 880,
       created_at: '2025-08-01T00:00:20Z',
       scoring: { team: 'OFFENSE', scoring_team_side: 'TEAM', creditedTo: 'OFFENSE', type: 'TD', points: 7 },
     },
