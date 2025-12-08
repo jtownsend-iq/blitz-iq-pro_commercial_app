@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { Building2, ExternalLink, Shield, Users } from 'lucide-react'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
@@ -103,8 +104,15 @@ export default async function TeamsIndexPage() {
                 </div>
               </div>
               {team.logo_url ? (
-                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                  <img src={team.logo_url} alt={`${team.name || 'Team'} logo`} className="h-full w-full object-contain" />
+                <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                  <Image
+                    src={team.logo_url}
+                    alt={`${team.name || 'Team'} logo`}
+                    fill
+                    sizes="48px"
+                    className="object-contain"
+                    priority
+                  />
                 </div>
               ) : null}
             </div>

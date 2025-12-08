@@ -907,6 +907,8 @@ function Input({
   defaultValue,
   required,
   placeholder,
+  min,
+  max,
 }: {
   label?: string
   helper?: string
@@ -915,6 +917,8 @@ function Input({
   defaultValue?: string | number
   required?: boolean
   placeholder?: string
+  min?: number
+  max?: number
 }) {
   return (
     <label className="space-y-1 text-sm text-slate-300">
@@ -925,6 +929,8 @@ function Input({
         defaultValue={defaultValue}
         required={required}
         placeholder={placeholder}
+        min={min}
+        max={max}
         className="w-full rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-sm text-slate-100 focus:border-brand focus:ring-2 focus:ring-brand/30"
       />
       {helper ? <p className="text-xs text-slate-500">{helper}</p> : null}
